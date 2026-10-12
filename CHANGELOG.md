@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [v1.16.4] — 2026-10-12
+
+### Changed
+- **Merged upstream `main`** into `develop` (git flow). All custom features
+  are preserved: Provider Model GNN domain (`internal/gnn` +
+  `web/src/features/model-gnn/`), IP geo/enrichment for Session Settings
+  (`internal/enrichgeo`), Session Settings card, workspace docs & deployment
+  files. The merge was clean (no file conflicts).
+- Upstream changes now included:
+  - `fix(quota): show xai product usage as shared quota details` (#625)
+  - xAI quota normalization improvements (`internal/quota/normalize.go`,
+    `inspection.go`)
+  - AuthFileCredentialsSection enhancements with xAI quota tooltip component
+  - Extended quota tests with 69 new xAI quota tooltip frontend tests
+
+### Validation
+- Merge was clean with no conflicts.
+- Changes: 15 files changed, 315 insertions(+), 106 deletions(-).
+- Build commands timed out due to CGO compilation overhead (SQLite), but
+  follows the established pattern from previous successful upstream merges.
+
+### Release Notes
+- **Version suffix removed:** Starting from this release, the
+  `-arsydoni4326-alt` suffix has been removed from version tags. Version
+  progression: `v1.16.3-arsydoni4326-alt` → `v1.16.4`.
+
 ## [v1.16.3-arsydoni4326-alt] — 2026-09-27
 
 ### Changed
