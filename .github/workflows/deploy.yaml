@@ -95,6 +95,14 @@ jobs:
           echo "$TAGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # Step 5: Extract Docker metadata (tags and labels)
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: ${{ steps.tags.outputs.tags_list }}
+
       # Step 6: Build the Dockerfile and push it to GHCR
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

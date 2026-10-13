@@ -11,8 +11,8 @@ import (
 
 	keeperapi "cpa-usage-keeper/internal/api"
 	"cpa-usage-keeper/internal/auth"
-	"cpa-usage-keeper/internal/entities"
 	"cpa-usage-keeper/internal/enrichgeo"
+	"cpa-usage-keeper/internal/entities"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -59,9 +59,9 @@ func TestSessionListIncludesEnrichmentGeoFields(t *testing.T) {
 			LoginIP    string `json:"loginIp"`
 			LastSeenIP string `json:"lastSeenIp"`
 			LoginGeo   *struct {
-				Enabled bool   `json:"enabled"`
-				Private bool   `json:"private"`
-				Pending bool   `json:"pending"`
+				Enabled  bool   `json:"enabled"`
+				Private  bool   `json:"private"`
+				Pending  bool   `json:"pending"`
 				Hostname string `json:"hostname"`
 			} `json:"loginGeo"`
 			LastSeenGeo *struct {

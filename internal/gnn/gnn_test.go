@@ -127,8 +127,8 @@ func TestGetProviderModelGraphMapsOpenAICompatibilityEntries(t *testing.T) {
 func TestGetProviderModelGraphSortsOAuthProvidersAndSkipsEmpty(t *testing.T) {
 	provider := NewService(&fakeProviderModelGraphClient{result: graphResult(providerconfig.ManagementConfig{
 		OAuthModelAlias: map[string][]providerconfig.ModelAliasEntry{
-			"qwen":   {{Name: "qwen3-coder-plus"}},
-			"kiro":   {},
+			"qwen": {{Name: "qwen3-coder-plus"}},
+			"kiro": {},
 			"antigravity": {
 				{Name: "gemini-2.5-pro", Alias: "ag-pro"},
 				{Name: "claude-opus-4-5"},
