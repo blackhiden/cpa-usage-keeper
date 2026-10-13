@@ -16,7 +16,7 @@ fi
 # --- Step 1: Choose Environment ---
 # --- Step 2: Execute based on choice ---
 APP_VERSION="$(git rev-parse --short HEAD)"
-BASE_NAME="ghcr.io/blackhiden/headplane"
+BASE_NAME="ghcr.io/blackhiden/cpa-usage-keeper"
 echo -n "Enter you version: "
 read -r VERSION
 if [ ! -z $VERSION ]; then
@@ -48,4 +48,3 @@ docker tag ${IMAGE_NAME} "${BASE_NAME}:latest"
 echo "Starting the services..."
 echo "Build complete. Services are starting."
 echo "Run 'docker compose logs -f' to see the logs."
-;;
