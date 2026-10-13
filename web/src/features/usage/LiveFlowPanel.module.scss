@@ -107,6 +107,24 @@
   line-height: 1.5;
 }
 
+.retryButton {
+  justify-self: center;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: var(--floating-surface);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
 .footer {
   align-items: flex-start;
   justify-content: space-between;
@@ -139,6 +157,10 @@
 
 .feedItem[data-failed='true'] {
   color: var(--error-color);
+}
+
+.feedItem[data-phase='started'] {
+  color: var(--warning-color);
 }
 
 .feedModel {

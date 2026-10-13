@@ -5,11 +5,12 @@ import './RouterNode.scss';
 interface RouterNodeData {
   label: string;
   count: number;
+  activeRequests?: number;
 }
 
 export const RouterNode = memo(({ data }: { data: RouterNodeData }) => {
   return (
-    <div className="topology-router-node">
+    <div className={`topology-router-node ${data.activeRequests ? 'active' : ''}`}>
       <Handle type="source" position={Position.Top} id="top" />
       <Handle type="source" position={Position.Bottom} id="bottom" />
       <Handle type="source" position={Position.Left} id="left" />
@@ -25,6 +26,7 @@ export const RouterNode = memo(({ data }: { data: RouterNodeData }) => {
         </div>
         <span className="router-label">{data.label}</span>
         <span className="router-badge">{data.count}</span>
+        {data.activeRequests ? <span className="router-active-count">{data.activeRequests}</span> : null}
       </div>
     </div>
   );

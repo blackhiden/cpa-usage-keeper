@@ -51,6 +51,25 @@
     letter-spacing: -0.01em;
   }
 
+  .router-active-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--warning-color) 36%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  &.active .router-content {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning-color) 14%, transparent), 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
   .router-badge {
     display: inline-flex;
     align-items: center;

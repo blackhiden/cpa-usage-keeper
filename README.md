@@ -110,7 +110,7 @@ Optional community rankings and CPA plugin embedding in CPAMC are also available
 
 > Before using CPA Usage Keeper, enable CPA usage statistics. Set `observability.usage.usage-statistics-enabled` to `true` in v8 configurations; legacy configurations use the top-level `usage-statistics-enabled` setting.
 >
-> To use the standalone **Live Flow** menu, enable `cpa-fork-liveflow-enabled: true` in the root CLIProxyAPI configuration. If the root uses `ws-auth: true`, also set Keeper’s `CPA_LIVE_FLOW_API_KEY` to a CPA client API key accepted by that root. The key remains server-side.
+> To use the standalone **Live Flow** menu, enable `cpa-fork-liveflow-enabled: true` in the root CLIProxyAPI configuration **and restart root CLIProxyAPI**. The root only registers `/live-flow/ws` during server construction; a config hot reload cannot add that route. If the root uses `ws-auth: true`, also set Keeper’s `CPA_LIVE_FLOW_API_KEY` to a CPA client API key accepted by that root. The key remains server-side.
 >
 > When multiple usage collectors share one CPA instance, ensure they all use subscription mode; otherwise, collection may stop or become incomplete.
 >

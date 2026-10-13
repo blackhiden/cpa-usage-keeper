@@ -110,7 +110,7 @@
 
 > 使用前请确认 CPA 已开启使用统计。v8 配置中的 `observability.usage.usage-statistics-enabled` 应设为 `true`；旧版配置使用顶层 `usage-statistics-enabled`。
 >
-> 如需使用独立管理员菜单中的 **实时流**，请在根 CLIProxyAPI 配置中启用 `cpa-fork-liveflow-enabled: true`。如果根服务启用了 `ws-auth: true`，还需要将该根服务接受的客户端 API Key 设置到 Keeper 的 `CPA_LIVE_FLOW_API_KEY`；该值只保留在服务端。
+> 如需使用独立管理员菜单中的 **实时流**，请在根 CLIProxyAPI 配置中启用 `cpa-fork-liveflow-enabled: true`，**并重启根 CLIProxyAPI**。根服务只会在启动构造时注册 `/live-flow/ws`，配置热重载无法添加该路由。如果根服务启用了 `ws-auth: true`，还需要将该根服务接受的客户端 API Key 设置到 Keeper 的 `CPA_LIVE_FLOW_API_KEY`；该值只保留在服务端。
 >
 > 同一 CPA 接入多个 usage 采集服务时，请确保均使用订阅模式，否则可能导致收数中断或数据不完整。
 

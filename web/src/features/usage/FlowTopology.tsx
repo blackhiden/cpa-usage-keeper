@@ -11,6 +11,7 @@ import '@xyflow/react/dist/style.css';
 import { RouterNode } from './nodes/RouterNode';
 import { ProviderNode } from './nodes/ProviderNode';
 import { ElectricEdge } from './edges/ElectricEdge';
+import type { LiveFlowPulse } from './liveFlow';
 import './FlowTopology.scss';
 
 const nodeTypes = {
@@ -31,14 +32,20 @@ export interface Provider {
   failures?: number;
   latestStatus?: number;
   latestLatencyMs?: number;
+  activeRequests?: number;
 }
 
 interface FlowTopologyProps {
   providers: Provider[];
-  activeProvider?: string;
+  pulses?: Record<string, LiveFlowPulse>;
 }
 
-export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
+// React Flow zoom controls use a 1.2x increment, so 0.7 is approximately two
+// zoom-out steps below the default 1.0 viewport.
+export const liveFlowFitViewOptions = { padding: 0.42, minZoom: 0.35, maxZoom: 0.7 };
+
+export function FlowTopology({ providers, pulses = {} }: FlowTopologyProps) {
+  const activeRequests = providers.reduce((total, provider) => total + (provider.activeRequests ?? 0), 0)
   const nodes: Node[] = useMemo(() => {
     const routerNode: Node = {
       id: 'router',
@@ -47,6 +54,7 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
       data: {
         label: 'CLIProxyAPI',
         count: providers.length,
+        activeRequests,
       },
     };
 
@@ -64,17 +72,19 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
         data: {
           name: provider.name,
           color: provider.color,
-          isActive: provider.id === activeProvider,
+          isActive: (provider.activeRequests ?? 0) > 0,
           requestCount: provider.requestCount,
           failures: provider.failures,
           latestStatus: provider.latestStatus,
           latestLatencyMs: provider.latestLatencyMs,
+          activeRequests: provider.activeRequests,
+          pulse: pulses[provider.id],
         },
       };
     });
 
     return [routerNode, ...providerNodes];
-  }, [providers, activeProvider]);
+  }, [providers, activeRequests, pulses]);
 
   const edges: Edge[] = useMemo(() => {
     return providers.map((provider) => ({
@@ -83,11 +93,12 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
       target: `provider-${provider.id}`,
       type: 'topology',
       data: {
-        isActive: provider.id === activeProvider,
+        isActive: (provider.activeRequests ?? 0) > 0,
         color: provider.color,
+        pulse: pulses[provider.id],
       },
     }));
-  }, [providers, activeProvider]);
+  }, [providers, pulses]);
 
   return (
     <div className="flow-topology">
@@ -98,6 +109,7 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
         edgeTypes={edgeTypes}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
+        fitViewOptions={liveFlowFitViewOptions}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}

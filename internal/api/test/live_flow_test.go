@@ -59,6 +59,32 @@ func TestLiveFlowRelayForwardsCPAEventsToAdminClients(t *testing.T) {
 	}
 }
 
+func TestLiveFlowRelayReportsAnUpstreamHandshakeFailure(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer upstream.Close()
+
+	client := cpa.NewClient(upstream.URL, "management-key", time.Second, false)
+	router := NewRouter(nil, nil, nil, nil, AuthConfig{Enabled: false}, nil, "", OptionalProviders{LiveFlowClient: client})
+	keeper := httptest.NewServer(router)
+	defer keeper.Close()
+
+	conn, response, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(keeper.URL, "http")+"/api/v1/live-flow/ws", nil)
+	if err != nil {
+		t.Fatalf("dial keeper live flow: %v response=%v", err, response)
+	}
+	defer func() { _ = conn.Close() }()
+
+	messageType, payload, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read relay error frame: %v", err)
+	}
+	if messageType != websocket.TextMessage || !strings.Contains(string(payload), `"code":"upstream_feature_disabled"`) || !strings.Contains(string(payload), `"retryable":false`) {
+		t.Fatalf("unexpected relay error frame type=%d payload=%s", messageType, payload)
+	}
+}
+
 func TestLiveFlowRelayRequiresAnAdminSession(t *testing.T) {
 	sessions := auth.NewSessionManager(time.Hour)
 	config := AuthConfig{Enabled: true, LoginPassword: "secret", SessionTTL: time.Hour}
