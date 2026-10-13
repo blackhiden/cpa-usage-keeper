@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchVersion } from '@/lib/api';
 import type { VersionResponse } from '@/lib/types';
 import { IconGithub } from '@/components/ui/icons';
-import { CLIPROXYAPI_REPOSITORY_URL, GITHUB_PROFILE_URL, GITHUB_REPOSITORY_URL } from '@/utils/constants';
+import { CLIPROXYAPI_REPOSITORY_URL, CLIPROXYAPI_REPOSITORY_URL_BLACKHIDEN, GITHUB_REPOSITORY_URL_BLACKHIDEN, GITHUB_PROFILE_URL, GITHUB_REPOSITORY_URL, GITHUB_PROFILE_URL_BLACKHIDEN } from '@/utils/constants';
 
 type FooterVersionLoader = (signal: AbortSignal) => Promise<Pick<VersionResponse, 'version'>>;
 
@@ -46,14 +46,23 @@ export function AppFooter({ version: fixedVersion, loadVersion = true }: { versi
     <footer className="app-footer">
       <div className="app-footer-line app-footer-meta">
         <span>© 2026</span>
-        <a href={GITHUB_REPOSITORY_URL} target="_blank" rel="noreferrer">CPA Usage Keeper</a>
+        <a href={GITHUB_REPOSITORY_URL_BLACKHIDEN} target="_blank" rel="noreferrer">CPA Usage Keeper</a>
+        <span>·</span>
+        <a href={CLIPROXYAPI_REPOSITORY_URL_BLACKHIDEN} target="_blank" rel="noreferrer">CLIProxyAPI Integration</a>
+        <span>·</span>
+        <span>Forked from</span>
+        <a href={CLIPROXYAPI_REPOSITORY_URL} target="_blank" rel="noreferrer">CLIProxyAPI Integration (Original Project)</a>
         <span>·</span>
         <a href={`${GITHUB_REPOSITORY_URL}/blob/main/LICENSE`} target="_blank" rel="noreferrer">License</a>
-        <span>·</span>
-        <a href={CLIPROXYAPI_REPOSITORY_URL} target="_blank" rel="noreferrer">CLIProxyAPI Integration</a>
       </div>
       <div className="app-footer-line app-footer-powered">
         <span>Powered By</span>
+        <span>Denny Lastpaste</span>
+        <a href={GITHUB_PROFILE_URL_BLACKHIDEN} target="_blank" rel="noreferrer" aria-label="Blackhiden GitHub profile">
+          <IconGithub size={16} aria-hidden="true" />
+        </a>
+        <span>Forked from</span>
+        <span>Willxup</span>
         <a href={GITHUB_PROFILE_URL} target="_blank" rel="noreferrer" aria-label="Willxup GitHub profile">
           <IconGithub size={16} aria-hidden="true" />
           <span>Willxup</span>
