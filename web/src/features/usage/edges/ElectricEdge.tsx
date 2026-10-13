@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { BaseEdge, EdgeProps, getBezierPath } from '@xyflow/react';
-import type { LiveFlowTrail } from '../liveFlow';
+import { LIVE_FLOW_PENDING_COLOR, type LiveFlowTrail } from '../liveFlow';
 
 type FlowEdgeData = {
   isActive?: boolean;
@@ -43,7 +43,7 @@ export const ElectricEdge = memo(({
       {trails.map((trail, index) => {
         const pending = trail.state === 'pending';
         const trailColor = pending
-          ? 'var(--warning-color)'
+          ? LIVE_FLOW_PENDING_COLOR
           : trail.state === 'failure' ? 'var(--error-color)' : 'var(--success-color)';
         return (
           <g key={trail.id} className={`live-flow-trail live-flow-trail-${trail.state}`}>
@@ -59,7 +59,7 @@ export const ElectricEdge = memo(({
               style={pending ? undefined : { filter: `drop-shadow(0 0 3px ${trailColor})` }}
             />
             {pending ? (
-              <circle r="3.25" fill="var(--warning-color)" className="live-flow-trail-beacon">
+              <circle r="3.25" fill={LIVE_FLOW_PENDING_COLOR} className="live-flow-trail-beacon">
                 <animateMotion dur="0.9s" repeatCount="indefinite" path={edgePath} />
               </circle>
             ) : null}

@@ -56,6 +56,8 @@ not scoped to one client API key.
   response. The canvas therefore shows long-running requests as in flight,
   rather than waiting for completion.
 - A pending request owns an animated amber/yellow dotted trail on its route.
+  Live Flow uses its own yellow token rather than the dashboard's generic
+  warning token, which is red in the Keeper theme.
   Its matching completion turns that same trail green on success or red on
   failure and keeps the result visible for 25 seconds before fading out.
   Multiple requests to one model retain independent trails.

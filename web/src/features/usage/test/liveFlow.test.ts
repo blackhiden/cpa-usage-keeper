@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail } from '../liveFlow'
+import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, LIVE_FLOW_PENDING_COLOR, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail } from '../liveFlow'
 import { liveFlowFitViewOptions } from '../FlowTopology'
 
 describe('live flow event helpers', () => {
@@ -70,6 +70,7 @@ describe('live flow event helpers', () => {
     expect(toLiveFlowTrail({ ...event, status: 502 })).toMatchObject({ id: 'flow-1', state: 'failure', modelID: 'gpt-5' })
     expect(LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS).toBe(25_000)
     expect(toLiveFlowTrail(started)).toMatchObject({ id: 'flow-1', state: 'pending' })
+    expect(LIVE_FLOW_PENDING_COLOR).toBe('var(--live-flow-pending-color)')
   })
 
   it('recognizes a relay error without accepting it as a CPA event', () => {

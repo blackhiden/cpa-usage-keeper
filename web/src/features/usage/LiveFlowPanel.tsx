@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { liveFlowWebSocketURL } from '@/lib/api'
 import { FlowTopology, type Provider } from './FlowTopology'
-import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, formatLiveFlowTime, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail, type LiveFlowActiveRequests, type LiveFlowEvent, type LiveFlowRelayError, type LiveFlowTrail } from './liveFlow'
+import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, formatLiveFlowTime, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, LIVE_FLOW_PENDING_COLOR, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail, type LiveFlowActiveRequests, type LiveFlowEvent, type LiveFlowRelayError, type LiveFlowTrail } from './liveFlow'
 import styles from './LiveFlowPanel.module.scss'
 
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'unavailable'
@@ -112,7 +112,7 @@ export function LiveFlowPanel() {
     latestLatencyMs: model.latestLatencyMs,
     isActive: model.activeRequests > 0,
     color: model.activeRequests > 0
-      ? 'var(--warning-color)'
+      ? LIVE_FLOW_PENDING_COLOR
       : model.latestStatus >= 400
         ? 'var(--error-color)'
         : index % 2 === 0 ? 'var(--success-color)' : 'var(--primary-active)',

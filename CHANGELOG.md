@@ -8,6 +8,8 @@ All notable changes to this project are documented here.
 
 - **Live Flow lifecycle trails:** The standalone Live Flow canvas now consumes root `started`/`completed` metadata frames. It shows real in-flight counts immediately, keeps an animated amber/yellow dotted trail on each pending request, then converts that request's trail to green on success or red on failure for 25 seconds before fading it away. Concurrent requests retain independent trails. Final latency is recorded only on completion. The initial graph remains zoomed out to 0.7.
 
+- **Live Flow pending color correction:** Pending/in-flight trails, beacons, counters, and feed rows use the dedicated yellow `--live-flow-pending-color` token instead of Keeper's generic red warning token. Failure remains red and success remains green.
+
 - **Live Flow model fidelity:** Keeper preserves the root stream's requested/routed model ID verbatim, including OpenAI-compatible prefixes such as `kr/claude-sonnet-4.5`. The root stream now preserves this metadata for large prompts instead of substituting an unrelated registry fallback.
 
 - **Live Flow relay and dashboard page:** Added the standalone administrator

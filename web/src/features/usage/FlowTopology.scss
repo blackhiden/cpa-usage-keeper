@@ -60,7 +60,7 @@
   }
 
   .live-flow-trail-beacon {
-    filter: drop-shadow(0 0 4px var(--warning-color));
+    filter: drop-shadow(0 0 4px var(--live-flow-pending-color));
   }
 
   .live-flow-trail-success path,

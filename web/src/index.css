@@ -24,6 +24,7 @@
   --primary-contrast: #ffffff;
 
   --success-color: #10b981;
+  --live-flow-pending-color: #e0aa14;
   --warning-color: #c65746;
   --error-color: #c65746;
   --danger-color: var(--error-color);
@@ -67,6 +68,7 @@
   --primary-contrast: #ffffff;
 
   --success-color: #10b981;
+  --live-flow-pending-color: #ffd862;
   --warning-color: #c65746;
   --error-color: #c65746;
   --danger-color: var(--error-color);

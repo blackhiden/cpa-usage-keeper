@@ -36,6 +36,7 @@ export type LiveFlowActiveRequests = Record<string, string>
 
 const maxLiveFlowEvents = 80
 export const LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS = 25_000
+export const LIVE_FLOW_PENDING_COLOR = 'var(--live-flow-pending-color)'
 
 export interface LiveFlowRelayError {
   kind: 'keeper_live_flow_error'
