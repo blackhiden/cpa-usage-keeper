@@ -16,6 +16,7 @@ COPY --from=web-builder /app/web/dist ./web/dist
 COPY web/static.go ./web/static.go
 ARG APP_VERSION=dev
 ARG APP_COMMIT=unknown
+ARG BUILD_DATE=1992-03-22
 RUN set -eux; \
     export BUILD_DATE="$(date +%Y-%m-%d)"; \
     CGO_ENABLED=1 GOOS=linux go build \
