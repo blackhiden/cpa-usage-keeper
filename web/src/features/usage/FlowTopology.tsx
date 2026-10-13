@@ -25,11 +25,12 @@ const edgeTypes = {
 export interface Provider {
   id: string;
   name: string;
-  icon?: string;
   color?: string;
   isActive?: boolean;
   requestCount?: number;
-  tokens?: number;
+  failures?: number;
+  latestStatus?: number;
+  latestLatencyMs?: number;
 }
 
 interface FlowTopologyProps {
@@ -62,11 +63,12 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
         position: { x, y },
         data: {
           name: provider.name,
-          icon: provider.icon,
           color: provider.color,
           isActive: provider.id === activeProvider,
           requestCount: provider.requestCount,
-          tokens: provider.tokens,
+          failures: provider.failures,
+          latestStatus: provider.latestStatus,
+          latestLatencyMs: provider.latestLatencyMs,
         },
       };
     });
@@ -80,7 +82,6 @@ export function FlowTopology({ providers, activeProvider }: FlowTopologyProps) {
       source: 'router',
       target: `provider-${provider.id}`,
       type: 'topology',
-      animated: provider.id === activeProvider,
       data: {
         isActive: provider.id === activeProvider,
         color: provider.color,

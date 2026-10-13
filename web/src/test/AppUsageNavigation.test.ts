@@ -20,6 +20,7 @@ describe('App usage-page route authorization', () => {
     expect(getRoleTargetPath('admin', '/auth-files/')).toBe('/');
     expect(shouldNormalizeRolePath('admin', '/auth-files/')).toBe(true);
     expect(getRoleTargetPath('admin', '/request-events')).toBe('/request-events');
+    expect(getRoleTargetPath('admin', '/live-flow')).toBe('/live-flow');
     expect(getRoleTargetPath('admin', '/auth-files/settings')).toBe('/');
     expect(getRoleTargetPath('admin', '//example.com/auth-files')).toBe('/');
   });
@@ -37,9 +38,11 @@ describe('App usage-page route authorization', () => {
   });
 
 
-  it('keeps Ranking unavailable in CPAMC embed mode', () => {
+  it('keeps global-admin tabs unavailable in CPAMC embed mode', () => {
     expect(getRoleTargetPath('admin', '/ranking', true)).toBe('/');
     expect(shouldNormalizeRolePath('admin', '/ranking', true)).toBe(true);
+    expect(getRoleTargetPath('admin', '/live-flow', true)).toBe('/');
+    expect(shouldNormalizeRolePath('admin', '/live-flow', true)).toBe(true);
     expect(getRoleTargetPath('admin', '/analysis', true)).toBe('/analysis');
   });
 

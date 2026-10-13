@@ -56,6 +56,9 @@ type Config struct {
 	CPABaseURL string
 	// CPAManagementKey 是访问 CPA 管理数据的密钥。
 	CPAManagementKey string
+	// CPALiveFlowAPIKey is an optional CPA client key used only when the upstream
+	// Live Flow WebSocket is protected by CPA's ws-auth setting.
+	CPALiveFlowAPIKey string
 	// CPARequestLogAccessEnabled 控制是否允许通过 Keeper 访问 CPA request log。
 	CPARequestLogAccessEnabled bool
 	// APIKeyViewerLocalRankingEnabled 控制 API Key Viewer 是否可只读查看本地排行。
@@ -302,6 +305,7 @@ func Load(options LoadOptions) (*Config, error) {
 		TLSKeyFile:                      strings.TrimSpace(os.Getenv("TLS_KEY_FILE")),
 		CPABaseURL:                      strings.TrimSpace(os.Getenv("CPA_BASE_URL")),
 		CPAManagementKey:                strings.TrimSpace(os.Getenv("CPA_MANAGEMENT_KEY")),
+		CPALiveFlowAPIKey:               strings.TrimSpace(os.Getenv("CPA_LIVE_FLOW_API_KEY")),
 		CPARequestLogAccessEnabled:      cpaRequestLogAccessEnabled,
 		APIKeyViewerLocalRankingEnabled: apiKeyViewerLocalRankingEnabled,
 		RedisQueueAddr:                  strings.TrimSpace(os.Getenv("REDIS_QUEUE_ADDR")),

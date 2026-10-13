@@ -39,7 +39,7 @@ export const getRoleTargetPath = (
   if (currentPath === '/') return '/';
 
   const usageTab = resolveUsageTabFromPath(currentPath);
-  if (!usageTab || (isEmbeddedInCPAMC && usageTab === 'ranking')) return '/';
+  if (!usageTab || (isEmbeddedInCPAMC && (usageTab === 'ranking' || usageTab === 'live-flow'))) return '/';
   return getUsageTabPath(usageTab);
 };
 

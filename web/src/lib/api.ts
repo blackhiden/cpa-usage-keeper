@@ -97,6 +97,12 @@ export function apiPath(path: string): string {
   return `${normalizeBasePath(window.__APP_BASE_PATH__)}/api/v1${normalizedPath}`
 }
 
+export function liveFlowWebSocketURL(): string {
+  const url = new URL(apiPath('/live-flow/ws'), window.location.href)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
+}
+
 async function parseApiError(response: Response, fallback: string): Promise<never> {
   let message = fallback
   try {

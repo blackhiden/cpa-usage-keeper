@@ -96,6 +96,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
 - **Share scoped access**: provide a read-only usage view for an individual CPA API Key.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
+- **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials.
 
 Optional community rankings and CPA plugin embedding in CPAMC are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
 
@@ -108,6 +109,8 @@ Optional community rankings and CPA plugin embedding in CPAMC are also available
 ## Quick Start
 
 > Before using CPA Usage Keeper, enable CPA usage statistics. Set `observability.usage.usage-statistics-enabled` to `true` in v8 configurations; legacy configurations use the top-level `usage-statistics-enabled` setting.
+>
+> To use the standalone **Live Flow** menu, enable `cpa-fork-liveflow-enabled: true` in the root CLIProxyAPI configuration. If the root uses `ws-auth: true`, also set Keeper’s `CPA_LIVE_FLOW_API_KEY` to a CPA client API key accepted by that root. The key remains server-side.
 >
 > When multiple usage collectors share one CPA instance, ensure they all use subscription mode; otherwise, collection may stop or become incomplete.
 >
@@ -455,6 +458,7 @@ For a first deployment, set the CPA address, CPA management key, and Keeper logi
 | --- | --- | --- | --- |
 | `CPA_BASE_URL` | Yes | - | URL used by the Keeper server to call CPA. In Docker Compose this is usually `http://cli-proxy-api:8317`, and it can be a private address or container service name |
 | `CPA_MANAGEMENT_KEY` | Yes | - | CPA management key used to read CPA management APIs |
+| `CPA_LIVE_FLOW_API_KEY` | Only with root `ws-auth: true` | - | CPA client API key Keeper uses server-side to subscribe to `/live-flow/ws`; never sent to browsers |
 
 ### Web Access And Reverse Proxy
 

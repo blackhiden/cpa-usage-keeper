@@ -201,6 +201,7 @@ func NewWithConfig(cfg config.Config) (*App, error) {
 	pricingCatalog := pricing.NewCatalog(pricingSnapshot)
 
 	cpaClient := cpa.NewClient(cfg.CPABaseURL, cfg.CPAManagementKey, cfg.RequestTimeout, cfg.TLSSkipVerify)
+	cpaClient.SetLiveFlowAPIKey(cfg.CPALiveFlowAPIKey)
 	quotaService := quota.NewServiceWithOptions(db, cpaClient, quota.ServiceOptions{
 		RefreshWorkerLimit:            cfg.QuotaRefreshWorkerLimit,
 		QuotaUpstreamResponsesEnabled: cfg.QuotaUpstreamResponsesEnabled,
@@ -384,6 +385,7 @@ func NewWithConfig(cfg config.Config) (*App, error) {
 				Ranking:            rankingService,
 				LocalRanking:       localRankingService,
 				ProviderModelGraph: providerModelGraphService,
+				LiveFlowClient:     cpaClient,
 				Status: api.StatusRouteConfig{
 					CPAPublicURL:               cfg.CPAPublicURL,
 					CPARequestLogAccessEnabled: cfg.CPARequestLogAccessEnabled,

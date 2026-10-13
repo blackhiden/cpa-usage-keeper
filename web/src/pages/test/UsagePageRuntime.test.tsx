@@ -18,6 +18,11 @@ vi.mock('react-chartjs-2', () => ({
   Scatter: () => null,
 }));
 
+vi.mock('@/features/usage', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/features/usage')>(),
+  LiveFlowPanel: () => <div data-live-flow-page-panel />,
+}));
+
 vi.mock('@/lib/api', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/api')>(),
   ...api,
@@ -89,6 +94,12 @@ describe('UsagePage runtime behavior', () => {
   const render = async () => {
     await act(async () => root.render(<UsagePage />));
   };
+
+  it('mounts the dedicated Live Flow panel for the /live-flow menu route', async () => {
+    window.history.replaceState(null, '', '/live-flow');
+    await render();
+    expect(container.querySelector('[data-live-flow-page-panel]')).not.toBeNull();
+  });
 
   it('preserves Safari menu clicks when native mouse focus falls back to an ancestor', async () => {
     await render();

@@ -1,114 +1,54 @@
-# Usage Features - Life Flow Topology
+# Live Flow
 
-This directory contains the Life Flow visualization feature for the cpauk web UI.
+`LiveFlowPanel` is the standalone administrator view at `/live-flow` in the
+Keeper dashboard. It renders the flow canvas before events arrive, then updates
+nodes from the root CLIProxyAPI Live Flow WebSocket stream.
 
-## Overview
+## Data path
 
-The Life Flow feature provides a dynamic, real-time visualization of provider connections and request flows in the CLIProxyAPI system. It displays a network topology diagram showing the central router and connected AI providers with animated edges indicating active connections.
-
-## Components
-
-### Core Components
-
-- **FlowTopology.tsx** - Main component that orchestrates the flow diagram using React Flow
-- **FlowTopology.scss** - Styles for the flow container and controls
-
-### Nodes
-
-- **RouterNode.tsx** - Central router node representing CLIProxyAPI
-- **ProviderNode.tsx** - Individual AI provider nodes (Kiro, GitHub, OpenAI, etc.)
-
-### Edges
-
-- **ElectricEdge.tsx** - Animated connection edges with electric effects for active providers
-
-## Features
-
-### Dynamic Data
-- Pulls real-time provider data from `OverviewRealtimeBlock.current_usage.ai_providers`
-- Automatically updates when the realtime window changes (15m/30m/60m)
-- Shows provider request counts and token usage
-
-### Visual Effects
-- **Circular Layout**: Providers arranged in a circle around the central router (250px radius)
-- **Electric Edges**: Active connections show animated particles flowing along the edges
-- **Pulse Animations**: Active providers display a pulsing indicator
-- **Color Coding**: Active provider highlighted with custom color and glow effect
-
-### Interactivity
-- Zoom controls (zoom in, zoom out, fit view)
-- Non-draggable nodes for consistent layout
-- Responsive design (480px desktop, 320px mobile)
-- Dark mode compatible
-
-## Integration
-
-The FlowTopology is integrated into the UsagePage realtime tab:
-
-```typescript
-import { FlowTopology, type Provider } from '@/features/usage';
-
-// In the realtime tab section
-<FlowTopology
-  providers={currentRealtime.current_usage.ai_providers.map((provider): Provider => ({
-    id: provider.key,
-    name: provider.label,
-    requestCount: provider.requests,
-    tokens: provider.tokens,
-    color: provider.key === currentRealtime.current_usage.ai_providers[0]?.key ? '#ff6b35' : undefined,
-    isActive: provider.requests > 0,
-  }))}
-  activeProvider={currentRealtime.current_usage.ai_providers[0]?.key}
-/>
+```text
+Browser
+  └─ authenticated Keeper WebSocket: /api/v1/live-flow/ws
+       └─ Keeper server-side CPA connection: /live-flow/ws
+            └─ root CPA Live Flow hub
 ```
 
-## Data Structure
+Keeper relays only the root event contract:
 
-### Provider Interface
-```typescript
-interface Provider {
-  id: string;          // Unique provider identifier
-  name: string;        // Display name
-  icon?: string;       // Provider icon URL
-  color?: string;      // Theme color for active state
-  isActive?: boolean;  // Whether provider has active requests
-  requestCount?: number; // Number of requests
-  tokens?: number;     // Token count
+```ts
+interface LiveFlowEvent {
+  id: string
+  ts: number
+  method: string
+  path: string
+  model?: string
+  status: number
+  latency_ms: number
 }
 ```
 
-## Dependencies
+The stream deliberately excludes prompts, request bodies, headers, and
+credentials. `CPA_MANAGEMENT_KEY` and `CPA_LIVE_FLOW_API_KEY` remain server-side.
 
-- **@xyflow/react** (v12.11.2) - React Flow library for node-based UI
-- No additional dependencies required
+## Root prerequisites
 
-## Styling
+- Root CLIProxyAPI must have `cpa-fork-liveflow-enabled: true`.
+- If root CPA also enables `ws-auth: true`, configure Keeper's optional
+  `CPA_LIVE_FLOW_API_KEY` with a root CPA client API key accepted by that
+  WebSocket authentication layer.
 
-The component uses CSS variables from the theme system:
-- `--bg-primary` - Background color
-- `--border-color` - Border colors
-- `--floating-surface` - Card backgrounds
-- `--text-primary` - Text color
-- `--shadow-lg` - Box shadows
+## Access
 
-## Performance
+Live Flow is protected by Keeper's administrator session and is intentionally
+not available to API-key viewers or CPAMC embeds, because the root stream is
+not scoped to one client API key.
 
-- Memoized components prevent unnecessary re-renders
-- Smooth animations using CSS and SVG
-- Hardware-accelerated transformations
-- Efficient React Flow rendering
+## UI behavior
 
-## Browser Support
-
-- Modern browsers with SVG and CSS animations support
-- Responsive design for mobile and desktop
-- Touch-friendly zoom controls
-
-## Future Enhancements
-
-Potential improvements:
-- Click handlers for provider details
-- Provider icon integration from backend
-- Historical flow data visualization
-- Network latency indicators
-- Custom color schemes per provider type
+- The card/canvas is always mounted on `/live-flow`.
+- It shows a specific waiting state before the first event.
+- It reconnects after a root stream interruption and shows an unavailable state
+  when the relay cannot connect.
+- It keeps at most 80 recent metadata events in browser memory.
+- The diagram uses the existing `@xyflow/react` topology components with nodes
+  derived from observed model names.

@@ -13,6 +13,7 @@ layout of `WORK_DIR`.
 |---|---|---|
 | `CPA_BASE_URL` | *(required)* | Base URL of the CLIProxyAPI instance to manage/poll. |
 | `CPA_MANAGEMENT_KEY` | *(required)* | Management key authenticating against CPA. Treated as a secret; never logged. |
+| `CPA_LIVE_FLOW_API_KEY` | unset | Optional CPA client API key used only when the root CPA has `ws-auth: true`; Keeper uses it server-side for `/live-flow/ws` and never exposes it to browsers. |
 | `CPA_PUBLIC_URL` | unset | Public origin of this Keeper instance. Used to build the `frame-ancestors` CSP for embedding the UI in iframes. Must be a full origin, e.g. `https://keeper.example.com`. |
 | `APP_HOST` | all interfaces | HTTP bind address. Overridden by the `--host` CLI flag. |
 | `APP_PORT` | `8080` | HTTP listen port. |

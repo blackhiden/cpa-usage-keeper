@@ -19,6 +19,7 @@ import (
 	"cpa-usage-keeper/internal/cpa/dto/apicall"
 	"cpa-usage-keeper/internal/cpa/dto/providerconfig"
 	"cpa-usage-keeper/internal/cpa/dto/response"
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
@@ -27,6 +28,8 @@ type Client struct {
 	httpClient        *http.Client
 	streamHTTPClient  *http.Client
 	streamIdleTimeout time.Duration
+	liveFlowAPIKey    string
+	tlsSkipVerify     bool
 }
 
 type RequestLogResult struct {
@@ -163,7 +166,50 @@ func NewClient(baseURL, managementKey string, timeout time.Duration, tlsSkipVeri
 		httpClient:        httpClient,
 		streamHTTPClient:  &http.Client{Transport: streamTransport},
 		streamIdleTimeout: requestLogStreamIdleTimeout(timeout),
+		tlsSkipVerify:     tlsSkipVerify,
 	}
+}
+
+// SetLiveFlowAPIKey configures the optional CPA client key used for a protected
+// Live Flow WebSocket. The value remains inside Keeper and is never serialized.
+func (c *Client) SetLiveFlowAPIKey(apiKey string) {
+	if c == nil {
+		return
+	}
+	c.liveFlowAPIKey = strings.TrimSpace(apiKey)
+}
+
+// DialLiveFlow opens CPA's metadata-only Live Flow stream. The upstream server
+// owns event production; Keeper only relays frames to its authenticated UI.
+func (c *Client) DialLiveFlow(ctx context.Context) (*websocket.Conn, *http.Response, error) {
+	if c == nil || c.baseURL == "" {
+		return nil, nil, fmt.Errorf("cpa base url is required")
+	}
+	endpoint, err := url.Parse(c.baseURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse cpa base url: %w", err)
+	}
+	switch endpoint.Scheme {
+	case "http":
+		endpoint.Scheme = "ws"
+	case "https":
+		endpoint.Scheme = "wss"
+	default:
+		return nil, nil, fmt.Errorf("cpa base url must use http or https")
+	}
+	endpoint.Path = strings.TrimRight(endpoint.Path, "/") + "/live-flow/ws"
+	endpoint.RawQuery = ""
+	endpoint.Fragment = ""
+
+	headers := http.Header{}
+	if c.liveFlowAPIKey != "" {
+		headers.Set("Authorization", "Bearer "+c.liveFlowAPIKey)
+	}
+	dialer := websocket.Dialer{
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: c.tlsSkipVerify},
+	}
+	return dialer.DialContext(ctx, endpoint.String(), headers)
 }
 
 func cloneDefaultHTTPTransport() *http.Transport {

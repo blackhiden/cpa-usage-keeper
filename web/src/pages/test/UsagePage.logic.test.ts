@@ -791,6 +791,7 @@ describe('UsagePage request event preferences', () => {
 for (const [tab, expected] of [
   ['overview', true],
   ['realtime', false],
+  ['live-flow', false],
   ['analysis', true],
   ['ranking', false],
   ['events', true],
@@ -806,6 +807,7 @@ for (const [tab, expected] of [
 for (const [tab, expected] of [
   ['overview', true],
   ['realtime', true],
+  ['live-flow', false],
   ['analysis', true],
   ['ranking', false],
   ['events', true],
@@ -825,6 +827,7 @@ describe('UsagePage tab labels', () => {
     expect(labels).toEqual([
       'translated:usage_stats.tab_overview',
       'translated:usage_stats.tab_realtime',
+      'translated:usage_stats.tab_live_flow',
       'translated:usage_stats.tab_analysis',
       'translated:usage_stats.tab_ranking',
       'translated:usage_stats.tab_events',
@@ -835,7 +838,7 @@ describe('UsagePage tab labels', () => {
   });
 
   it('omits Ranking from the CPAMC embedded navigation', () => {
-    const values = getUsageTabOptions((key) => key, { includeRanking: false }).map((option) => option.value);
+    const values = getUsageTabOptions((key) => key, { includeRanking: false, includeLiveFlow: false }).map((option) => option.value);
 
     expect(values).toEqual(['overview', 'realtime', 'analysis', 'events', 'auth-files', 'ai-provider', 'settings']);
   });

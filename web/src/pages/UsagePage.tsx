@@ -19,7 +19,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useThemeStore } from '@/stores';
 import { ProviderModelGNNPanel } from '@/features/model-gnn';
-import { FlowTopology, type Provider } from '@/features/usage';
+import { LiveFlowPanel } from '@/features/usage';
 import {
   StatCards,
   RecentActivityPanel,
@@ -85,6 +85,7 @@ type Translate = (key: string) => string;
 const USAGE_TAB_LABEL_KEYS: Record<UsageTab, string> = {
   overview: 'usage_stats.tab_overview',
   realtime: 'usage_stats.tab_realtime',
+  'live-flow': 'usage_stats.tab_live_flow',
   analysis: 'usage_stats.tab_analysis',
   ranking: 'usage_stats.tab_ranking',
   events: 'usage_stats.tab_events',
@@ -152,7 +153,7 @@ export const getCredentialSectionVisibility = (tab: UsageTab) => ({
   showAiProvider: tab === 'ai-provider',
 });
 
-export const shouldShowRangeControls = (tab: UsageTab) => tab !== 'realtime' && tab !== 'ranking' && tab !== 'settings' && !getCredentialSectionVisibility(tab).enabled;
+export const shouldShowRangeControls = (tab: UsageTab) => tab !== 'realtime' && tab !== 'live-flow' && tab !== 'ranking' && tab !== 'settings' && !getCredentialSectionVisibility(tab).enabled;
 
 export const shouldShowApiKeyFilter = (tab: UsageTab) => tab === 'realtime' || shouldShowRangeControls(tab);
 
@@ -660,9 +661,9 @@ export { normalizeUsageTabValue } from '@/lib/usageNavigation';
 
 export const getUsageTabOptions = (
   translate: Translate,
-  { includeRanking = true }: { includeRanking?: boolean } = {},
+  { includeRanking = true, includeLiveFlow = true }: { includeRanking?: boolean; includeLiveFlow?: boolean } = {},
 ): Array<{ value: UsageTab; label: string }> =>
-  USAGE_TAB_OPTIONS.filter((value) => includeRanking || value !== 'ranking').map((value) => ({
+  USAGE_TAB_OPTIONS.filter((value) => (includeRanking || value !== 'ranking') && (includeLiveFlow || value !== 'live-flow')).map((value) => ({
     value,
     label: translate(USAGE_TAB_LABEL_KEYS[value]),
   }));
@@ -1053,7 +1054,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const analysisRequestControllerRef = useRef<AbortController | null>(null);
 
   const tabOptions = useMemo(
-    () => getUsageTabOptions(t, { includeRanking: !isEmbeddedInCPAMC }),
+    () => getUsageTabOptions(t, { includeRanking: !isEmbeddedInCPAMC, includeLiveFlow: !isEmbeddedInCPAMC }),
     [isEmbeddedInCPAMC, t],
   );
   const apiKeySelectOptions = useMemo(
@@ -1774,6 +1775,9 @@ const loadApiKeyOptions = useCallback(async () => {
       await loadRealtime();
       return;
     }
+    if (activeTab === 'live-flow') {
+      return;
+    }
     if (activeTab === 'events') {
       await Promise.all([loadEventFilterOptions(), loadEvents()]);
       return;
@@ -1801,6 +1805,9 @@ const loadApiKeyOptions = useCallback(async () => {
     if (!apiKeyFilterReady && shouldShowApiKeyFilter(activeTab)) return;
     if (activeTab === 'realtime') {
       await loadRealtime();
+      return;
+    }
+    if (activeTab === 'live-flow') {
       return;
     }
     if (activeTab === 'events') {
@@ -2284,39 +2291,19 @@ const loadApiKeyOptions = useCallback(async () => {
             )}
 
             {activeTab === 'realtime' && (
-              <>
-                <OverviewRealtimePanel
-                  realtime={currentRealtime ?? undefined}
-                  loading={realtimeLoading}
-                  error={displayRealtimeError}
-                  window={realtimeWindow}
-                  onWindowChange={setRealtimeWindow}
-                  isDark={isDark}
-                  isMobile={isMobile}
-                  timezone={currentRealtime?.timezone ?? status?.timezone}
-                />
-                
-                {/* Flow Topology Visualization */}
-                {currentRealtime && currentRealtime.current_usage.ai_providers.length > 0 && (
-                  <div className={styles.flowTopologySection}>
-                    <h3 className={styles.sectionTitle}>{t('usage_stats.flow_topology_title', { defaultValue: 'Provider Flow' })}</h3>
-                    <div className={styles.flowTopologyContainer}>
-                      <FlowTopology
-                        providers={currentRealtime.current_usage.ai_providers.map((provider): Provider => ({
-                          id: provider.key,
-                          name: provider.label,
-                          requestCount: provider.requests,
-                          tokens: provider.tokens,
-                          color: provider.key === currentRealtime.current_usage.ai_providers[0]?.key ? '#ff6b35' : undefined,
-                          isActive: provider.requests > 0,
-                        }))}
-                        activeProvider={currentRealtime.current_usage.ai_providers[0]?.key}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
+              <OverviewRealtimePanel
+                realtime={currentRealtime ?? undefined}
+                loading={realtimeLoading}
+                error={displayRealtimeError}
+                window={realtimeWindow}
+                onWindowChange={setRealtimeWindow}
+                isDark={isDark}
+                isMobile={isMobile}
+                timezone={currentRealtime?.timezone ?? status?.timezone}
+              />
             )}
+
+            {activeTab === 'live-flow' && <LiveFlowPanel />}
 
             {activeTab === 'analysis' && (
               <>

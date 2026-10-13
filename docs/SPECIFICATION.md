@@ -65,6 +65,12 @@ keys that are synchronized from CPA itself.
 - **UC-2 — Explore events.** As an admin, I browse the request-level event
   stream, filter by API key, auth file, model, provider, status, and time
   range, and choose which columns to display.
+- **UC-2a — Inspect Live Flow.** As an admin, I open the standalone `/live-flow`
+  menu page to view CLIProxyAPI’s current metadata-only request stream. The
+  visual canvas is mounted before traffic arrives and explains whether it is
+  waiting, reconnecting, or unavailable. It must not expose prompts, request
+  bodies, headers, credentials, or Keeper’s upstream keys; API-key viewers and
+  CPAMC embeds cannot open this global stream.
 - **UC-3 — Analyze trends.** As an admin, I open Analysis to see time-series
   trends, cost composition, usage heatmaps, and latency diagnostics per model
   or provider.

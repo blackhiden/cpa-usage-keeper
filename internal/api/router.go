@@ -22,6 +22,7 @@ import (
 	"cpa-usage-keeper/internal/updatecheck"
 	"cpa-usage-keeper/internal/version"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 const appBasePathPlaceholder = "__APP_BASE_PATH__"
@@ -51,6 +52,10 @@ type StatusRouteConfig struct {
 	CPARequestLogAccessEnabled bool
 }
 
+type LiveFlowProvider interface {
+	DialLiveFlow(context.Context) (*websocket.Conn, *http.Response, error)
+}
+
 type OptionalProviders struct {
 	UsageIdentity      service.UsageIdentityProvider
 	ErrorEvents        service.ErrorEventProvider
@@ -63,6 +68,7 @@ type OptionalProviders struct {
 	Ranking            rankinghttpapi.Provider
 	LocalRanking       rankinghttpapi.LocalProvider
 	Status             StatusRouteConfig
+	LiveFlowClient     LiveFlowProvider
 	ProviderModelGraph gnnhttpapi.Provider
 }
 
@@ -111,6 +117,7 @@ func NewRouter(
 	var providerModelGraphProvider gnnhttpapi.Provider
 	var localRankingProvider rankinghttpapi.LocalProvider
 	var statusConfig StatusRouteConfig
+	var liveFlowClient LiveFlowProvider
 	if len(optionalProviders) > 0 {
 		usageIdentityProvider = optionalProviders[0].UsageIdentity
 		errorEventProvider = optionalProviders[0].ErrorEvents
@@ -124,6 +131,7 @@ func NewRouter(
 		providerModelGraphProvider = optionalProviders[0].ProviderModelGraph
 		localRankingProvider = optionalProviders[0].LocalRanking
 		statusConfig = optionalProviders[0].Status
+		liveFlowClient = optionalProviders[0].LiveFlowClient
 	}
 	authHandler.setCPAAPIKeyProvider(cpaAPIKeyProvider)
 	requestLogDownloadTokens := newRequestLogDownloadTokenStore()
@@ -137,6 +145,7 @@ func NewRouter(
 	adminProtected := apiV1.Group("")
 	adminProtected.Use(authHandler.adminMiddleware())
 	registerStatusRoutes(adminProtected, statusProvider, statusConfig)
+	registerLiveFlowRoutes(adminProtected, liveFlowClient)
 	registerUpdateRoutes(adminProtected, nil)
 	registerUsageOverviewRoute(adminProtected, usageProvider, cpaAPIKeyProvider)
 	registerUsageActivityRoute(adminProtected, usageProvider)

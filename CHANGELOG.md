@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Live Flow relay and dashboard page:** Added the standalone administrator
+  `/live-flow` menu page and its always-mounted flow canvas. Keeper now relays
+  the root CLIProxyAPI `/live-flow/ws` metadata stream through its authenticated
+  `/api/v1/live-flow/ws` endpoint without exposing CPA credentials to browsers.
+  Root `cpa-fork-liveflow-enabled` is required; `CPA_LIVE_FLOW_API_KEY` is an
+  optional server-only credential for roots with `ws-auth: true`. The stream is
+  unavailable to API-key viewers and CPAMC embeds because it is global rather
+  than key-scoped.
+
 ## [v1.16.4] — 2026-10-12
 
 ### Changed

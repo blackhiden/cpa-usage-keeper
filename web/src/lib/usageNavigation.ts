@@ -1,6 +1,7 @@
 export const USAGE_TAB_OPTIONS = [
   'overview',
   'realtime',
+  'live-flow',
   'analysis',
   'ranking',
   'events',
@@ -15,6 +16,7 @@ export const DEFAULT_USAGE_TAB: UsageTab = 'overview';
 const USAGE_TAB_PATHS: Record<UsageTab, string> = {
   overview: '/overview',
   realtime: '/realtime',
+  'live-flow': '/live-flow',
   analysis: '/analysis',
   ranking: '/ranking',
   events: '/request-events',

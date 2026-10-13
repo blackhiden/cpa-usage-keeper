@@ -16,6 +16,7 @@ describe('usage page navigation', () => {
     const mappings = [
       ['overview', '/overview'],
       ['realtime', '/realtime'],
+      ['live-flow', '/live-flow'],
       ['analysis', '/analysis'],
       ['ranking', '/ranking'],
       ['events', '/request-events'],

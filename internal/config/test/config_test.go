@@ -13,7 +13,7 @@ import (
 )
 
 var configEnvKeys = []string{
-	"APP_HOST", "APP_PORT", "APP_BASE_PATH", "CPA_PUBLIC_URL", "WORK_DIR", "CPA_BASE_URL", "CPA_MANAGEMENT_KEY", "POLL_INTERVAL",
+	"APP_HOST", "APP_PORT", "APP_BASE_PATH", "CPA_PUBLIC_URL", "WORK_DIR", "CPA_BASE_URL", "CPA_MANAGEMENT_KEY", "CPA_LIVE_FLOW_API_KEY", "POLL_INTERVAL",
 	"USAGE_SYNC_MODE", "REDIS_QUEUE_ADDR", "REDIS_QUEUE_TLS", "REDIS_QUEUE_BATCH_SIZE", "REDIS_QUEUE_IDLE_INTERVAL",
 	"USAGE_RAW_RETENTION_DAYS", "SQLITE_PATH", "BACKUP_ENABLED", "BACKUP_DIR", "BACKUP_INTERVAL", "BACKUP_RETENTION_DAYS",
 	"REQUEST_TIMEOUT", "LOG_LEVEL", "LOG_FILE_ENABLED", "LOG_DIR", "LOG_RETENTION_DAYS",
@@ -68,6 +68,9 @@ func TestLoadFromEnvAppliesDefaults(t *testing.T) {
 	}
 	if cfg.CPAPublicURL != "" {
 		t.Fatalf("expected default CPA public URL to be empty, got %q", cfg.CPAPublicURL)
+	}
+	if cfg.CPALiveFlowAPIKey != "" {
+		t.Fatalf("expected no default CPA live flow API key, got %q", cfg.CPALiveFlowAPIKey)
 	}
 	if !cfg.BackupEnabled {
 		t.Fatal("expected backup to be enabled by default")
@@ -125,6 +128,20 @@ func TestLoadFromEnvAppliesDefaults(t *testing.T) {
 	}
 	if cfg.LogRetentionDays != 7 {
 		t.Fatalf("expected default log retention 7 days, got %d", cfg.LogRetentionDays)
+	}
+}
+
+func TestLoadReadsLiveFlowAPIKey(t *testing.T) {
+	t.Setenv("CPA_BASE_URL", "https://cpa.example.test")
+	t.Setenv("CPA_MANAGEMENT_KEY", "management-key")
+	t.Setenv("CPA_LIVE_FLOW_API_KEY", " live-flow-client-key ")
+
+	cfg, err := LoadFromEnv()
+	if err != nil {
+		t.Fatalf("LoadFromEnv returned error: %v", err)
+	}
+	if cfg.CPALiveFlowAPIKey != "live-flow-client-key" {
+		t.Fatalf("CPA live flow API key = %q", cfg.CPALiveFlowAPIKey)
 	}
 }
 

@@ -22,6 +22,7 @@ export default defineConfig(({ command }) => ({
       '/api': {
         target: getApiProxyTarget(),
         changeOrigin: true,
+        ws: true,
       },
     },
   } : undefined,

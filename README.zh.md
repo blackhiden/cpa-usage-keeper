@@ -96,6 +96,7 @@
 - **掌握额度**：查看凭证健康与剩余限额，支持限额刷新、优先级编辑和 Codex 限额历史。
 - **按需分享**：为单个 CPA API Key 提供独立的只读用量视图。
 - **拓扑可视化**：Provider Model GNN 关系图（双渲染器：React Flow 网格 + Reagraph WebGL）展示 Provider/模型关系、请求流和凭证依赖。
+- **查看实时流**：独立管理员菜单中的 **实时流** 将 CLIProxyAPI 请求元数据展示在实时模型流画布中；不会转发提示词、请求正文、请求头或凭证。
 
 此外，还支持可选的社区排名，以及通过 CPA 插件嵌入 CPAMC。可使用 Docker Compose、Homebrew 或二进制部署，登录保护默认开启。
 
@@ -108,6 +109,8 @@
 ## 快速开始
 
 > 使用前请确认 CPA 已开启使用统计。v8 配置中的 `observability.usage.usage-statistics-enabled` 应设为 `true`；旧版配置使用顶层 `usage-statistics-enabled`。
+>
+> 如需使用独立管理员菜单中的 **实时流**，请在根 CLIProxyAPI 配置中启用 `cpa-fork-liveflow-enabled: true`。如果根服务启用了 `ws-auth: true`，还需要将该根服务接受的客户端 API Key 设置到 Keeper 的 `CPA_LIVE_FLOW_API_KEY`；该值只保留在服务端。
 >
 > 同一 CPA 接入多个 usage 采集服务时，请确保均使用订阅模式，否则可能导致收数中断或数据不完整。
 
@@ -432,6 +435,7 @@ cp .env.example .env
 | --- | --- | --- | --- |
 | `CPA_BASE_URL` | 是 | - | Keeper 服务端访问 CPA 的地址。Docker Compose 内通常是 `http://cli-proxy-api:8317`，可以是内网地址或容器服务名 |
 | `CPA_MANAGEMENT_KEY` | 是 | - | CPA management key，用于读取 CPA 管理接口数据 |
+| `CPA_LIVE_FLOW_API_KEY` | 仅根服务启用 `ws-auth: true` 时需要 | - | Keeper 服务端订阅 `/live-flow/ws` 使用的 CPA 客户端 API Key；不会发送给浏览器 |
 
 ### Web 访问与反代
 

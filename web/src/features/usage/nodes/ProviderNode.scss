@@ -22,23 +22,6 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .provider-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    img {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      object-fit: contain;
-    }
-  }
-
   .provider-name {
     flex: 1;
     font-size: 14px;
@@ -50,31 +33,20 @@
     transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .provider-pulse {
-    position: relative;
-    width: 8px;
-    height: 8px;
+  .provider-count {
+    color: var(--text-tertiary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+  }
+
+  .provider-active {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
-
-    &::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: currentColor;
-      animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-    }
   }
 
   &.active .provider-content {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-}
-
-@keyframes ping {
-  75%, 100% {
-    transform: scale(2);
-    opacity: 0;
   }
 }
