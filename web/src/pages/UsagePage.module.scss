@@ -4673,3 +4673,33 @@
   }
   @media (max-width: 360px) { padding-inline: 16px; }
 }
+
+// Flow Topology Section
+.flowTopologySection {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--floating-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.flowTopologyContainer {
+  width: 100%;
+  height: 480px;
+  margin-top: 16px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  
+  @include mobile {
+    height: 320px;
+  }
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+

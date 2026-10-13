@@ -19,6 +19,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useThemeStore } from '@/stores';
 import { ProviderModelGNNPanel } from '@/features/model-gnn';
+import { FlowTopology, type Provider } from '@/features/usage';
 import {
   StatCards,
   RecentActivityPanel,
@@ -2283,16 +2284,38 @@ const loadApiKeyOptions = useCallback(async () => {
             )}
 
             {activeTab === 'realtime' && (
-              <OverviewRealtimePanel
-                realtime={currentRealtime ?? undefined}
-                loading={realtimeLoading}
-                error={displayRealtimeError}
-                window={realtimeWindow}
-                onWindowChange={setRealtimeWindow}
-                isDark={isDark}
-                isMobile={isMobile}
-                timezone={currentRealtime?.timezone ?? status?.timezone}
-              />
+              <>
+                <OverviewRealtimePanel
+                  realtime={currentRealtime ?? undefined}
+                  loading={realtimeLoading}
+                  error={displayRealtimeError}
+                  window={realtimeWindow}
+                  onWindowChange={setRealtimeWindow}
+                  isDark={isDark}
+                  isMobile={isMobile}
+                  timezone={currentRealtime?.timezone ?? status?.timezone}
+                />
+                
+                {/* Flow Topology Visualization */}
+                {currentRealtime && currentRealtime.current_usage.ai_providers.length > 0 && (
+                  <div className={styles.flowTopologySection}>
+                    <h3 className={styles.sectionTitle}>{t('usage_stats.flow_topology_title', { defaultValue: 'Provider Flow' })}</h3>
+                    <div className={styles.flowTopologyContainer}>
+                      <FlowTopology
+                        providers={currentRealtime.current_usage.ai_providers.map((provider): Provider => ({
+                          id: provider.key,
+                          name: provider.label,
+                          requestCount: provider.requests,
+                          tokens: provider.tokens,
+                          color: provider.key === currentRealtime.current_usage.ai_providers[0]?.key ? '#ff6b35' : undefined,
+                          isActive: provider.requests > 0,
+                        }))}
+                        activeProvider={currentRealtime.current_usage.ai_providers[0]?.key}
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {activeTab === 'analysis' && (

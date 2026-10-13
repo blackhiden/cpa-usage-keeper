@@ -1,0 +1,80 @@
+.topology-provider-node {
+  position: relative;
+  
+  .react-flow__handle {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    border: 0;
+  }
+
+  .provider-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    background: var(--floating-surface);
+    min-width: 150px;
+    box-shadow: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .provider-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      object-fit: contain;
+    }
+  }
+
+  .provider-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .provider-pulse {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: currentColor;
+      animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+  }
+
+  &.active .provider-content {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
