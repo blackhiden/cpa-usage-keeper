@@ -55,9 +55,10 @@ not scoped to one client API key.
 - Root CPA emits `started` immediately before execution and `completed` after the
   response. The canvas therefore shows long-running requests as in flight,
   rather than waiting for completion.
-- Every lifecycle event produces one short directed edge pulse: amber when a
-  request starts, green on success, and red on failure. These effects expire
-  after the event; they do not loop continuously.
+- A pending request owns an animated amber/yellow dotted trail on its route.
+  Its matching completion turns that same trail green on success or red on
+  failure and keeps the result visible for 25 seconds before fading out.
+  Multiple requests to one model retain independent trails.
 - It shows a specific waiting state before the first event.
 - It reconnects after a root stream interruption and shows an unavailable state
   when the relay cannot connect. Relay failures send a safe control frame that

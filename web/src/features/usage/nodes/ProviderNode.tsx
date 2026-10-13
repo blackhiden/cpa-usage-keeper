@@ -11,7 +11,6 @@ interface ProviderNodeData {
   failures?: number;
   latestStatus?: number;
   latestLatencyMs?: number;
-  pulse?: { id: string; phase: 'started' | 'completed'; status: number };
 }
 
 export const ProviderNode = memo(({ data }: { data: ProviderNodeData }) => {
@@ -38,7 +37,6 @@ export const ProviderNode = memo(({ data }: { data: ProviderNodeData }) => {
         <span className="provider-count">{data.requestCount ?? 0}</span>
         {data.activeRequests ? <span className="provider-inflight">{data.activeRequests}</span> : null}
         {data.isActive && <span className="provider-active" style={{ backgroundColor: data.color }} />}
-        {data.pulse ? <span key={data.pulse.id} className={`provider-pulse provider-pulse-${data.pulse.phase}`} data-failed={data.pulse.status >= 400} /> : null}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowPulse } from '../liveFlow'
+import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail } from '../liveFlow'
 import { liveFlowFitViewOptions } from '../FlowTopology'
 
 describe('live flow event helpers', () => {
@@ -55,12 +55,21 @@ describe('live flow event helpers', () => {
     }])
 
     expect(applyLiveFlowEvent(active, event)).toEqual({})
-    expect(toLiveFlowPulse(started)).toEqual({
-      id: 'flow-1:started:1768000000000',
+    expect(toLiveFlowTrail(started)).toEqual({
+      id: 'flow-1',
       modelID: 'gpt-5',
-      phase: 'started',
+      state: 'pending',
       status: 0,
+      timestamp: 1_768_000_000_000,
     })
+  })
+
+  it('converts the same request trail to a retained success or failure result', () => {
+    const started = { ...event, event: 'started' as const, status: 0, latency_ms: 0 }
+    expect(toLiveFlowTrail(event)).toMatchObject({ id: 'flow-1', state: 'success', modelID: 'gpt-5' })
+    expect(toLiveFlowTrail({ ...event, status: 502 })).toMatchObject({ id: 'flow-1', state: 'failure', modelID: 'gpt-5' })
+    expect(LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS).toBe(25_000)
+    expect(toLiveFlowTrail(started)).toMatchObject({ id: 'flow-1', state: 'pending' })
   })
 
   it('recognizes a relay error without accepting it as a CPA event', () => {

@@ -214,7 +214,9 @@ Key invariants:
   `CPA_MANAGEMENT_KEY` or `CPA_LIVE_FLOW_API_KEY`. API-key viewers and CPAMC
   embeds cannot access this global stream. The `model` field is the request's
   routed model ID and is preserved verbatim; Keeper does not replace it with a
-  local registry default.
+  local registry default. Keeper visualizes `started` as an animated amber
+  pending trail, then retains a green success or red failure trail for 25
+  seconds after the matching completion.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

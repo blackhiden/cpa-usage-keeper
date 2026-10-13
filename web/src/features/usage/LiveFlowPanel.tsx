@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { liveFlowWebSocketURL } from '@/lib/api'
 import { FlowTopology, type Provider } from './FlowTopology'
-import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, formatLiveFlowTime, liveFlowModelID, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowPulse, type LiveFlowActiveRequests, type LiveFlowEvent, type LiveFlowPulse, type LiveFlowRelayError } from './liveFlow'
+import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, formatLiveFlowTime, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail, type LiveFlowActiveRequests, type LiveFlowEvent, type LiveFlowRelayError, type LiveFlowTrail } from './liveFlow'
 import styles from './LiveFlowPanel.module.scss'
 
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'unavailable'
@@ -21,8 +21,8 @@ export function LiveFlowPanel() {
   const { t, i18n } = useTranslation()
   const [events, setEvents] = useState<LiveFlowEvent[]>([])
   const [activeRequests, setActiveRequests] = useState<LiveFlowActiveRequests>({})
-  const [pulses, setPulses] = useState<Record<string, LiveFlowPulse>>({})
-  const pulseTimersRef = useRef<Record<string, number>>({})
+  const [trails, setTrails] = useState<Record<string, LiveFlowTrail>>({})
+  const trailTimersRef = useRef<Record<string, number>>({})
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting')
   const [relayError, setRelayError] = useState<LiveFlowRelayError | null>(null)
   const [retryGeneration, setRetryGeneration] = useState(0)
@@ -58,20 +58,22 @@ export function LiveFlowPanel() {
           }
           const event = parseLiveFlowEvent(payload)
           if (!event || !active) return
-          const modelID = liveFlowModelID(event)
-          const pulse = toLiveFlowPulse(event)
+          const trail = toLiveFlowTrail(event)
           setEvents((current) => appendLiveFlowEvent(current, event))
           setActiveRequests((current) => applyLiveFlowEvent(current, event))
-          setPulses((current) => ({ ...current, [modelID]: pulse }))
-          if (pulseTimersRef.current[modelID] !== undefined) {
-            window.clearTimeout(pulseTimersRef.current[modelID])
+          setTrails((current) => ({ ...current, [trail.id]: trail }))
+          if (trailTimersRef.current[trail.id] !== undefined) {
+            window.clearTimeout(trailTimersRef.current[trail.id])
+            delete trailTimersRef.current[trail.id]
           }
-          pulseTimersRef.current[modelID] = window.setTimeout(() => {
-            setPulses((current) => current[modelID]?.id === pulse.id
-              ? Object.fromEntries(Object.entries(current).filter(([id]) => id !== modelID))
-              : current)
-            delete pulseTimersRef.current[modelID]
-          }, 780)
+          if (trail.state !== 'pending') {
+            trailTimersRef.current[trail.id] = window.setTimeout(() => {
+              setTrails((current) => current[trail.id]?.timestamp === trail.timestamp
+                ? Object.fromEntries(Object.entries(current).filter(([id]) => id !== trail.id))
+                : current)
+              delete trailTimersRef.current[trail.id]
+            }, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS)
+          }
         } catch {
           // Ignore malformed upstream frames; the root stream is best-effort.
         }
@@ -88,8 +90,8 @@ export function LiveFlowPanel() {
     return () => {
       active = false
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer)
-      Object.values(pulseTimersRef.current).forEach((timer) => window.clearTimeout(timer))
-      pulseTimersRef.current = {}
+      Object.values(trailTimersRef.current).forEach((timer) => window.clearTimeout(timer))
+      trailTimersRef.current = {}
       socket?.close()
     }
   }, [retryGeneration])
@@ -134,7 +136,7 @@ export function LiveFlowPanel() {
       </header>
 
       <div className={styles.canvas}>
-        <FlowTopology providers={providers} pulses={pulses} />
+        <FlowTopology providers={providers} trails={trails} />
         {providers.length === 0 && (
           <div className={styles.emptyState} role="status">
             <strong>{relayError || connectionState === 'unavailable' ? t('usage_stats.live_flow_unavailable_title') : t('usage_stats.live_flow_waiting_title')}</strong>

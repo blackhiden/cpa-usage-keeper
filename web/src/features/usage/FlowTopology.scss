@@ -54,4 +54,26 @@
   .react-flow__node {
     pointer-events: none;
   }
+
+  .live-flow-trail-pending {
+    animation: live-flow-trail-dash 780ms linear infinite;
+  }
+
+  .live-flow-trail-beacon {
+    filter: drop-shadow(0 0 4px var(--warning-color));
+  }
+
+  .live-flow-trail-success path,
+  .live-flow-trail-failure path {
+    animation: live-flow-trail-completed 25s linear forwards;
+  }
+}
+
+@keyframes live-flow-trail-dash {
+  to { stroke-dashoffset: -26; }
+}
+
+@keyframes live-flow-trail-completed {
+  0%, 80% { opacity: 0.9; }
+  100% { opacity: 0.12; }
 }

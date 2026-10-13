@@ -59,30 +59,7 @@
     flex-shrink: 0;
   }
 
-  .provider-pulse {
-    position: absolute;
-    inset: -7px;
-    border: 1px solid var(--warning-color);
-    border-radius: 12px;
-    pointer-events: none;
-    animation: live-flow-node-arrival 780ms ease-out both;
-  }
-
-  .provider-pulse-completed {
-    border-color: var(--success-color);
-  }
-
-  .provider-pulse-completed[data-failed='true'] {
-    border-color: var(--error-color);
-  }
-
   &.active .provider-content {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
-}
-
-@keyframes live-flow-node-arrival {
-  0% { opacity: 0; transform: scale(0.9); }
-  35% { opacity: 1; }
-  100% { opacity: 0; transform: scale(1.08); }
 }

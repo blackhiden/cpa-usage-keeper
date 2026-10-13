@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/i18n'
 
 vi.mock('../FlowTopology', () => ({
-  FlowTopology: () => <div data-live-flow-canvas />,
+  FlowTopology: ({ trails = {} }: { trails?: Record<string, unknown> }) => (
+    <div data-live-flow-canvas data-trail-count={Object.keys(trails).length} />
+  ),
 }))
 
 import { LiveFlowPanel } from '../LiveFlowPanel'
@@ -74,6 +76,24 @@ describe('LiveFlowPanel', () => {
     })))
     expect(container.textContent).toContain('1 in flight')
     expect(container.textContent).toContain('started')
+  })
+
+  it('keeps a completed request trail for the configured result window', async () => {
+    vi.useFakeTimers()
+    await act(async () => root.render(<LiveFlowPanel />))
+    const socket = TestWebSocket.instances[0]
+    await act(async () => socket.onmessage?.(new MessageEvent('message', {
+      data: JSON.stringify({ id: 'flow-1', ts: 1_768_000_000_000, event: 'started', method: 'POST', path: '/v1/responses', model: 'gpt-5', status: 0, latency_ms: 0 }),
+    })))
+    await act(async () => socket.onmessage?.(new MessageEvent('message', {
+      data: JSON.stringify({ id: 'flow-1', ts: 1_768_000_000_100, event: 'completed', method: 'POST', path: '/v1/responses', model: 'gpt-5', status: 200, latency_ms: 100 }),
+    })))
+    expect(container.textContent).toContain('0 in flight')
+    expect(container.querySelector('[data-live-flow-canvas]')?.getAttribute('data-trail-count')).toBe('1')
+    await act(async () => vi.advanceTimersByTimeAsync(24_999))
+    expect(container.querySelector('[data-live-flow-canvas]')?.getAttribute('data-trail-count')).toBe('1')
+    await act(async () => vi.advanceTimersByTimeAsync(1))
+    expect(container.querySelector('[data-live-flow-canvas]')?.getAttribute('data-trail-count')).toBe('0')
   })
 
   it('shows the relay diagnostic and stops automatic reconnect for a configuration failure', async () => {

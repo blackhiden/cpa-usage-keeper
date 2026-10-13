@@ -1,10 +1,11 @@
 import { memo } from 'react';
 import { BaseEdge, EdgeProps, getBezierPath } from '@xyflow/react';
+import type { LiveFlowTrail } from '../liveFlow';
 
 type FlowEdgeData = {
   isActive?: boolean;
   color?: string;
-  pulse?: { id: string; phase: 'started' | 'completed'; status: number };
+  trails?: LiveFlowTrail[];
 };
 
 export const ElectricEdge = memo(({
@@ -27,13 +28,8 @@ export const ElectricEdge = memo(({
   });
   const edgeData = data as FlowEdgeData | undefined;
   const isActive = edgeData?.isActive === true;
-  const pulse = edgeData?.pulse;
+  const trails = edgeData?.trails ?? [];
   const color = typeof edgeData?.color === 'string' ? edgeData.color : 'var(--primary-active)';
-  const pulseColor = pulse?.phase === 'started'
-    ? 'var(--warning-color)'
-    : pulse?.status && pulse.status >= 400
-      ? 'var(--error-color)'
-      : 'var(--success-color)';
 
   return (
     <g>
@@ -44,12 +40,32 @@ export const ElectricEdge = memo(({
           ? { stroke: color, strokeWidth: 2.5, opacity: 0.92 }
           : { stroke: 'var(--border-color)', strokeWidth: 1, opacity: 0.35 }}
       />
-      {pulse ? (
-        <circle key={pulse.id} r="4" fill={pulseColor} style={{ filter: `drop-shadow(0 0 4px ${pulseColor})` }}>
-          <animateMotion dur="0.72s" path={edgePath} fill="freeze" />
-          <animate attributeName="opacity" values="0;1;1;0" dur="0.72s" fill="freeze" />
-        </circle>
-      ) : null}
+      {trails.map((trail, index) => {
+        const pending = trail.state === 'pending';
+        const trailColor = pending
+          ? 'var(--warning-color)'
+          : trail.state === 'failure' ? 'var(--error-color)' : 'var(--success-color)';
+        return (
+          <g key={trail.id} className={`live-flow-trail live-flow-trail-${trail.state}`}>
+            <path
+              d={edgePath}
+              fill="none"
+              stroke={trailColor}
+              strokeWidth={pending ? 5 : 3.5}
+              strokeLinecap="round"
+              strokeDasharray={pending ? '3 10' : undefined}
+              strokeDashoffset={index * 1.75}
+              className={pending ? 'live-flow-trail-pending' : undefined}
+              style={pending ? undefined : { filter: `drop-shadow(0 0 3px ${trailColor})` }}
+            />
+            {pending ? (
+              <circle r="3.25" fill="var(--warning-color)" className="live-flow-trail-beacon">
+                <animateMotion dur="0.9s" repeatCount="indefinite" path={edgePath} />
+              </circle>
+            ) : null}
+          </g>
+        );
+      })}
     </g>
   );
 });

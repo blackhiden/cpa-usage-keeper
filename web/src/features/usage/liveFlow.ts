@@ -22,16 +22,20 @@ export interface LiveFlowModel {
   lastSeenAt: number
 }
 
-export interface LiveFlowPulse {
+export type LiveFlowTrailState = 'pending' | 'success' | 'failure'
+
+export interface LiveFlowTrail {
   id: string
   modelID: string
-  phase: LiveFlowEventPhase
+  state: LiveFlowTrailState
   status: number
+  timestamp: number
 }
 
 export type LiveFlowActiveRequests = Record<string, string>
 
 const maxLiveFlowEvents = 80
+export const LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS = 25_000
 
 export interface LiveFlowRelayError {
   kind: 'keeper_live_flow_error'
@@ -99,12 +103,15 @@ export function applyLiveFlowEvent(activeRequests: LiveFlowActiveRequests, event
   return next
 }
 
-export function toLiveFlowPulse(event: LiveFlowEvent): LiveFlowPulse {
+export function toLiveFlowTrail(event: LiveFlowEvent): LiveFlowTrail {
   return {
-    id: `${event.id}:${event.event}:${event.ts}`,
+    id: event.id,
     modelID: liveFlowModelID(event),
-    phase: event.event,
+    state: event.event === 'started'
+      ? 'pending'
+      : event.status >= 400 ? 'failure' : 'success',
     status: event.status,
+    timestamp: event.ts,
   }
 }
 

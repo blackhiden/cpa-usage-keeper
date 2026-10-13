@@ -6,7 +6,7 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- **Live Flow lifecycle animation:** The standalone Live Flow canvas now consumes root `started`/`completed` metadata frames. It shows real in-flight counts immediately, sends short one-shot amber/green/red model-route pulses for start/success/failure, and records final latency only on completion. The initial graph remains zoomed out to 0.7.
+- **Live Flow lifecycle trails:** The standalone Live Flow canvas now consumes root `started`/`completed` metadata frames. It shows real in-flight counts immediately, keeps an animated amber/yellow dotted trail on each pending request, then converts that request's trail to green on success or red on failure for 25 seconds before fading it away. Concurrent requests retain independent trails. Final latency is recorded only on completion. The initial graph remains zoomed out to 0.7.
 
 - **Live Flow model fidelity:** Keeper preserves the root stream's requested/routed model ID verbatim, including OpenAI-compatible prefixes such as `kr/claude-sonnet-4.5`. The root stream now preserves this metadata for large prompts instead of substituting an unrelated registry fallback.
 

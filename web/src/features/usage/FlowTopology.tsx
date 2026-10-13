@@ -11,7 +11,7 @@ import '@xyflow/react/dist/style.css';
 import { RouterNode } from './nodes/RouterNode';
 import { ProviderNode } from './nodes/ProviderNode';
 import { ElectricEdge } from './edges/ElectricEdge';
-import type { LiveFlowPulse } from './liveFlow';
+import type { LiveFlowTrail } from './liveFlow';
 import './FlowTopology.scss';
 
 const nodeTypes = {
@@ -37,14 +37,14 @@ export interface Provider {
 
 interface FlowTopologyProps {
   providers: Provider[];
-  pulses?: Record<string, LiveFlowPulse>;
+  trails?: Record<string, LiveFlowTrail>;
 }
 
 // React Flow zoom controls use a 1.2x increment, so 0.7 is approximately two
 // zoom-out steps below the default 1.0 viewport.
 export const liveFlowFitViewOptions = { padding: 0.42, minZoom: 0.35, maxZoom: 0.7 };
 
-export function FlowTopology({ providers, pulses = {} }: FlowTopologyProps) {
+export function FlowTopology({ providers, trails = {} }: FlowTopologyProps) {
   const activeRequests = providers.reduce((total, provider) => total + (provider.activeRequests ?? 0), 0)
   const nodes: Node[] = useMemo(() => {
     const routerNode: Node = {
@@ -78,27 +78,29 @@ export function FlowTopology({ providers, pulses = {} }: FlowTopologyProps) {
           latestStatus: provider.latestStatus,
           latestLatencyMs: provider.latestLatencyMs,
           activeRequests: provider.activeRequests,
-          pulse: pulses[provider.id],
         },
       };
     });
 
     return [routerNode, ...providerNodes];
-  }, [providers, activeRequests, pulses]);
+  }, [providers, activeRequests]);
 
   const edges: Edge[] = useMemo(() => {
-    return providers.map((provider) => ({
-      id: `e-provider-${provider.id}`,
-      source: 'router',
-      target: `provider-${provider.id}`,
-      type: 'topology',
-      data: {
-        isActive: (provider.activeRequests ?? 0) > 0,
-        color: provider.color,
-        pulse: pulses[provider.id],
-      },
-    }));
-  }, [providers, pulses]);
+    return providers.map((provider) => {
+      const providerTrails = Object.values(trails).filter((trail) => trail.modelID === provider.id)
+      return {
+        id: `e-provider-${provider.id}`,
+        source: 'router',
+        target: `provider-${provider.id}`,
+        type: 'topology',
+        data: {
+          isActive: (provider.activeRequests ?? 0) > 0,
+          color: provider.color,
+          trails: providerTrails,
+        },
+      };
+    });
+  }, [providers, trails]);
 
   return (
     <div className="flow-topology">
