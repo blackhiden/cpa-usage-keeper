@@ -19,6 +19,12 @@ describe('live flow event helpers', () => {
     expect(parseLiveFlowEvent({ ...event, latency_ms: '42' })).toBeNull()
   })
 
+  it('preserves a prefixed OpenAI-compatible requested model ID', () => {
+    const eventWithPrefix = { ...event, model: 'kr/claude-sonnet-4.5' }
+    expect(parseLiveFlowEvent(eventWithPrefix)?.model).toBe('kr/claude-sonnet-4.5')
+    expect(deriveLiveFlowModels([eventWithPrefix])[0]?.name).toBe('kr/claude-sonnet-4.5')
+  })
+
   it('derives bounded model nodes from root websocket events', () => {
     const withFailure = appendLiveFlowEvent([event], { ...event, id: 'flow-2', ts: event.ts + 1, status: 502, latency_ms: 90 })
     expect(deriveLiveFlowModels(withFailure)).toEqual([{

@@ -1,6 +1,25 @@
-# CPA Usage Keeper — Code Graph & Project Map
+# CPA Usage Keeper — Enhanced Code Graph & Project Map
 
-> **Purpose:** This document provides a high-level map of the entire codebase structure, module relationships, and data flow. Use it as your first reference when exploring the project—it minimizes tool calls and accelerates orientation for agents and developers.
+> **Purpose:** This document provides a comprehensive structural map of the entire codebase—modules, dependencies, data flow, and integration points. Use it as your **primary reference** when exploring the project to minimize file reads and accelerate orientation for AI agents and developers.
+>
+> **Last Updated:** 2026-10-13
+
+---
+
+## Table of Contents
+
+1. [System Context](#1-system-context)
+2. [Backend Code Structure](#2-backend-code-structure)
+3. [Repository Layer Deep Dive](#3-repository-layer-deep-dive)
+4. [Service Layer Deep Dive](#4-service-layer-deep-dive)
+5. [Background Runners & Agents](#5-background-runners--agents)
+6. [Frontend Architecture](#6-frontend-architecture)
+7. [API Surface Map](#7-api-surface-map)
+8. [Data Flow Diagrams](#8-data-flow-diagrams)
+9. [Extension Points & Integration Patterns](#9-extension-points--integration-patterns)
+10. [Key Files Reference Index](#10-key-files-reference-index)
+11. [Common Query Paths](#11-common-query-paths)
+12. [Verification & Testing](#12-verification--testing)
 
 ---
 
@@ -27,16 +46,18 @@
 ```
 
 **Key facts:**
-- Single Go process embedding the built React SPA
-- SQLite as the only persistent store (under `WORK_DIR`)
+- Single Go process embedding the built React SPA (`web/dist`)
+- SQLite as the only persistent store (under `WORK_DIR`, default `./data`)
 - Optional Redis for ingestion (alternatives: HTTP pull, Redis list queue)
-- Optional egress: ranking center, GitHub update checks
+- Optional egress: ranking center (keepers.cc.cd), GitHub update checks
+- CGO required (SQLite via `mattn/go-sqlite3`)
+- Go 1.26, React 19, TypeScript strict mode
 
 ---
 
 ## 2. Backend Code Structure
 
-### Entry Point → Assembly → Layers
+### 2.1 Entry Point → Assembly → Layers
 
 ```
 cmd/server/main.go
@@ -89,36 +110,179 @@ internal/app/app.go (APPLICATION ASSEMBLY)
         └───────────────────────────────────────┘
 ```
 
-### Backend Module Map
+### 2.2 Module Dependency Graph (Mermaid)
 
-| Package | Role |
-|---------|------|
-| `cmd/server` | Binary entry: CLI flags, bootstrap, version |
-| `internal/app` | Application assembly, wiring, lifecycle (Run/Close) |
-| `internal/api` | Gin router, thin handlers, auth middleware, DTO mapping |
-| `internal/service` | Business services: usage, identities, pricing, quota, auth, metadata sync, token processing |
-| `internal/repository` | All SQL/GORM access (repository pattern) + migrations |
-| `internal/entities` | GORM models — single source of schema truth |
-| `internal/poller` | Ingestion sources, inbox writer, ingest/process/aggregation runners |
-| `internal/quota` | Provider quota clients (Claude, Codex, Gemini CLI, Kimi, xAI, Antigravity), refresh engine, history |
-| `internal/gnn` | **Provider Model GNN feature** (permanent): sanitized graph, node/edge embeddings, HTTP surface in `gnn/httpapi` |
-| `internal/ranking` | Opt-in community ranking client/service |
-| `internal/auth` | Session management (memory/persistent), login IP/user-agent capture, activity tracking |
-| `internal/enrichgeo` | Opt-in IP geo/enrichment (reverse DNS PTR resolver, async cache) |
-| `internal/pricing` | Price catalog, resolver, snapshot |
-| `internal/cpa` | CPA management API client (HTTP + Redis queue client) |
-| `internal/activity` | Activity aggregation (short/medium/long/daily grains), bucket logic |
-| `internal/benchmark` | **Production capacity suite** (test-only, Linux amd64, not in baseline CI) |
-| `internal/helper` | Redaction, utilities |
-| `internal/config` | Configuration loading, validation |
-| `internal/logging` | Structured logging setup |
-| `internal/timeutil` | Time utilities, storage serialization |
-| `internal/updatecheck` | GitHub release update checker |
-| `internal/version` | Version injection point |
+```mermaid
+graph TD
+    A[cmd/server/main.go] --> B[internal/app]
+    B --> C[internal/api]
+    B --> D[internal/config]
+    B --> E[internal/repository]
+    B --> F[internal/service]
+    B --> G[internal/poller]
+    B --> H[internal/auth]
+    B --> I[internal/quota]
+    B --> J[internal/ranking]
+    B --> K[internal/gnn]
+    B --> L[web embedded]
+    
+    C --> F
+    C --> H
+    C --> I
+    C --> J
+    C --> K
+    
+    F --> E
+    F --> M[internal/pricing]
+    F --> N[internal/cpa]
+    
+    G --> E
+    G --> O[internal/activity]
+    G --> P[internal/latency]
+    G --> Q[internal/overview]
+    
+    E --> R[internal/entities]
+    E --> S[GORM/SQLite]
+    
+    I --> T[Provider APIs]
+    J --> U[Ranking Center]
+    N --> V[CPA/Redis]
+    
+    L --> C
+    
+    style B fill:#e1f5ff
+    style E fill:#fff4e1
+    style F fill:#ffe1f5
+    style C fill:#e1ffe1
+```
+
+### 2.3 Internal Module Responsibilities
+
+| Module | Primary Responsibility | Key Exports | Dependencies |
+|--------|------------------------|-------------|--------------|
+| **cmd/server** | Binary entry point | `main()` | `internal/app`, `internal/logging`, `internal/version` |
+| **internal/app** | Application assembly & lifecycle | `App`, `NewWithOptions()`, `Run()`, `Close()` | All major internal packages |
+| **internal/api** | HTTP router & handlers | Gin router, handler functions | `service`, `auth`, `quota`, `ranking`, `gnn` |
+| **internal/entities** | GORM models (schema source of truth) | `UsageEvent`, `RedisUsageInbox`, `CPAAPIKey`, etc. | Standard library only |
+| **internal/repository** | Data access layer (all SQL/GORM) | Repository structs, query functions | `entities`, `gorm.io/gorm` |
+| **internal/service** | Business logic layer | Service structs, domain operations | `repository`, `pricing`, `cpa` |
+| **internal/poller** | Event ingestion & aggregation | Runners, ingest sources | `repository`, `service` |
+| **internal/quota** | Provider quota management | Quota clients, refresh engine | Provider APIs |
+| **internal/gnn** | Provider-Model GNN feature | Graph construction, HTTP API | `service`, `entities` |
+| **internal/ranking** | Community ranking (opt-in) | Ranking client, HTTP API | External ranking center |
+| **internal/auth** | Session management | Session store, login limiter | `repository` |
+| **internal/pricing** | Price catalog & resolution | Catalog, resolver | Configuration |
+| **internal/cpa** | CPA management API client | HTTP client, Redis client | External CPA instance |
+| **internal/config** | Configuration loading | `Config` struct, env parsing | `godotenv` |
+| **internal/helper** | Shared utilities | Redaction, cost calc, identity helpers | Standard library |
+| **internal/enrichgeo** | IP enrichment (opt-in) | Reverse DNS enrichment | Standard library |
+| **web** | React SPA frontend | Embedded static bundle | Node.js build chain |
 
 ---
 
-## 3. Frontend Code Structure
+## 3. Repository Layer Deep Dive
+
+### 3.1 Repository Structure
+
+The repository layer (`internal/repository/`) encapsulates **all SQL and GORM operations**. No SQL escapes this boundary.
+
+**Core files:**
+- `usage.go` (93KB) - Main usage event repository with complex queries
+- `usage_identities.go` - Identity aggregation queries  
+- `redis_usage_inbox.go` - CPA event inbox management
+- `codex_quota_history.go` - Codex quota tracking
+- `cpa_api_key.go` - CPA API key persistence
+- `pricing.go`, `pricing_rules.go` - Pricing catalog
+- `error_events.go` - Error event storage
+- `batch.go` - Batch insert utilities
+- `migration/*.go` - 20+ additive schema migrations
+
+**Aggregation stores:**
+- `activitystore/` - Activity rollup writes
+- `latencystore/` - Latency rollup writes  
+- `overviewstore/` - Overview hourly/daily rollup writes
+
+### 3.2 Database Pool Architecture
+
+```
+Application Layer → GORM DB (dbresolver) → SQLite (WAL mode)
+                    ├─ Writer Pool: 1 connection (all writes)
+                    └─ Reader Pool: N connections (queries)
+```
+
+**Key principles:**
+- **Single writer** - All writes use 1 connection to prevent SQLite lock contention
+- **Read scaling** - Queries use configurable reader pool (default 4)
+- **Optimistic concurrency** - Aggregation checkpoints use `WHERE name = ? AND last_processed_event_id = ?`
+
+---
+
+## 4. Service Layer Deep Dive
+
+### 4.1 Key Services
+
+| Service | File | Responsibility |
+|---------|------|----------------|
+| **UsageService** | `usage.go` | Overview, activity, event lists, cost resolution |
+| **UsageIdentityService** | `usage_identities_service.go` | Identity stats, display names |
+| **RequestLogService** | `request_log.go` | CPA request log proxying |
+| **PricingService** | `pricing_service.go` | Pricing catalog access |
+| **CPAAPIKeyService** | `cpa_api_keys_service.go` | API key management |
+| **AuthFilesService** | `auth_files_management.go` | Auth file CRUD |
+| **CredentialStatusService** | `credential_status.go` | Health calculation |
+| **MetadataSyncService** | `sync.go` (44KB) | Full CPA metadata sync |
+
+### 4.2 Service → Repository Pattern
+
+Services orchestrate repository calls and apply business logic:
+
+```go
+// Service method
+func (s *usageService) GetUsageOverview(ctx, filter) {
+    // 1. Validate & resolve business entities
+    apiGroupKey := s.resolveAPIGroupKey(ctx, filter.APIKeyID)
+    
+    // 2. Call repository with transformed filter
+    overview := repository.BuildUsageOverview(db, repoFilter, pricing)
+    
+    // 3. Map to service DTO
+    return &servicedto.UsageOverviewSnapshot{...}
+}
+```
+
+---
+
+## 5. Background Runners & Agents
+
+### 5.1 Ingestion Pipeline
+
+```
+CPA → RedisIngestRunner → redis_usage_inboxes → RedisProcessRunner → usage_events → UsageAggregationRunner → rollups
+```
+
+**Runners (started in order by app.Run()):**
+1. RedisIngest - Subscribes to CPA events
+2. RedisProcess - Processes inbox → usage_events
+3. UsageAggregation - Aggregates to rollup tables
+4. MetadataSync - Syncs CPA metadata
+5. QuotaAutoRefresh - Provider quota refresh
+6. Ranking - Community ranking (opt-in)
+7. Maintenance - Archive/retention/cleanup
+8. BackupMaintenance - Scheduled backups
+
+**Stopped in reverse order by app.Close().**
+
+### 5.2 Aggregation Checkpoints
+
+Fair scheduler alternates between:
+- **Rollups:** overview_hourly, overview_daily, activity, latency
+- **Identity:** identity_aggregation
+
+Each checkpoint tracks `last_processed_event_id` in `usage_aggregation_checkpoints` table.
+
+---
+
+## 6. Frontend Code Structure
 
 ```
 web/
@@ -322,6 +486,104 @@ Component (React)
 
 ---
 
+## 7. API Surface Map
+
+### 7.1 Public Endpoints (no auth)
+- `GET /healthz` - Health check
+- `POST /api/v1/auth/login` - Admin password login
+- `POST /api/v1/auth/api-key-login` - API key viewer login
+
+### 7.2 Admin Endpoints
+- `GET /api/v1/usage/overview` - Usage overview with filters
+- `GET /api/v1/usage/activity` - Activity time series
+- `GET /api/v1/usage/events` - Event list with pagination
+- `GET /api/v1/usage/identities` - Identity stats
+- `GET /api/v1/quota/*` - Quota management & history
+- `GET /api/v1/ranking/*` - Community ranking
+- `GET /api/v1/live-flow/ws` - Live flow WebSocket
+- `GET /api/v1/gnn/graph` - Provider-model GNN graph
+- `GET /api/v1/providers` - Provider metadata
+- `GET /api/v1/cpa-api-keys` - CPA API keys
+- `GET /api/v1/auth-files` - Auth files
+- `GET /api/v1/pricing/*` - Pricing rules
+
+### 7.3 API Key Viewer Endpoints (scoped)
+- `GET /api/v1/key-overview` - Scoped to viewer's API key
+- `GET /api/v1/key-activity` - Scoped activity
+
+---
+
+## 8. Key Files Reference Index
+
+### 8.1 Critical Entry Points
+
+| File | Purpose | Size | Key Functions |
+|------|---------|------|---------------|
+| `cmd/server/main.go` | Binary entry | 44 lines | `main()` |
+| `internal/app/app.go` | App assembly | 900+ lines | `NewWithOptions()`, `Run()`, `Close()` |
+| `internal/api/router.go` | API router | 1000+ lines | `NewRouter()`, route registration |
+| `internal/repository/usage.go` | Usage queries | 2500+ lines | `ListUsageEventsWithFilter()`, `BuildUsageOverview*()` |
+| `internal/service/usage.go` | Usage logic | 750+ lines | `GetUsageOverview()`, `GetUsageActivity()` |
+| `internal/poller/usage_aggregation_runner.go` | Aggregation | 800+ lines | `Run()`, fair scheduler |
+| `web/src/App.tsx` | Frontend shell | 400+ lines | Auth, routing, session |
+| `web/src/pages/UsagePage.tsx` | Main dashboard | 2700+ lines | Overview, activity, events |
+
+### 8.2 "Where is X?" Quick Reference
+
+| Question | Answer |
+|----------|--------|
+| Where are usage events stored? | `internal/entities/usage_event.go` (schema), `internal/repository/usage.go` (queries) |
+| Where is overview calculated? | `internal/repository/usage.go` → `BuildUsageOverviewWithFilterAndRecentCache()` |
+| Where are API routes defined? | `internal/api/router.go` → `register*Routes()` functions |
+| Where is authentication? | `internal/auth/session.go`, `internal/api/auth_handler.go` |
+| Where is frontend entry? | `web/src/main.tsx` → `<App />` in `App.tsx` |
+| Where is quota refresh? | `internal/quota/refresh_engine.go` |
+| Where is pricing resolved? | `internal/pricing/resolver.go` |
+| Where are migrations? | `internal/repository/migration/*.go` |
+| Where is GNN feature? | Backend: `internal/gnn/`, Frontend: `web/src/features/model-gnn/` |
+| Where is ranking? | Backend: `internal/ranking/`, Frontend: `web/src/features/ranking/` |
+
+### 8.3 Feature Location Map
+
+| Feature | Backend | Frontend |
+|---------|---------|----------|
+| Provider Model GNN | `internal/gnn/` + `internal/gnn/httpapi/` | `web/src/features/model-gnn/ProviderModelGNNPanel.tsx` |
+| Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` |
+| API Key Viewer | `internal/service/` (scoped queries) | `web/src/features/key-viewer/`, `web/src/pages/Key*.tsx` |
+| Live Flow | `internal/cpa/liveflow.go` (WebSocket proxy) | `web/src/features/usage/` (WebSocket client) |
+| Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
+| Request Logs | `internal/service/request_log.go` (CPA proxy) | API-driven download |
+
+---
+
+## 9. Extension Points & Integration Patterns
+
+### 9.1 Adding a New Quota Provider
+1. Create client in `internal/quota/` implementing `QuotaClient` interface
+2. Register in `internal/quota/registry.go`
+3. Wire in `internal/app/app.go` quota engine setup
+4. Add frontend UI in `web/src/features/usage/quota/`
+
+### 9.2 Adding a New Ingest Source
+1. Implement `IngestSource` interface in `internal/poller/`
+2. Wire in `internal/app/app.go` runner setup
+3. Add configuration env vars in `internal/config/config.go`
+
+### 9.3 Adding New Analytics Pipeline
+1. Add aggregation store under `internal/repository/` (e.g., `newmetricstore/`)
+2. Create checkpoint name in `usage_aggregation_checkpoints` table
+3. Extend `UsageAggregationRunner` in `internal/poller/usage_aggregation_runner.go`
+4. Add API endpoint in `internal/api/` + service method
+
+### 9.4 Adding New API Surface
+1. Define handler function in `internal/api/`
+2. Create service method in `internal/service/`
+3. Add repository queries if needed in `internal/repository/`
+4. Register route in `router.go` with appropriate middleware
+5. Add frontend API client call in `web/src/lib/api.ts`
+
+---
+
 ## 10. Verification Baseline
 
 Run before opening a PR:
@@ -341,22 +603,22 @@ npm --prefix ./web run typecheck      # tsc --noEmit (strict)
 npm --prefix ./web run build          # vite production build
 ```
 
-**Note:** The production capacity suite under `internal/benchmark/` is **not** part of the baseline. It is a Linux-only, on-demand harness (amd64 + cgroup v2 + systemd) run via `internal/benchmark/scripts/run-capacity.sh`.
+**Note:** The production capacity suite under `internal/benchmark/` is **not** part of the baseline. It is a Linux-only, on-demand harness (amd64 + cgroup v2 + systemd) run via `internal/benchmark/scripts/run-capacity.sh`. See `internal/benchmark/REPORT.md` for capacity measurements.
 
 ---
 
 ## 11. Related Documents
 
-- [README.md](../README.md) — quick start & deployment recipes
-- [ARCHITECTURE.md](ARCHITECTURE.md) — module map, wiring, data flow (detailed)
-- [SPECIFICATION.md](SPECIFICATION.md) — functional contract, use cases, business rules
-- [CONFIGURATION.md](CONFIGURATION.md) — env vars & CLI flags reference
-- [ROADMAP.md](ROADMAP.md) — phased future work
-- [CONTRIBUTING.md](CONTRIBUTING.md) — dev workflow & conventions
-- [AGENTS.md](../AGENTS.md) — AI agent guidance summary
-- [CHANGELOG.md](../CHANGELOG.md) — notable changes
+- [README.md](../README.md) — Quick start & deployment recipes
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Detailed architecture, module layering, data flow
+- [SPECIFICATION.md](SPECIFICATION.md) — Functional contract, use cases, business rules
+- [CONFIGURATION.md](CONFIGURATION.md) — Complete env vars & CLI flags reference
+- [ROADMAP.md](ROADMAP.md) — Phased future work & planned features
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development setup, workflow, conventions
+- [AGENTS.md](../AGENTS.md) — AI agent guidance & project rules
+- [CHANGELOG.md](../CHANGELOG.md) — Notable changes & release history
 - [session.md](../session.md) — AI session context (kept current)
 
 ---
 
-**End of Code Graph. Use this as your primary reference when exploring the codebase.**
+**End of Enhanced Code Graph. Use this document as your primary reference to minimize file reads and accelerate codebase navigation. When exploring the project, consult this map first before making tool calls.**

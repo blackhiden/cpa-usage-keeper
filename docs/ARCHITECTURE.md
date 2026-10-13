@@ -212,7 +212,9 @@ Key invariants:
   key and relays only the existing metadata event contract (`id`, `ts`,
   `method`, `path`, `model`, `status`, `latency_ms`). The client never receives
   `CPA_MANAGEMENT_KEY` or `CPA_LIVE_FLOW_API_KEY`. API-key viewers and CPAMC
-  embeds cannot access this global stream.
+  embeds cannot access this global stream. The `model` field is the request's
+  routed model ID and is preserved verbatim; Keeper does not replace it with a
+  local registry default.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

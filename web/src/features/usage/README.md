@@ -30,6 +30,9 @@ interface LiveFlowEvent {
 
 The stream deliberately excludes prompts, request bodies, headers, and
 credentials. `CPA_MANAGEMENT_KEY` and `CPA_LIVE_FLOW_API_KEY` remain server-side.
+`model` is the requested/routed model ID as CPA received it (for example,
+`kr/claude-sonnet-4.5`); Keeper preserves it verbatim instead of substituting
+an unrelated registry default.
 
 ## Root prerequisites
 

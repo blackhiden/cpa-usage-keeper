@@ -8,6 +8,8 @@ All notable changes to this project are documented here.
 
 - **Live Flow lifecycle animation:** The standalone Live Flow canvas now consumes root `started`/`completed` metadata frames. It shows real in-flight counts immediately, sends short one-shot amber/green/red model-route pulses for start/success/failure, and records final latency only on completion. The initial graph remains zoomed out to 0.7.
 
+- **Live Flow model fidelity:** Keeper preserves the root stream's requested/routed model ID verbatim, including OpenAI-compatible prefixes such as `kr/claude-sonnet-4.5`. The root stream now preserves this metadata for large prompts instead of substituting an unrelated registry fallback.
+
 - **Live Flow relay and dashboard page:** Added the standalone administrator
   `/live-flow` menu page and its always-mounted flow canvas. Keeper now relays
   the root CLIProxyAPI `/live-flow/ws` metadata stream through its authenticated
