@@ -127,6 +127,7 @@ type LeaderboardEntry struct {
 	Rank            uint16                      `json:"rank"`
 	ParticipantID   string                      `json:"participant_id"`
 	DisplayName     string                      `json:"display_name"`
+	MaskedKey       string                      `json:"masked_key,omitempty"`
 	KeyAlias        string                      `json:"key_alias,omitempty"`
 	AvatarID        uint8                       `json:"avatar_id"`
 	Value           int64                       `json:"value"`

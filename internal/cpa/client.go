@@ -447,6 +447,18 @@ func (c *Client) FetchManagementAPIKeys(ctx context.Context) (*response.Manageme
 	return result, nil
 }
 
+// FetchAuthAPIKeys 获取包含 name 的 API Keys 清单（CPA /v0/management/auth-api-keys）。
+func (c *Client) FetchAuthAPIKeys(ctx context.Context) (*response.AuthAPIKeysResult, error) {
+	result := &response.AuthAPIKeysResult{}
+	statusCode, body, err := c.doManagementJSONRequest(ctx, cpaManagementAuthAPIKeysEndpoint, &result.Payload, "auth api keys")
+	result.StatusCode = statusCode
+	result.Body = body
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 func (c *Client) FetchUsageQueue(ctx context.Context, count int) (*response.UsageQueueResult, error) {
 	result := &response.UsageQueueResult{}
 	if count <= 0 {

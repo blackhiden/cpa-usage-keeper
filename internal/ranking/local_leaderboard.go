@@ -66,14 +66,17 @@ func buildLocalLeaderboardEntries(rows []localRankingPopulationRow, metric Leade
 
 func localLeaderboardEntry(row localRankingPopulationRow, value int64) LeaderboardEntry {
 	displayName := helper.CPAAPIKeyDisplayName(entities.CPAAPIKey{
-		ID: row.APIKeyID, APIKey: row.APIKey, DisplayKey: row.DisplayKey, KeyAlias: row.KeyAlias,
+		ID: row.APIKeyID, APIKey: row.APIKey, KeyName: row.KeyName, DisplayKey: row.DisplayKey, KeyAlias: row.KeyAlias,
+	})
+	maskedKey := helper.CPAAPIKeyMaskedDisplayKey(entities.CPAAPIKey{
+		APIKey: row.APIKey, DisplayKey: row.DisplayKey,
 	})
 	avatarID := defaultLocalRankingAvatarID(row.APIKeyID)
 	if row.LocalRankingAvatarID != nil && *row.LocalRankingAvatarID >= MinAvatarID && *row.LocalRankingAvatarID <= MaxAvatarID {
 		avatarID = *row.LocalRankingAvatarID
 	}
 	return LeaderboardEntry{
-		ParticipantID: strconv.FormatInt(row.APIKeyID, 10), DisplayName: displayName, KeyAlias: strings.TrimSpace(row.KeyAlias), AvatarID: avatarID, Value: value,
+		ParticipantID: strconv.FormatInt(row.APIKeyID, 10), DisplayName: displayName, MaskedKey: maskedKey, KeyAlias: strings.TrimSpace(row.KeyAlias), AvatarID: avatarID, Value: value,
 	}
 }
 

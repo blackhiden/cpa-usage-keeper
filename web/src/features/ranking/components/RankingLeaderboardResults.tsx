@@ -79,7 +79,12 @@ export function RankingLeaderboardResults({
                       className={styles.tableAvatar}
                       onEditLocalProfile={onEditLocalProfile}
                     />
-                    <strong>{entry.display_name}</strong>
+                    <div>
+                      <strong>{entry.display_name}</strong>
+                      {scope === 'local' && entry.masked_key && (
+                        <div className={styles.maskedKey}>{entry.masked_key}</div>
+                      )}
+                    </div>
                   </div>
                 </td>
                 {metric === 'overall' ? (
@@ -129,7 +134,12 @@ function PodiumCard({ entry, position, metric, scope, onEditLocalProfile }: {
         className={styles.podiumAvatar}
         onEditLocalProfile={onEditLocalProfile}
       />
-      <strong className={styles.podiumName}>{entry.display_name}</strong>
+      <div className={styles.podiumNameContainer}>
+        <strong className={styles.podiumName}>{entry.display_name}</strong>
+        {scope === 'local' && entry.masked_key && (
+          <span className={styles.podiumMaskedKey}>{entry.masked_key}</span>
+        )}
+      </div>
       <span className={`${styles.podiumValue} ${valueSizeClass}`.trim()}>{value}</span>
     </article>
   );

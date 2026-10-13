@@ -23,14 +23,15 @@ func (s *SyncService) SyncMetadata(ctx context.Context) error {
 	fetchedAt := timeutil.NormalizeStorageTime(s.now())
 	// Auth Files 先读取，但失败不跳过后续两类 metadata。
 	authFilesResult, authFilesErr := s.metadataFetcher.FetchAuthFiles(ctx)
-	// 管理 API Keys 保持第二个读取位置，失败同样不阻止 provider。
+	// 管理 API Keys 保持第二个读取位置，优先读取带名称的新接口，失败时回退到原接口。
+	authAPIKeysResult, authAPIKeysErr := s.metadataFetcher.FetchAuthAPIKeys(ctx)
 	apiKeysResult, apiKeysErr := s.metadataFetcher.FetchManagementAPIKeys(ctx)
 	// 八个 provider endpoint 只在纯包内并发，返回按 registry 确定性归并的 snapshot。
 	providerSnapshot, providerFetchErr := providermetadata.Fetch(ctx, s.metadataFetcher)
 	// Auth Files 先进入自己的 repository 事务，保持原有写入顺序。
 	authSyncErr := syncAuthFiles(ctx, s.db, authFilesResult, authFilesErr, fetchedAt)
-	// 管理 API Keys 第二个串行写入，不与 SQLite provider 写入并发。
-	apiKeySyncErr := syncManagementAPIKeys(s.db, apiKeysResult, apiKeysErr, fetchedAt)
+	// 管理 API Keys 第二个串行写入，优先使用带名称的接口，不与 SQLite provider 写入并发。
+	apiKeySyncErr := syncManagementAPIKeys(s.db, authAPIKeysResult, authAPIKeysErr, apiKeysResult, apiKeysErr, fetchedAt)
 	// provider snapshot 最后一次进入 scoped replace 单事务，并分开返回 persistence error 与 fetch warning。
 	providerSyncErr, providerWarningErr := persistProviderMetadata(ctx, s.db, providerSnapshot, providerFetchErr, fetchedAt)
 	// 三类持久化错误按 Auth Files、管理 key、provider 的既有顺序合并。

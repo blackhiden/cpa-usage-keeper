@@ -1,7 +1,7 @@
 import { RANKING_SCOPES, type RankingScope } from './types';
 
 export const RANKING_SCOPE_STORAGE_KEY = 'cli-proxy-usage-ranking-scope-v1';
-export const DEFAULT_RANKING_SCOPE: RankingScope = 'community';
+export const DEFAULT_RANKING_SCOPE: RankingScope = 'local';
 
 interface RankingScopeStorage {
   getItem: (key: string) => string | null;

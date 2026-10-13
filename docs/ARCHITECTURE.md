@@ -62,7 +62,7 @@ internal/api ────── Gin router, handlers, auth middleware, DTO mappi
         ├── internal/quota ─────── provider quota clients, refresh engine &
         │                          offline subscription resolvers (claude /
         │                          codex / antigravity plan classification)
-        ├── internal/ranking ───── opt-in community ranking client/service
+        ├── internal/ranking ───── local and community ranking (local by default)
         ├── internal/benchmark ─── production capacity suite (test-only tooling)
         ├── internal/pricing ───── price catalog, resolver, snapshot
         ├── internal/cpa ───────── CPA management API client (HTTP + Redis queue client)

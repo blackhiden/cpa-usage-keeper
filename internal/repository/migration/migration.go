@@ -103,6 +103,8 @@ const (
 	migrationLimitLatencySamplePoints = "20260925_limit_latency_sample_points"
 	// migrationAddUsageEventTraceMetadata 只保存上游提供的执行与节点元数据，历史行保持 NULL。
 	migrationAddUsageEventTraceMetadata = "20261008_usage_event_trace_metadata"
+	// migrationAddCPAAPIKeyName 为 cpa_api_keys 表添加 key_name 列，存储从 CPA /v0/management/auth-api-keys 同步的 API Key 名称。
+	migrationAddCPAAPIKeyName = "20261013_add_cpa_api_key_name"
 )
 
 type schemaMigration struct {
@@ -255,6 +257,7 @@ func orderedMigrations() []databaseMigration {
 		{version: migrationNormalizeUsageEventParentSessionNull, run: normalizeUsageEventParentSessionNullMigration},
 		{version: migrationLimitLatencySamplePoints, run: limitLatencySamplePointsMigration, destructive: true},
 		{version: migrationAddUsageEventTraceMetadata, run: addUsageEventTraceMetadataMigration},
+		{version: migrationAddCPAAPIKeyName, run: migrateAddCPAAPIKeyName},
 	}
 }
 

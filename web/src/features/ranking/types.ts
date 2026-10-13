@@ -40,6 +40,7 @@ export interface RankingLeaderboardEntry {
   rank: number;
   participant_id: string;
   display_name: string;
+  masked_key?: string;
   key_alias?: string;
   avatar_id: number;
   value: number;

@@ -6,6 +6,7 @@ import "time"
 type CPAAPIKey struct {
 	ID                   int64  `gorm:"primaryKey"`
 	APIKey               string `gorm:"uniqueIndex:uniq_cpa_api_keys_api_key"`
+	KeyName              string // CPA 提供的 API Key 名称
 	DisplayKey           string
 	KeyAlias             string
 	LocalRankingAvatarID *uint8

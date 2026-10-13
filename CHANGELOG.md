@@ -4,7 +4,20 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Ranking feature converted to local API key competition by default**: The ranking feature now displays local API key usage competition as the default view, replacing the previous community-only approach. API keys are displayed with their names (fetched from CPA `/v0/management/auth-api-keys`) and masked keys (e.g., `sk-*********123456`). Community ranking remains available but is no longer the default scope; users can switch between local and community views. The backend now prioritizes CPA-provided key names over user aliases when displaying API keys throughout the application.
+
 ### Added
+
+- **New CPA endpoint integration**: Added support for CPA's `/v0/management/auth-api-keys` endpoint which provides API key names alongside keys. The metadata sync falls back gracefully to the legacy `/v0/management/api-keys` endpoint if the new one is unavailable.
+- **Database schema update**: Added `key_name` column to `cpa_api_keys` table to store API key names from CPA (migration `20261013_add_cpa_api_key_name`).
+- `FetchAuthAPIKeys()` method in CPA client for fetching API keys with names
+- `SyncCPAAPIKeysWithNames()` repository function for syncing keys with names
+- `masked_key` field in ranking leaderboard entries to display masked API keys alongside names
+- Display name priority now follows: CPA Key Name → User Alias → Masked Key
+
+### Added (Previous)
 
 - **Live Flow lifecycle trails:** The standalone Live Flow canvas now consumes root `started`/`completed` metadata frames. It shows real in-flight counts immediately, keeps an animated amber/yellow dotted trail on each pending request, then converts that request's trail to green on success or red on failure for 25 seconds before fading it away. Concurrent requests retain independent trails. Final latency is recorded only on completion. The initial graph remains zoomed out to 0.7.
 

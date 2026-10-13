@@ -98,7 +98,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
 - **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials.
 
-Optional community rankings and CPA plugin embedding in CPAMC are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
+Optional local API key rankings (default) and community rankings are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
 
 ## Sponsors and Special Thanks
 
@@ -145,7 +145,7 @@ internal/poller/         CPA usage and metadata synchronization
 internal/repository/     SQLite persistence and aggregations
 internal/service/        Usage, pricing, and identity services
 internal/quota/          Provider quota refresh and inspection
-internal/ranking/        Community ranking aggregation and sync
+internal/ranking/        Local and community ranking (local by default)
 internal/benchmark/      Capacity suite, reports, manifests, and legacy microbenchmarks
 deploy/                  Deployment templates
 web/                     React + TypeScript frontend
@@ -490,7 +490,7 @@ For cross-origin CPAMC embedding, `CPA_PUBLIC_URL` must be a complete `http://` 
 | `IP_ENRICHMENT_ENABLED` | No | `false` | Opt-in: enrich Session Settings `login_ip`/`last_seen_ip` with privacy-preserving reverse-DNS/private-network info |
 | `IP_ENRICHMENT_TTL` | No | `24h` | Cache lifetime for IP enrichment results |
 | `IP_ENRICHMENT_TIMEOUT` | No | `2s` | Per-lookup timeout for IP enrichment |
-| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | No | `false` | Allow API Key viewers to read Local Ranking; Community Ranking remains read-only |
+| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | No | `false` | Allow API Key viewers to read Local Ranking; optional community ranking can be switched in the UI |
 
 ### Timezone And Request Behavior
 

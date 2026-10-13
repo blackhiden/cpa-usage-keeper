@@ -27,7 +27,7 @@ exploration, cost analysis, quota monitoring, and community ranking.
   and model pricing rules.
 - Quota tracking and refresh for AI providers (Claude, Codex, Gemini CLI,
   Kimi, xAI, Antigravity) attached to Auth Files.
-- Optional, opt-in community ranking against the official center.
+- Optional, opt-in community ranking against the official center; local API key ranking is available by default.
 - Web UI (admin) and a read-only per-API-key viewer page.
 
 **Out of scope**
@@ -90,9 +90,11 @@ keys that are synchronized from CPA itself.
   current without manual edits.
 - **UC-8 — Per-key sharing.** As an admin, I share an API key with a user so
   they can view their own usage on a read-only page.
-- **UC-9 — Community ranking (opt-in).** As an admin, I opt in to the
-  community ranking; my instance publishes an ed25519-signed identity and
-  appears on the official leaderboard.
+- **UC-9 — Local & community ranking.** As an admin, I view local API key usage
+  ranking by default (showing API key names from CPA and masked keys). I can
+  optionally switch to community ranking to compare against other Keeper
+  instances; my instance publishes an ed25519-signed identity and appears on
+  the official leaderboard (opt-in).
 - **UC-10 — Stay current.** As an admin, I see a notification when a newer
   release is available (hidden for dev builds).
 - **UC-11 — Data safety.** As an admin, daily backups and the 90-day →

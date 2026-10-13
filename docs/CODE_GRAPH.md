@@ -169,7 +169,7 @@ graph TD
 | **internal/poller** | Event ingestion & aggregation | Runners, ingest sources | `repository`, `service` |
 | **internal/quota** | Provider quota management | Quota clients, refresh engine | Provider APIs |
 | **internal/gnn** | Provider-Model GNN feature | Graph construction, HTTP API | `service`, `entities` |
-| **internal/ranking** | Community ranking (opt-in) | Ranking client, HTTP API | External ranking center |
+| **internal/ranking** | Local and community ranking | Local API key ranking (default), HTTP API, optional community sync | External ranking center (optional) |
 | **internal/auth** | Session management | Session store, login limiter | `repository` |
 | **internal/pricing** | Price catalog & resolution | Catalog, resolver | Configuration |
 | **internal/cpa** | CPA management API client | HTTP client, Redis client | External CPA instance |
@@ -266,7 +266,7 @@ CPA → RedisIngestRunner → redis_usage_inboxes → RedisProcessRunner → usa
 3. UsageAggregation - Aggregates to rollup tables
 4. MetadataSync - Syncs CPA metadata
 5. QuotaAutoRefresh - Provider quota refresh
-6. Ranking - Community ranking (opt-in)
+6. Ranking - Local API key ranking (default) and optional community ranking
 7. Maintenance - Archive/retention/cleanup
 8. BackupMaintenance - Scheduled backups
 
@@ -300,7 +300,7 @@ web/
 │   │   ├── dashboard/              # Dashboard shell components
 │   │   └── usage/                  # Usage-specific components
 │   ├── features/                   # Feature-specific domains
-│   │   ├── ranking/                # Community ranking (opt-in)
+│   │   ├── ranking/                # Local (default) and community ranking
 │   │   ├── model-gnn/              # Provider Model GNN (permanent)
 │   │   └── usage/                  # Live Flow WebSocket
 │   ├── stores/                     # Zustand state management
@@ -422,7 +422,7 @@ Component (React)
 | **UsageAggregation** | `internal/poller` | Serial runner with per-pipeline checkpoints (overview hourly/daily, activity, latency stats) |
 | **MetadataSync** | `internal/app` | Sync Auth Files / API Keys / AI Providers / pricing from CPA (interval + control-message triggered) |
 | **QuotaAutoRefresh** | `internal/quota` | Provider quota refresh workers (manual + auto), shared queue |
-| **Ranking** | `internal/ranking` | Opt-in community ranking client; inert unless enabled |
+| **Ranking** | `internal/ranking` | Local API key ranking (default); optional community ranking client |
 | **Maintenance** | `internal/app` | Retention (90-day hot/cold archive move), log cleanup |
 | **BackupMaintenance** | `internal/app` | Scheduled SQLite backups |
 | **CodexQuotaHistory** | `internal/quota` | Codex quota history scheduler + runner (flush, cleanup) |
@@ -548,7 +548,7 @@ Component (React)
 | Feature | Backend | Frontend |
 |---------|---------|----------|
 | Provider Model GNN | `internal/gnn/` + `internal/gnn/httpapi/` | `web/src/features/model-gnn/ProviderModelGNNPanel.tsx` |
-| Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` |
+| Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` (local by default) |
 | API Key Viewer | `internal/service/` (scoped queries) | `web/src/features/key-viewer/`, `web/src/pages/Key*.tsx` |
 | Live Flow | `internal/cpa/liveflow.go` (WebSocket proxy) | `web/src/features/usage/` (WebSocket client) |
 | Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
