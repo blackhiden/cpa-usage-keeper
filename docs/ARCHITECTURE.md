@@ -216,7 +216,10 @@ Key invariants:
   routed model ID and is preserved verbatim; Keeper does not replace it with a
   local registry default. Keeper visualizes `started` as an animated amber
   pending trail, then retains a green success or red failure trail for 25
-  seconds after the matching completion.
+  seconds after the matching completion. Root filters the stream before relay:
+  `/chat/completions` is included, while other routes and WebSocket turns need
+  prompt-bearing input; token refresh, authentication, management, and
+  model-less background operations are excluded.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

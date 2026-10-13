@@ -10,6 +10,8 @@ All notable changes to this project are documented here.
 
 - **Live Flow pending color correction:** Pending/in-flight trails, beacons, counters, and feed rows use the dedicated yellow `--live-flow-pending-color` token instead of Keeper's generic red warning token. Failure remains red and success remains green.
 
+- **Live Flow generation-only stream:** Keeper now receives only root CPA generation events: `/chat/completions` remains eligible, while other routes and WebSocket turns require a prompt. Token refresh, authentication, management, and model-less background operations no longer create Live Flow trails.
+
 - **Live Flow model fidelity:** Keeper preserves the root stream's requested/routed model ID verbatim, including OpenAI-compatible prefixes such as `kr/claude-sonnet-4.5`. The root stream now preserves this metadata for large prompts instead of substituting an unrelated registry fallback.
 
 - **Live Flow relay and dashboard page:** Added the standalone administrator

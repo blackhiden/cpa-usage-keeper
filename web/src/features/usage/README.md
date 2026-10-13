@@ -34,6 +34,11 @@ credentials. `CPA_MANAGEMENT_KEY` and `CPA_LIVE_FLOW_API_KEY` remain server-side
 `kr/claude-sonnet-4.5`); Keeper preserves it verbatim instead of substituting
 an unrelated registry default.
 
+Root CPA publishes only generation traffic to this stream: `/chat/completions`
+requests are included, while other routes and WebSocket turns must carry an
+explicit `prompt` field. Authentication, token refresh, management, and other
+model-less background operations are excluded before they reach Keeper.
+
 ## Root prerequisites
 
 - Root CLIProxyAPI must have `cpa-fork-liveflow-enabled: true` **at startup**.
