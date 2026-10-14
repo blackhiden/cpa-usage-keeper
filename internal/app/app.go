@@ -331,6 +331,7 @@ func NewWithConfig(cfg config.Config) (*App, error) {
 		BasePath:                        cfg.AppBasePath,
 		FrameAncestorOrigins:            frameAncestorOrigins(cfg),
 		TrustedProxyCIDRs:               cfg.TrustedProxyCIDRs,
+		// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
 		APIKeyViewerLocalRankingEnabled: cfg.APIKeyViewerLocalRankingEnabled,
 	}
 	// 可选的隐私保护登录 IP 反解/增强层（默认关闭，opt-in）。

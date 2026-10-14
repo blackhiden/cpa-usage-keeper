@@ -180,7 +180,9 @@ func NewRouter(
 	if rankingProvider != nil {
 		rankinghttpapi.RegisterKeyViewerRoutes(keyViewerProtected, rankingProvider)
 	}
-	if authConfig.APIKeyViewerLocalRankingEnabled && localRankingProvider != nil {
+	// Local ranking is now always enabled for API key viewers when available.
+	// The APIKeyViewerLocalRankingEnabled config flag is deprecated and ignored here.
+	if localRankingProvider != nil {
 		rankinghttpapi.RegisterKeyViewerLocalRoutes(keyViewerProtected, localRankingProvider)
 	}
 

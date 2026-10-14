@@ -62,6 +62,8 @@ type Config struct {
 	// CPARequestLogAccessEnabled 控制是否允许通过 Keeper 访问 CPA request log。
 	CPARequestLogAccessEnabled bool
 	// APIKeyViewerLocalRankingEnabled 控制 API Key Viewer 是否可只读查看本地排行。
+	// Deprecated: Local ranking is now always enabled for API key viewers when the provider is available.
+	// This field is kept for backward compatibility but is no longer used for route registration.
 	APIKeyViewerLocalRankingEnabled bool
 	// RedisQueueAddr 是 CPA management data stream 的 TCP 地址，空值时按 CPA_BASE_URL 推导。
 	RedisQueueAddr string
