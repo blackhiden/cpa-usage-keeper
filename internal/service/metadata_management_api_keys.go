@@ -26,7 +26,7 @@ func syncManagementAPIKeys(db *gorm.DB, authResult *response.AuthAPIKeysResult, 
 		}
 		return nil
 	}
-	
+
 	// 新接口失败时，回退到原接口
 	if legacyErr != nil {
 		return fmt.Errorf("fetch management api keys: %w", legacyErr)
@@ -42,4 +42,3 @@ func syncManagementAPIKeys(db *gorm.DB, authResult *response.AuthAPIKeysResult, 
 	}
 	return nil
 }
-
