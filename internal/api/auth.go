@@ -45,6 +45,8 @@ type AuthConfig struct {
 	BasePath                        string
 	FrameAncestorOrigins            []string
 	TrustedProxyCIDRs               []string
+	// Deprecated: Local ranking is now always enabled for API key viewers.
+	// This field is kept for backward compatibility with the session API response.
 	APIKeyViewerLocalRankingEnabled bool
 }
 

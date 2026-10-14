@@ -83,17 +83,19 @@ func TestKeyViewerCommunityRankingRouteIsReadOnly(t *testing.T) {
 	}
 }
 
-func TestKeyViewerLocalRankingRouteFollowsExplicitAccessFlag(t *testing.T) {
+func TestKeyViewerLocalRankingRouteIsAlwaysAvailableAndReadOnly(t *testing.T) {
+	// Local ranking is now always available for viewers regardless of the deprecated config flag.
+	// We test with both flag values to ensure backward compatibility.
 	for _, tc := range []struct {
 		name                  string
-		enabled               bool
+		configFlag            bool // The deprecated flag value (now ignored for route registration)
 		wantStatus, wantCalls int
 	}{
-		{"disabled", false, http.StatusNotFound, 0},
-		{"enabled read only", true, http.StatusOK, 1},
+		{"always available even with flag false", false, http.StatusOK, 1},
+		{"always available with flag true", true, http.StatusOK, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, viewerToken, _, local, router := newKeyViewerRankingRouter(t, tc.enabled)
+			_, viewerToken, _, local, router := newKeyViewerRankingRouter(t, tc.configFlag)
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, viewerRankingRequest(http.MethodGet, "/api/v1/key-ranking/local/leaderboards?period=today&metric=overall", viewerToken))
 			if response.Code != tc.wantStatus || local.calls != tc.wantCalls {
@@ -104,12 +106,15 @@ func TestKeyViewerLocalRankingRouteFollowsExplicitAccessFlag(t *testing.T) {
 			if mutation.Code != http.StatusNotFound || local.calls != tc.wantCalls {
 				t.Fatalf("viewer local profile mutation was exposed: status=%d body=%s calls=%d", mutation.Code, mutation.Body.String(), local.calls)
 			}
-			if tc.enabled {
-				session := httptest.NewRecorder()
-				router.ServeHTTP(session, viewerRankingRequest(http.MethodGet, "/api/v1/auth/session", viewerToken))
-				if session.Code != http.StatusOK || !strings.Contains(session.Body.String(), `"local_ranking_enabled":true`) {
-					t.Fatalf("viewer session omitted local ranking capability: status=%d body=%s", session.Code, session.Body.String())
-				}
+			// The session API still reports the flag value for backward compatibility.
+			session := httptest.NewRecorder()
+			router.ServeHTTP(session, viewerRankingRequest(http.MethodGet, "/api/v1/auth/session", viewerToken))
+			if session.Code != http.StatusOK {
+				t.Fatalf("viewer session request failed: status=%d body=%s", session.Code, session.Body.String())
+			}
+			expectedFlag := tc.configFlag
+			if expectedFlag && !strings.Contains(session.Body.String(), `"local_ranking_enabled":true`) {
+				t.Fatalf("viewer session missing expected local_ranking_enabled:true in response: %s", session.Body.String())
 			}
 		})
 	}
