@@ -81,6 +81,13 @@ const resources = {
         load_failed: 'Unable to load API Key analysis',
         latency_load_failed: 'Unable to load API Key latency diagnostics'
       },
+      key_viewer: {
+        tab_events: 'Request Events',
+        events_title: 'Your Request Events',
+        events_subtitle: 'Browse and export your request history from the most recent 90 days.',
+        events_load_failed: 'Unable to load request events',
+        events_empty: 'No request events found for the selected time range.'
+      },
       usage_stats: {
         title: 'Usage',
         refresh: 'Refresh',
@@ -1077,6 +1084,13 @@ const resources = {
         load_failed: '无法加载 API Key 分析',
         latency_load_failed: '无法加载 API Key 延迟诊断'
       },
+      key_viewer: {
+        tab_events: '请求事件',
+        events_title: '您的请求事件',
+        events_subtitle: '浏览并导出最近 90 天的请求历史。',
+        events_load_failed: '无法加载请求事件',
+        events_empty: '所选时间范围内未找到请求事件。'
+      },
       usage_stats: {
         title: '用量',
         refresh: '刷新',
@@ -2072,6 +2086,13 @@ const resources = {
       key_analysis: {
         load_failed: '無法載入 API Key 分析',
         latency_load_failed: '無法載入 API Key 延遲診斷'
+      },
+      key_viewer: {
+        tab_events: '請求事件',
+        events_title: '您的請求事件',
+        events_subtitle: '瀏覽並匯出最近 90 天的請求歷史。',
+        events_load_failed: '無法載入請求事件',
+        events_empty: '所選時間範圍內未找到請求事件。'
       },
       usage_stats: {
         title: '用量',

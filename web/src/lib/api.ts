@@ -1,4 +1,4 @@
-import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type AuthFilesManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingEntry, type PricingResponse, type PricingRulesResponse, type PricingSyncPreviewResponse, type PricingSyncSource, type QuotaAutoRefreshSettings, type ReplacePricingRulesRequest, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsedModelsResponse, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewResponse, type UsageOverviewComparisons, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type VersionResponse } from './types'
+import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type AuthFilesManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingEntry, type PricingResponse, type PricingRulesResponse, type PricingSyncPreviewResponse, type PricingSyncSource, type QuotaAutoRefreshSettings, type ReplacePricingRulesRequest, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsedModelsResponse, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewResponse, type UsageOverviewComparisons, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
 import { isCPAMCEmbed } from '@/embed/cpamcEmbed'
 import { resolveUsageRequestRange } from '@/utils/usage/rangeQuery'
 
@@ -577,6 +577,47 @@ export async function exportUsageEvents(request: UsageRangeRequest, format: Usag
   return {
     blob: await response.blob(),
     filename: parseAttachmentFilename(response.headers.get('Content-Disposition'), `usage-events.${format}`),
+  }
+}
+
+// Key Viewer Events API (scoped to viewer's API key)
+export async function fetchKeyEvents(request: UsageRangeRequest | undefined, signal?: AbortSignal, options?: FetchUsageEventsOptions): Promise<UsageEventsResponse> {
+  const params = buildUsageEventsParams(request, options)
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath('/key-events')}${query ? `?${query}` : ''}`, { signal })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key events: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchKeyEventFilterOptions(signal?: AbortSignal): Promise<{ models: string[]; sources: UsageSourceFilterOption[] }> {
+  const response = await apiFetch(apiPath('/key-events/filter-options'), { signal, cache: 'no-store' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key event filter options: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchKeyEventRequestLog(eventId: string, signal?: AbortSignal): Promise<UsageEventRequestLogResponse> {
+  const response = await apiFetch(apiPath(`/key-events/${encodeURIComponent(eventId)}/request-log`), { signal, cache: 'no-store' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key event request log: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function exportKeyEvents(request: UsageRangeRequest, format: UsageEventsExportFormat, options?: FetchUsageEventsOptions): Promise<UsageEventsExportFile> {
+  const params = buildUsageEventsParams(request, options, false)
+  params.set('format', format)
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath('/key-events/export')}${query ? `?${query}` : ''}`, { method: 'POST' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to export key events: ${response.status}`)
+  }
+  return {
+    blob: await response.blob(),
+    filename: parseAttachmentFilename(response.headers.get('Content-Disposition'), `key-events.${format}`),
   }
 }
 
