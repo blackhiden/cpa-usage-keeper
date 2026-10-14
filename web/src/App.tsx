@@ -9,6 +9,7 @@ import { AppFooter } from './components/AppFooter';
 import { isKeyViewerPath, type KeyViewerPath } from './features/key-viewer';
 import { KeyAnalysisPage } from './pages/KeyAnalysisPage';
 import { KeyEventsPage } from './pages/KeyEventsPage';
+import { KeyLiveFlowPage } from './pages/KeyLiveFlowPage';
 import { KeyOverviewPage } from './pages/KeyOverviewPage';
 import { KeyRankingPage } from './pages/KeyRankingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -175,15 +176,47 @@ function App() {
   if (authState === 'checking') {
     page = <div className="app-checking" aria-busy="true" />;
   } else if (authState === 'unauthenticated') {
-    page = <LoginPage loading={submitting} adminError={adminLoginError} apiKeyError={apiKeyLoginError} onPasswordSubmit={handlePasswordLogin} onAPIKeySubmit={handleAPIKeyLogin} />;
+    page = (
+      <LoginPage
+        loading={submitting}
+        adminError={adminLoginError}
+        apiKeyError={apiKeyLoginError}
+        onPasswordSubmit={handlePasswordLogin}
+        onAPIKeySubmit={handleAPIKeyLogin}
+      />
+    );
   } else if (authRole === 'api_key_viewer') {
-    page = keyViewerPath === '/key-analysis'
-      ? <KeyAnalysisPage apiKey={sessionAPIKey} onNavigate={handleKeyViewerNavigate} onAuthRequired={clearSession} />
-      : keyViewerPath === '/key-ranking'
-        ? <KeyRankingPage apiKey={sessionAPIKey} onNavigate={handleKeyViewerNavigate} onAuthRequired={clearSession} />
-        : keyViewerPath === '/key-events'
-          ? <KeyEventsPage apiKey={sessionAPIKey} onNavigate={handleKeyViewerNavigate} onAuthRequired={clearSession} />
-          : <KeyOverviewPage page={keyViewerPath === '/key-realtime' ? 'realtime' : 'overview'} apiKey={sessionAPIKey} onNavigate={handleKeyViewerNavigate} onAuthRequired={clearSession} />;
+    const commonProps = {
+      apiKey: sessionAPIKey,
+      onNavigate: handleKeyViewerNavigate,
+      onAuthRequired: clearSession,
+    };
+
+    switch (keyViewerPath) {
+      case '/key-analysis':
+        page = <KeyAnalysisPage {...commonProps} />;
+        break;
+
+      case '/key-ranking':
+        page = <KeyRankingPage {...commonProps} />;
+        break;
+
+      case '/key-events':
+        page = <KeyEventsPage {...commonProps} />;
+        break;
+
+      case '/key-live-flow':
+        page = <KeyLiveFlowPage {...commonProps} />;
+        break;
+
+      case '/key-realtime':
+        page = <KeyOverviewPage {...commonProps} page="realtime" />;
+        break;
+
+      default:
+        page = <KeyOverviewPage {...commonProps} page="overview" />;
+        break;
+    }
   } else {
     page = <UsagePage onAuthRequired={clearSession} />;
   }

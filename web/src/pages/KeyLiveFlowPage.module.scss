@@ -1,0 +1,61 @@
+.pageContent {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.privacyNotice {
+  background: var(--warning-bg, #fff3cd);
+  border: 1px solid var(--warning-border, #ffc107);
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.privacyIcon {
+  flex-shrink: 0;
+  color: var(--warning-color, #856404);
+  margin-top: 2px;
+}
+
+.privacyContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.privacyTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--warning-color, #856404);
+  margin: 0;
+}
+
+.privacyText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--warning-text, #664d03);
+  margin: 0;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .privacyNotice {
+    --warning-bg: #332701;
+    --warning-border: #664d03;
+    --warning-color: #ffca2c;
+    --warning-text: #ffc107;
+  }
+}
+
+/* Explicit dark theme class support */
+[data-theme='dark'] .privacyNotice {
+  --warning-bg: #332701;
+  --warning-border: #664d03;
+  --warning-color: #ffca2c;
+  --warning-text: #ffc107;
+}

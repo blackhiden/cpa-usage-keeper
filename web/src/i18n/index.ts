@@ -86,7 +86,10 @@ const resources = {
         events_title: 'Your Request Events',
         events_subtitle: 'Browse and export your request history from the most recent 90 days.',
         events_load_failed: 'Unable to load request events',
-        events_empty: 'No request events found for the selected time range.'
+        events_empty: 'No request events found for the selected time range.',
+        tab_live_flow: 'Live Flow',
+        live_flow_privacy_title: 'Global View: All API Keys',
+        live_flow_privacy_notice: 'You are viewing metadata for ALL requests across all API keys. No prompts, bodies, or headers are shown. This is a global real-time monitoring view.'
       },
       usage_stats: {
         title: 'Usage',
@@ -1089,7 +1092,10 @@ const resources = {
         events_title: '您的请求事件',
         events_subtitle: '浏览并导出最近 90 天的请求历史。',
         events_load_failed: '无法加载请求事件',
-        events_empty: '所选时间范围内未找到请求事件。'
+        events_empty: '所选时间范围内未找到请求事件。',
+        tab_live_flow: '实时流',
+        live_flow_privacy_title: '全局视图：所有 API Key',
+        live_flow_privacy_notice: '您正在查看所有 API Key 的所有请求的元数据。不会显示提示词、请求正文或请求头。这是全局实时监控视图。'
       },
       usage_stats: {
         title: '用量',
@@ -2092,7 +2098,10 @@ const resources = {
         events_title: '您的請求事件',
         events_subtitle: '瀏覽並匯出最近 90 天的請求歷史。',
         events_load_failed: '無法載入請求事件',
-        events_empty: '所選時間範圍內未找到請求事件。'
+        events_empty: '所選時間範圍內未找到請求事件。',
+        tab_live_flow: '即時流',
+        live_flow_privacy_title: '全域檢視：所有 API Key',
+        live_flow_privacy_notice: '您正在查看所有 API Key 的所有請求的中繼資料。不會顯示提示詞、請求本文或標頭。這是全域即時監控檢視。'
       },
       usage_stats: {
         title: '用量',
