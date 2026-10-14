@@ -100,3 +100,48 @@ func TestLiveFlowRelayRequiresAnAdminSession(t *testing.T) {
 		t.Fatalf("live flow response status = %v, want %d", response, http.StatusUnauthorized)
 	}
 }
+
+func TestLiveFlowRelayAcceptsAPIKeyViewerSession(t *testing.T) {
+	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("upgrade upstream live flow: %v", err)
+			return
+		}
+		defer func() { _ = conn.Close() }()
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(`{"id":"viewer-flow","status":200}`)); err != nil {
+			t.Errorf("write upstream live flow frame: %v", err)
+		}
+	}))
+	defer upstream.Close()
+
+	client := cpa.NewClient(upstream.URL, "management-key", time.Second, false)
+	sessions := auth.NewSessionManager(time.Hour)
+	config := AuthConfig{Enabled: true, LoginPassword: "secret", SessionTTL: time.Hour}
+	router := NewRouter(nil, nil, nil, nil, config, NewAuthHandler(config, sessions), "", OptionalProviders{LiveFlowClient: client})
+	keeper := httptest.NewServer(router)
+	defer keeper.Close()
+
+	token, _, err := sessions.CreateAPIKeyViewer(42)
+	if err != nil {
+		t.Fatalf("create API key viewer session: %v", err)
+	}
+	headers := http.Header{}
+	headers.Set("Cookie", "cpa_usage_keeper_session="+token)
+
+	conn, response, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(keeper.URL, "http")+"/api/v1/live-flow/ws", headers)
+	if err != nil {
+		t.Fatalf("API key viewer dial keeper live flow: %v response=%v", err, response)
+	}
+	defer func() { _ = conn.Close() }()
+
+	messageType, payload, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read relayed live flow event: %v", err)
+	}
+	if messageType != websocket.TextMessage || !strings.Contains(string(payload), `"id":"viewer-flow"`) {
+		t.Fatalf("unexpected relayed event type=%d payload=%s", messageType, payload)
+	}
+}
+
