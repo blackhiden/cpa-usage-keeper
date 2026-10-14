@@ -142,10 +142,14 @@ func NewRouter(
 	versionProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
 	registerVersionRoutes(versionProtected)
 
+	// Live Flow is available to both admin and API key viewers (global metadata-only view)
+	liveFlowProtected := apiV1.Group("")
+	liveFlowProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
+	registerLiveFlowRoutes(liveFlowProtected, liveFlowClient)
+
 	adminProtected := apiV1.Group("")
 	adminProtected.Use(authHandler.adminMiddleware())
 	registerStatusRoutes(adminProtected, statusProvider, statusConfig)
-	registerLiveFlowRoutes(adminProtected, liveFlowClient)
 	registerUpdateRoutes(adminProtected, nil)
 	registerUsageOverviewRoute(adminProtected, usageProvider, cpaAPIKeyProvider)
 	registerUsageActivityRoute(adminProtected, usageProvider)
