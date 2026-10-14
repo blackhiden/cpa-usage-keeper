@@ -15,6 +15,7 @@ type UsageProvider interface {
 	ListUsageEventFilterOptions(context.Context, servicedto.UsageFilter) (*servicedto.UsageEventFilterOptions, error)
 	GetAnalysis(context.Context, servicedto.UsageFilter) (*servicedto.AnalysisSnapshot, error)
 	GetAnalysisLatency(context.Context, servicedto.UsageFilter) (*servicedto.AnalysisLatencyDiagnostics, error)
+	VerifyUsageEventOwnership(context.Context, int64, string) (bool, error)
 }
 
 // UsageComparisonProvider 提供 Overview 下方维度比较数据；单独拆出接口避免基础 Overview 调用方被强制增加查询。

@@ -165,6 +165,10 @@ func (s *usageEventsStub) GetAnalysisLatency(context.Context, servicedto.UsageFi
 	return nil, s.err
 }
 
+func (s *usageEventsStub) VerifyUsageEventOwnership(context.Context, int64, string) (bool, error) {
+	return false, s.err
+}
+
 type authCPAAPIKeyStub struct {
 	row entities.CPAAPIKey
 }

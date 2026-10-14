@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -65,6 +66,31 @@ func (s *usageService) resolveAPIGroupKey(ctx context.Context, apiKeyID string) 
 		return "", err
 	}
 	return apiKey.APIKey, nil
+}
+
+// VerifyUsageEventOwnership checks if a usage event belongs to the specified API key ID.
+// Returns true if the event exists and belongs to the key, false otherwise.
+// Returns an error only for database failures (not for ownership mismatches).
+func (s *usageService) VerifyUsageEventOwnership(ctx context.Context, eventID int64, apiKeyID string) (bool, error) {
+	ctx = usageServiceContext(ctx)
+	expectedAPIGroupKey, err := s.resolveAPIGroupKey(ctx, apiKeyID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrInvalidID) {
+			return false, nil
+		}
+		return false, err
+	}
+	if expectedAPIGroupKey == "" {
+		return false, nil
+	}
+	eventAPIGroupKey, err := repository.FindUsageEventAPIGroupKeyByID(s.db.WithContext(ctx), eventID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return eventAPIGroupKey == expectedAPIGroupKey, nil
 }
 
 // Usage 页面里的 Overview tab 下传时间窗口和全局 API-Key，仓储层负责构建 overview 聚合。

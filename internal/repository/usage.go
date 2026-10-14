@@ -203,6 +203,22 @@ func FindUsageEventRequestIDByID(db *gorm.DB, id int64) (string, error) {
 	return strings.TrimSpace(event.RequestID), nil
 }
 
+// FindUsageEventAPIGroupKeyByID retrieves the api_group_key for a specific event ID.
+// Returns gorm.ErrRecordNotFound if the event does not exist.
+func FindUsageEventAPIGroupKeyByID(db *gorm.DB, id int64) (string, error) {
+	if db == nil {
+		return "", fmt.Errorf("database is nil")
+	}
+	if id <= 0 {
+		return "", gorm.ErrRecordNotFound
+	}
+	var event entities.UsageEvent
+	if err := db.Select("api_group_key").Where("id = ?", id).First(&event).Error; err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(event.APIGroupKey), nil
+}
+
 func loadUsageEventRecordsForQuery(db *gorm.DB, query *gorm.DB, costResolver pricing.Resolver) ([]dto.UsageEventRecord, error) {
 	var rows []dto.UsageEventRecord
 	// Request Events cost 只在响应阶段按当前价格配置计算，不回写 usage_events。
