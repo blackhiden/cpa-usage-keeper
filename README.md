@@ -94,11 +94,11 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Understand costs**: analyze usage, caching, and estimated costs by model, API Key, and provider.
 - **Investigate requests**: inspect and export request details, and explore success rates, time to first token (TTFT), and total latency.
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
-- **Share scoped access**: provide a read-only usage view for an individual CPA API Key.
+- **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
-- **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials.
+- **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials. API key viewers can access this global view with a privacy notice.
 
-Optional local API key rankings (default) and community rankings are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
+Optional local API key rankings (always enabled) and community rankings are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
 
 ## Sponsors and Special Thanks
 
@@ -490,7 +490,7 @@ For cross-origin CPAMC embedding, `CPA_PUBLIC_URL` must be a complete `http://` 
 | `IP_ENRICHMENT_ENABLED` | No | `false` | Opt-in: enrich Session Settings `login_ip`/`last_seen_ip` with privacy-preserving reverse-DNS/private-network info |
 | `IP_ENRICHMENT_TTL` | No | `24h` | Cache lifetime for IP enrichment results |
 | `IP_ENRICHMENT_TIMEOUT` | No | `2s` | Per-lookup timeout for IP enrichment |
-| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | No | `false` | Allow API Key viewers to read Local Ranking; optional community ranking can be switched in the UI |
+| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | No | `false` | **Deprecated.** Local ranking is now always enabled for API key viewers when available. This setting is kept for backward compatibility but has no effect. |
 
 ### Timezone And Request Behavior
 

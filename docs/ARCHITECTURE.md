@@ -206,13 +206,13 @@ Key invariants:
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.
-- **Live Flow** is a standalone-admin Usage menu page at `/live-flow`. The
+- **Live Flow** is a standalone Usage menu page at `/live-flow`. The
   browser opens Keeper’s authenticated `/api/v1/live-flow/ws` endpoint; Keeper
   then opens CPA’s `/live-flow/ws` stream with a server-held optional client
   key and relays only the existing metadata event contract (`id`, `ts`,
   `method`, `path`, `model`, `status`, `latency_ms`). The client never receives
-  `CPA_MANAGEMENT_KEY` or `CPA_LIVE_FLOW_API_KEY`. API-key viewers and CPAMC
-  embeds cannot access this global stream. The `model` field is the request's
+  `CPA_MANAGEMENT_KEY` or `CPA_LIVE_FLOW_API_KEY`. API key viewers see a global view: they observe metadata for all requests
+  across all API keys, with a privacy notice explaining the scope. No prompts,. The `model` field is the request's
   routed model ID and is preserved verbatim; Keeper does not replace it with a
   local registry default. Keeper visualizes `started` as an animated amber
   pending trail, then retains a green success or red failure trail for 25

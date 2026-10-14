@@ -94,11 +94,11 @@
 - **看清花费**：按模型、API Key 和提供商分析用量、缓存及估算成本。
 - **定位问题**：查看和导出请求明细，通过成功率、首字延迟（TTFT）和总耗时分析请求表现。
 - **掌握额度**：查看凭证健康与剩余限额，支持限额刷新、优先级编辑和 Codex 限额历史。
-- **按需分享**：为单个 CPA API Key 提供独立的只读用量视图。
+- **按需分享**：为单个 CPA API Key 提供独立的只读用量视图，包括各自的请求事件、分析和本地排行（始终启用）。API Key 查看者还可监控实时流以获得运营可见性。
 - **拓扑可视化**：Provider Model GNN 关系图（双渲染器：React Flow 网格 + Reagraph WebGL）展示 Provider/模型关系、请求流和凭证依赖。
-- **查看实时流**：独立管理员菜单中的 **实时流** 将 CLIProxyAPI 请求元数据展示在实时模型流画布中；不会转发提示词、请求正文、请求头或凭证。
+- **查看实时流**：独立管理员菜单中的 **实时流** 将 CLIProxyAPI 请求元数据展示在实时模型流画布中；不会转发提示词、请求正文、请求头或凭证。API Key 查看者可通过隐私声明访问此全局视图。
 
-此外，还支持可选的社区排名，以及通过 CPA 插件嵌入 CPAMC。可使用 Docker Compose、Homebrew 或二进制部署，登录保护默认开启。
+本地 API Key 排行（始终启用）和可选的社区排名同时可用。可使用 Docker Compose、Homebrew 或二进制部署，登录保护默认开启。
 
 ## 赞助与特别感谢
 
@@ -467,7 +467,7 @@ cp .env.example .env
 | `IP_ENRICHMENT_ENABLED` | 否 | `false` | 可选：为 Session Settings 的 `login_ip`/`last_seen_ip` 增加隐私保护的反向 DNS/内网标记信息 |
 | `IP_ENRICHMENT_TTL` | 否 | `24h` | IP 增强结果缓存时长 |
 | `IP_ENRICHMENT_TIMEOUT` | 否 | `2s` | 单次 IP 增强查询超时 |
-| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | 否 | `false` | 允许 API Key 登录用户只读查看本地排行；Community 排行始终只读 |
+| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | 否 | `false` | **已弃用。** 本地排行现在对 API Key 查看者始终启用（当可用时）。此设置保留以兼容旧版本，但不再产生实际效果。 |
 
 ### 时区与请求行为
 

@@ -48,7 +48,7 @@ exploration, cost analysis, quota monitoring, and community ranking.
 |------|-----------------------|--------------|
 | **Admin** | Password login (`LOGIN_PASSWORD`), required when `AUTH_ENABLED=true` (default) | Full dashboard: all usage data, identities, pricing, quota, settings, auth files, API keys, update checks. |
 | **Anonymous admin** | No login when `AUTH_ENABLED` is explicitly set to `false` | Same as admin. Intended only for trusted networks. |
-| **API-key viewer** | One of the sync'd CPA API Keys (`/api/auth/api-key-login` or a per-tab key session) | Read-only, scoped view: `/api/key-overview` and `/api/key-activity` filtered to *their* key only. Rate-limited per viewer session. |
+| **API-key viewer** | One of the sync'd CPA API Keys (`/api/auth/api-key-login` or a per-tab key session) | Read-only, scoped view: overview, realtime activity, analysis, local ranking (always enabled), request events (scoped to their key), and live flow (global metadata view). Rate-limited per viewer session. Cannot access admin settings, auth files management, or other keys' data. |
 
 There is no user management beyond the single admin password and the CPA API
 keys that are synchronized from CPA itself.
@@ -69,8 +69,17 @@ keys that are synchronized from CPA itself.
   menu page to view CLIProxyAPI’s current metadata-only request stream. The
   visual canvas is mounted before traffic arrives and explains whether it is
   waiting, reconnecting, or unavailable. It must not expose prompts, request
-  bodies, headers, credentials, or Keeper’s upstream keys; API-key viewers and
-  CPAMC embeds cannot open this global stream.
+  bodies, headers, credentials, or Keeper’s upstream keys
+- **UC-2b — Browse Request Events.** As an admin or API key viewer, I browse
+  request events with filters (time range, API key, model, provider, status),
+  inspect individual event details, download request logs when enabled, and
+  export filtered results to CSV or JSON. API key viewers see only their own
+  events; admins see all events.
+- **UC-2c — Monitor Live Flow.** As an API key viewer, I open the Live Flow page
+  to observe real-time metadata for all requests across all API keys. A privacy
+  notice explains the global scope. No prompts, bodies, headers, or credentials
+  are shown. This provides operational visibility into current CPA activity.
+
 - **UC-3 — Analyze trends.** As an admin, I open Analysis to see time-series
   trends, cost composition, usage heatmaps, and latency diagnostics per model
   or provider.
@@ -115,7 +124,21 @@ keys that are synchronized from CPA itself.
 ### API-key viewer
 
 - **UC-13 — View my usage.** As a key holder, I authenticate with my CPA API
-  key and see overview + activity statistics scoped strictly to my key.
+  key and see overview, realtime activity, and analysis statistics scoped
+  strictly to my key.
+- **UC-14 — Local ranking.** As a key holder, I view local API key ranking to
+  compare my usage against other keys in the same Keeper instance. I can edit
+  my key's display alias for the ranking leaderboard. Local ranking is always
+  enabled when available.
+- **UC-15 — Request events.** As a key holder, I browse my own request events
+  with filters (time range, model, provider, status), inspect event details,
+  download request logs when enabled, and export my events to CSV or JSON.
+  I cannot see events from other API keys.
+- **UC-16 — Live Flow monitoring.** As a key holder, I open the Live Flow page
+  to observe real-time metadata for all requests across all API keys in the
+  Keeper instance. A privacy notice explains the global scope: I see metadata
+  (models, providers, latency, status) but no prompts, bodies, headers, or
+  credentials. This provides operational visibility into current CPA activity.
 
 
 
@@ -191,9 +214,19 @@ the SPA/embedding assets are public; everything else requires a session
 |---|---|
 | `GET /api/key-overview`, `GET /api/key-overview/realtime` | Overview scoped to the viewer's key. |
 | `GET /api/key-activity` | Activity scoped to the viewer's key. |
+| `GET /api/key-viewer/usage/analysis` | Analysis (latency diagnostics) scoped to the viewer's key. |
+| `GET /api/key-viewer/usage/events` | Request events list scoped to the viewer's key. Supports filters (time range, model, provider, status) and pagination. |
+| `GET /api/key-viewer/usage/events/:id` | Event detail for a single event. Returns 404 if the event belongs to a different key. |
+| `GET /api/key-viewer/usage/events/:id/request-log` | Request log download token (when `CPA_REQUEST_LOG_ACCESS_ENABLED=true`). Returns 404 for cross-key access. Request logs are redacted (prompts, bodies, headers removed). |
+| `POST /api/key-viewer/usage/events/export` | Export filtered events to CSV or JSON. Scoped to the viewer's key. |
+| `/api/live-flow/ws` | WebSocket connection for real-time metadata stream. API key viewers see metadata for ALL requests across all keys (global view). No prompts, bodies, headers, or credentials relayed. |
+| `GET /api/key-viewer/ranking/local` | Local API key ranking leaderboard (always enabled when local ranking provider is available). |
+| `PUT /api/key-viewer/ranking/local/profile` | Update the viewer's key alias for local ranking display. |
 
-Viewer endpoints are rate-limited per viewer session and expose no other
-key's data.
+Viewer endpoints are rate-limited per viewer session. Request events and logs
+are strictly scoped to the authenticated key; cross-key access returns 404.
+Live Flow is a global metadata view with no sensitive data relayed.
+
 
 ---
 

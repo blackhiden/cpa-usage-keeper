@@ -58,6 +58,13 @@ layout of `WORK_DIR`.
 | Variable | Default | Description |
 |---|---|---|
 | `QUOTA_REFRESH_WORKER_LIMIT` | `10` | Max concurrent quota refresh workers (hard cap 100). Auto-refresh schedules and per-provider settings are stored in SQLite (`AppSetting`). |
+| `QUOTA_UPSTREAM_RESPONSES_ENABLED` | `false` | Cache each credential's most recent quota query raw upstream response and return it via quota task/cache APIs for browser Network panel troubleshooting. Responses may contain account data. |
+
+## 5a. Deprecated Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `API_KEY_VIEWER_LOCAL_RANKING_ENABLED` | `false` | **Deprecated.** Local ranking is now always enabled for API key viewers when the local ranking provider is available. This field is kept for backward compatibility in the session API response but is no longer used for route registration. Setting this variable has no effect on functionality. |
 
 ## 6. Storage / Working Directory
 
