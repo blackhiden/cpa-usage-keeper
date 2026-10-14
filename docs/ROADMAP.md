@@ -173,6 +173,18 @@ follow-ups for richer session insight and manageability.*
   - Test the `auto-fit` detail grid at narrow widths, ensure `aria` labeling
     for the `<dl>` rows, and consider a copy-to-clipboard action for the
     User-Agent value.
+- **2.19 Enhanced API Key Viewer Capabilities.** ⬜
+  - **Motivation:** API key users currently have limited visibility (only
+    `/key-overview`, `/key-activity`, and `/key-analysis`). Expand access to
+    include request events (scoped to their key), local ranking, and Live Flow.
+  - **Current state:** API key viewers have Overview (scoped), Activity (scoped),
+    Analysis (scoped), optionally Local Ranking (controlled by
+    `APIKeyViewerLocalRankingEnabled`). They do NOT have Request Events or Live
+    Flow (explicitly denied in SPECIFICATION.md).
+  - **Target state:** API key viewers should access Local Ranking (visible by
+    default), Overview (own stats), Live Flow (global view of all flows),
+    Analysis (own stats), Request Events (own events only).
+  - See [PHASE_2_19_PLAN.md](PHASE_2_19_PLAN.md) for detailed implementation plan.
 
 ---
 
