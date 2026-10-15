@@ -42,9 +42,8 @@ export interface KeyRankingPageProps {
 
 export function KeyRankingPage({ apiKey, onNavigate, onAuthRequired }: KeyRankingPageProps) {
   const { t, i18n } = useTranslation();
-  const localRankingEnabled = apiKey?.local_ranking_enabled === true;
-  const [scope, setScope] = useState<RankingScope>('community');
-  const effectiveScope: RankingScope = localRankingEnabled && scope === 'local' ? 'local' : 'community';
+  // Community ranking is disabled - always use local ranking
+  const effectiveScope: RankingScope = 'local';
   const [period, setPeriod] = useState<RankingPeriod>('today');
   const [metric, setMetric] = useState<RankingMetric>('overall');
   const [leaderboard, setLeaderboard] = useState<RankingLeaderboardResponse | null>(null);
@@ -61,11 +60,6 @@ export function KeyRankingPage({ apiKey, onNavigate, onAuthRequired }: KeyRankin
     setError(null);
     setLoading(true);
   }, []);
-  const handleScopeChange = useCallback((nextScope: RankingScope) => {
-    if (nextScope === effectiveScope) return;
-    beginSelectionChange();
-    setScope(nextScope);
-  }, [beginSelectionChange, effectiveScope]);
   const handlePeriodChange = useCallback((nextPeriod: RankingPeriod) => {
     if (nextPeriod === period) return;
     beginSelectionChange();
@@ -147,7 +141,7 @@ export function KeyRankingPage({ apiKey, onNavigate, onAuthRequired }: KeyRankin
       activePage="ranking"
       apiKey={apiKey}
       loading={loading && !leaderboard}
-      filters={localRankingEnabled ? [<RankingScopeSwitch key="scope" value={effectiveScope} onChange={handleScopeChange} />] : []}
+      filters={[]}
       onRefresh={() => void handleManualRefresh()}
       refreshing={manualRefreshLoading}
       onNavigate={onNavigate}

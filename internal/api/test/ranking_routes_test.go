@@ -47,16 +47,16 @@ func (*rankingRouteProviderStub) LeaderboardMetadata(context.Context) (ranking.L
 }
 
 func TestRankingRoutesAreMountedOnlyInsideAdminGroup(t *testing.T) {
-	sessions, viewerToken, community, local, router := newKeyViewerRankingRouter(t, false)
+	sessions, viewerToken, _, local, router := newKeyViewerRankingRouter(t, false)
 	adminToken, _, err := sessions.Create()
 	if err != nil {
 		t.Fatalf("create admin session: %v", err)
 	}
+	// Only test local ranking routes - community ranking is disabled.
 	for _, tc := range []struct {
 		path  string
 		calls func() int
 	}{
-		{"/api/v1/ranking/status", func() int { return community.statusCalls }},
 		{"/api/v1/ranking/local/leaderboards?period=today&metric=overall", func() int { return local.calls }},
 	} {
 		t.Run(tc.path, func(t *testing.T) {

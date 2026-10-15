@@ -385,7 +385,8 @@ func NewWithConfig(cfg config.Config) (*App, error) {
 				CredentialStatus:   credentialStatusService,
 				CredentialPriority: credentialPriorityService,
 				RequestLogs:        requestLogService,
-				Ranking:            rankingService,
+				// Community ranking is disabled - code kept intact but not wired up.
+				// Ranking:            rankingService,
 				LocalRanking:       localRankingService,
 				ProviderModelGraph: providerModelGraphService,
 				LiveFlowClient:     cpaClient,

@@ -69,19 +69,9 @@ func viewerRankingRequest(method, target, token string) *http.Request {
 }
 
 func TestKeyViewerCommunityRankingRouteIsReadOnly(t *testing.T) {
-	_, viewerToken, community, _, router := newKeyViewerRankingRouter(t, false)
-
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, viewerRankingRequest(http.MethodGet, "/api/v1/key-ranking/leaderboards?period=today&metric=overall", viewerToken))
-	if response.Code != http.StatusOK || community.leaderboardCalls != 1 {
-		t.Fatalf("viewer could not read community ranking: status=%d body=%s calls=%d", response.Code, response.Body.String(), community.leaderboardCalls)
-	}
-
-	mutation := httptest.NewRecorder()
-	router.ServeHTTP(mutation, viewerRankingRequest(http.MethodPost, "/api/v1/key-ranking/join", viewerToken))
-	if mutation.Code != http.StatusNotFound {
-		t.Fatalf("expected viewer ranking mutation route to remain absent, got %d %s", mutation.Code, mutation.Body.String())
-	}
+	// Community ranking is disabled - routes are no longer registered.
+	// This test is kept to document the intentional removal.
+	t.Skip("Community ranking is disabled - routes not registered")
 }
 
 func TestKeyViewerLocalRankingRouteIsAlwaysAvailableAndReadOnly(t *testing.T) {

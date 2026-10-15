@@ -113,7 +113,8 @@ func NewRouter(
 	var credentialStatusProvider service.CredentialStatusProvider
 	var credentialPriorityProvider service.CredentialPriorityProvider
 	var requestLogProvider service.RequestLogProvider
-	var rankingProvider rankinghttpapi.Provider
+	// Community ranking provider is not wired up - feature disabled but code kept intact.
+	// var rankingProvider rankinghttpapi.Provider
 	var providerModelGraphProvider gnnhttpapi.Provider
 	var localRankingProvider rankinghttpapi.LocalProvider
 	var statusConfig StatusRouteConfig
@@ -127,7 +128,8 @@ func NewRouter(
 		credentialStatusProvider = optionalProviders[0].CredentialStatus
 		credentialPriorityProvider = optionalProviders[0].CredentialPriority
 		requestLogProvider = optionalProviders[0].RequestLogs
-		rankingProvider = optionalProviders[0].Ranking
+		// Community ranking is disabled - not wired up.
+		// rankingProvider = optionalProviders[0].Ranking
 		providerModelGraphProvider = optionalProviders[0].ProviderModelGraph
 		localRankingProvider = optionalProviders[0].LocalRanking
 		statusConfig = optionalProviders[0].Status
@@ -167,9 +169,11 @@ func NewRouter(
 	// Provider Model GNN is a permanent, self-contained feature domain
 	// (docs/ARCHITECTURE.md §7); routes are registered by the domain itself.
 	gnnhttpapi.RegisterRoutes(adminProtected, providerModelGraphProvider)
-	if rankingProvider != nil {
-		rankinghttpapi.RegisterRoutes(adminProtected, rankingProvider)
-	}
+	// Community ranking routes (admin + key viewer) are disabled.
+	// The code is kept intact but not wired up - only local ranking is enabled.
+	// if rankingProvider != nil {
+	// 	rankinghttpapi.RegisterRoutes(adminProtected, rankingProvider)
+	// }
 	if localRankingProvider != nil {
 		rankinghttpapi.RegisterLocalRoutes(adminProtected, localRankingProvider)
 	}
@@ -181,9 +185,11 @@ func NewRouter(
 	registerKeyActivityRoute(keyViewerProtected, usageProvider)
 	registerKeyUsageAnalysisRoute(keyViewerProtected, usageProvider)
 	registerKeyRequestEventsRoute(keyViewerProtected, usageProvider, usageIdentityProvider, requestLogProvider, statusConfig.CPARequestLogAccessEnabled)
-	if rankingProvider != nil {
-		rankinghttpapi.RegisterKeyViewerRoutes(keyViewerProtected, rankingProvider)
-	}
+	// Community ranking routes for API key viewers are disabled.
+	// The code is kept intact but not wired up - only local ranking is enabled.
+	// if rankingProvider != nil {
+	// 	rankinghttpapi.RegisterKeyViewerRoutes(keyViewerProtected, rankingProvider)
+	// }
 	// Local ranking is now always enabled for API key viewers when available.
 	// The APIKeyViewerLocalRankingEnabled config flag is deprecated and ignored here.
 	if localRankingProvider != nil {

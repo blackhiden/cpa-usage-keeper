@@ -59,12 +59,10 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardToolbar } from '@/components/dashboard/DashboardToolbar';
 import { cpamcEmbedSearch, isCPAMCEmbed } from '@/embed/cpamcEmbed';
 import { RankingPage } from '@/features/ranking/RankingPage';
-import { RankingScopeSwitch } from '@/features/ranking/components/RankingScopeSwitch';
 import { useRankingData } from '@/features/ranking/hooks/useRankingData';
 import { useLocalRankingData } from '@/features/ranking/hooks/useLocalRankingData';
 import { resolveLocalRankingPreviewAPI, resolveRankingPreviewAPI } from '@/features/ranking/previewMock';
-import { loadRankingScope, persistRankingScope } from '@/features/ranking/scope';
-import type { LocalRankingProfileRequest, RankingScope } from '@/features/ranking/types';
+import type { LocalRankingProfileRequest, RankingMetric, RankingPeriod, RankingScope } from '@/features/ranking/types';
 import styles from './UsagePage.module.scss';
 
 const TIME_RANGE_STORAGE_KEY = 'cli-proxy-usage-time-range-v1';
@@ -758,11 +756,8 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     const loadedTab = loadUsageTab();
     return isEmbeddedInCPAMC && loadedTab === 'ranking' ? DEFAULT_USAGE_TAB : loadedTab;
   });
-  const [rankingScope, setRankingScope] = useState<RankingScope>(loadRankingScope);
-  const handleRankingScopeChange = useCallback((scope: RankingScope) => {
-    setRankingScope(scope);
-    persistRankingScope(scope);
-  }, []);
+  // Community ranking is disabled - always use local ranking
+  const rankingScope: RankingScope = 'local';
   const [loadedTimeRange] = useState(loadTimeRange);
   const pendingLegacyCustomRangeRef = useRef(loadedTimeRange.pendingLegacyCustomRange);
   const [timeRangeState, setTimeRangeState] = useState<StoredUsageRangeState>(loadedTimeRange.state);
@@ -974,31 +969,21 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const handleRankingBackgroundRefreshError = useCallback(() => {
     showTopNotice('error', t('ranking.refresh_failed'));
   }, [showTopNotice, t]);
-  const rankingData = useRankingData({
-    enabled: activeTab === 'ranking' && !isEmbeddedInCPAMC && rankingScope === 'community',
-    onAuthRequired,
-    onBackgroundRefreshError: handleRankingBackgroundRefreshError,
-    api: RANKING_PREVIEW_API,
-  });
+  // Community ranking is disabled - only use local ranking data
+  const [rankingPeriod, setRankingPeriod] = useState<RankingPeriod>('today');
+  const [rankingMetric, setRankingMetric] = useState<RankingMetric>('overall');
   const localRankingData = useLocalRankingData({
-    enabled: activeTab === 'ranking' && !isEmbeddedInCPAMC && rankingScope === 'local',
-    period: rankingData.period,
-    metric: rankingData.metric,
+    enabled: activeTab === 'ranking' && !isEmbeddedInCPAMC,
+    period: rankingPeriod,
+    metric: rankingMetric,
     onAuthRequired,
     onBackgroundRefreshError: handleRankingBackgroundRefreshError,
     api: LOCAL_RANKING_PREVIEW_API,
   });
   const updateLocalRankingProfile = localRankingData.updateProfile;
   const patchLocalRankingProfileCache = localRankingData.patchProfileCache;
-  const displayedRankingLeaderboard = rankingScope === 'community'
-    ? rankingData.leaderboard
-    : localRankingData.leaderboard;
-  const refreshCommunityRanking = rankingData.refreshRanking;
-  const refreshLocalRanking = localRankingData.refreshLeaderboard;
-  const refreshRanking = useCallback(
-    () => rankingScope === 'community' ? refreshCommunityRanking() : refreshLocalRanking(),
-    [rankingScope, refreshCommunityRanking, refreshLocalRanking],
-  );
+  const displayedRankingLeaderboard = localRankingData.leaderboard;
+  const refreshRanking = localRankingData.refreshLeaderboard;
   const handleUpdateLocalRankingProfile = useCallback(async (participantID: string, profile: LocalRankingProfileRequest) => {
     const updated = await updateLocalRankingProfile(participantID, profile);
     // 排行资料与设置页共用同一 Key 记录，保存后同步刷新已加载的别名投影。
@@ -1010,6 +995,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       : item));
     return updated;
   }, [updateLocalRankingProfile]);
+  // Unused community ranking data - kept for potential future use
+  const rankingData = useRankingData({
+    enabled: false, // Community ranking disabled
+    onAuthRequired,
+    onBackgroundRefreshError: handleRankingBackgroundRefreshError,
+    api: RANKING_PREVIEW_API,
+  });
   const credentialsData = useCredentialsTabData({
     enabledAuthFiles: credentialSectionVisibility.showAuthFiles && pageVisible,
     enabledAiProviders: credentialSectionVisibility.showAiProvider && pageVisible,
@@ -2017,7 +2009,8 @@ const loadApiKeyOptions = useCallback(async () => {
   // 只有需要时间范围的 tab 才渲染 Range 控件，避免 Credentials/Pricing 产生空白占位。
   const showRangeControls = shouldShowRangeControls(activeTab);
   const showApiKeyFilter = shouldShowApiKeyFilter(activeTab);
-  const showRankingScopeControl = activeTab === 'ranking' && !isEmbeddedInCPAMC;
+  // Community ranking disabled - no scope control needed
+  const showRankingScopeControl = false;
   const {
     requestsSparkline,
     tokensSparkline,
@@ -2205,7 +2198,7 @@ const loadApiKeyOptions = useCallback(async () => {
                       inert={!showRankingScopeControl}
                     >
                       <div className={styles.rankingScopeTransitionInner}>
-                        <RankingScopeSwitch value={rankingScope} onChange={handleRankingScopeChange} />
+                        {/* Community ranking disabled - no scope switch */}
                       </div>
                     </div>
                   )}
@@ -2248,7 +2241,7 @@ const loadApiKeyOptions = useCallback(async () => {
                   renderValue={(option) => <><span data-dashboard-filter-caption>{t('usage_stats.api_key_filter')}</span><span data-dashboard-filter-value>{option?.label}</span></>}
                 />,
                 ...showRangeControls ? [<TimeRangeControl key="range" value={timeRange} customRange={activeCustomRange} timeZone={rangeTimeZone} maxCustomDayRangeDays={activeTab === 'events' ? REQUEST_EVENTS_CUSTOM_DAY_RANGE_MAX_DAYS : undefined} onChange={handleTimeRangeChange} ariaLabel={t('usage_stats.range_filter')} labelInsideTrigger />] : [],
-              ] : showRankingScopeControl ? [<RankingScopeSwitch key="ranking-scope" value={rankingScope} onChange={handleRankingScopeChange} />] : []}
+              ] : []}
               onRefresh={() => void handleManualRefresh().catch(() => {})}
               refreshing={manualRefreshLoading}
             />}
@@ -2324,19 +2317,19 @@ const loadApiKeyOptions = useCallback(async () => {
               <RankingPage
                 key={rankingScope}
                 scope={rankingScope}
-                period={rankingData.period}
-                metric={rankingData.metric}
-                status={rankingScope === 'community' ? rankingData.status : null}
-                metadata={rankingScope === 'community' ? rankingData.metadata : null}
+                period={rankingPeriod}
+                metric={rankingMetric}
+                status={null}
+                metadata={null}
                 leaderboard={displayedRankingLeaderboard}
-                statusLoading={rankingScope === 'community' && rankingData.statusLoading}
-                metadataLoading={rankingScope === 'community' && rankingData.metadataLoading}
-                leaderboardLoading={rankingScope === 'community' ? rankingData.leaderboardLoading : localRankingData.leaderboardLoading}
-                statusError={rankingScope === 'community' ? rankingData.statusError : null}
-                metadataError={rankingScope === 'community' ? rankingData.metadataError : null}
-                leaderboardError={rankingScope === 'community' ? rankingData.leaderboardError : localRankingData.leaderboardError}
-                action={rankingScope === 'community' ? rankingData.action : null}
-                actionError={rankingScope === 'community' ? rankingData.actionError : null}
+                statusLoading={false}
+                metadataLoading={false}
+                leaderboardLoading={localRankingData.leaderboardLoading}
+                statusError={null}
+                metadataError={null}
+                leaderboardError={localRankingData.leaderboardError}
+                action={null}
+                actionError={null}
                 onClearActionError={rankingData.clearActionError}
                 onJoin={rankingData.join}
                 onSync={rankingData.sync}
@@ -2345,10 +2338,10 @@ const loadApiKeyOptions = useCallback(async () => {
                 onExit={rankingData.exit}
                 onRetryStatus={rankingData.refreshStatus}
                 onRetryMetadata={rankingData.refreshMetadata}
-                onRetryLeaderboard={rankingScope === 'community' ? rankingData.refreshLeaderboard : localRankingData.refreshLeaderboard}
+                onRetryLeaderboard={localRankingData.refreshLeaderboard}
                 onUpdateLocalProfile={handleUpdateLocalRankingProfile}
-                onPeriodChange={rankingData.setPeriod}
-                onMetricChange={rankingData.setMetric}
+                onPeriodChange={setRankingPeriod}
+                onMetricChange={setRankingMetric}
               />
             )}
 
