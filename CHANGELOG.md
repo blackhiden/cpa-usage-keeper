@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here.
 
+## [1.16.7] - 2026-10-16
+
+### Merged from Upstream
+
+Synchronized with upstream/main (commit 6b8e33c2), incorporating 13 commits since merge base 778b5f8e:
+
+- **docs(readme)**: Star History charts with date formatting (#641, #640)
+- **fix(tokens)**: Preserve total-only Responses usage (#637) - handles OpenAI streaming responses that omit prompt tokens and only provide completion tokens
+- **feat(usage)**: Copy user agents from request events (#632) - adds clipboard copy functionality for User-Agent strings in request event details
+- **feat(usage)**: Show request streaming indicators and details (#631) - visual indicators for streaming requests with output streaming icon
+- **fix(overview)**: Compact usage distribution chart (#630) - improved chart layout for smaller screens
+- **chore(web)**: Include third-party icon license in builds - adds Font Awesome licensing notices
+
+### Protected Features Verified
+
+All fork-specific features preserved through merge:
+- Provider Model GNN Panel (permanent core feature)
+- API Key Viewer Full Request Logs (FORK-ONLY)
+- Live Flow Visualization
+- Local Ranking Default
+- API Key Viewer Enhancements (Phase 2.19)
+
+See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
+
 ## [Unreleased]
 
 ### Changed
