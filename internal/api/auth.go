@@ -48,6 +48,9 @@ type AuthConfig struct {
 	// Deprecated: Local ranking is now always enabled for API key viewers.
 	// This field is kept for backward compatibility with the session API response.
 	APIKeyViewerLocalRankingEnabled bool
+	// LocalRankingAvailable indicates whether the local ranking provider is available.
+	// When true, API key viewers can access local ranking features.
+	LocalRankingAvailable bool
 }
 
 type authHandler struct {
@@ -282,7 +285,7 @@ func (h *authHandler) getSession(c *gin.Context) {
 		response.APIKey = &sessionAPIKeyResponse{
 			DisplayKey:          helper.CPAAPIKeyMaskedDisplayKey(row),
 			Alias:               row.KeyAlias,
-			LocalRankingEnabled: h.config.APIKeyViewerLocalRankingEnabled,
+			LocalRankingEnabled: h.config.LocalRankingAvailable,
 		}
 	}
 	c.JSON(http.StatusOK, response)

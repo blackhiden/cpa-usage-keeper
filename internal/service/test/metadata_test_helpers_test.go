@@ -78,6 +78,12 @@ func (f *metadataTestFetcher) FetchAuthFiles(context.Context) (*response.AuthFil
 	return f.authFilesResult, f.authFilesErr
 }
 
+func (f *metadataTestFetcher) FetchAuthAPIKeys(context.Context) (*response.AuthAPIKeysResult, error) {
+	f.recordCall("auth-api-keys")
+	// Test helper returns empty result; tests can override if needed
+	return &response.AuthAPIKeysResult{StatusCode: 200, Payload: cpaapikeys.AuthAPIKeysResponse{}}, nil
+}
+
 func (f *metadataTestFetcher) FetchManagementAPIKeys(context.Context) (*response.ManagementAPIKeysResult, error) {
 	f.recordCall("management-api-keys")
 	return f.managementAPIKeysResult, f.managementAPIKeysErr

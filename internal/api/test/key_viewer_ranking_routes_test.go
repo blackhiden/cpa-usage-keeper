@@ -52,6 +52,7 @@ func newKeyViewerRankingRouter(t *testing.T, localEnabled bool) (*auth.SessionMa
 		LoginPassword:                   "secret",
 		SessionTTL:                      time.Hour,
 		APIKeyViewerLocalRankingEnabled: localEnabled,
+		LocalRankingAvailable:           true, // Provider is available in tests
 	}
 	router := NewRouter(nil, nil, nil, nil, config, NewAuthHandler(config, sessions), "", OptionalProviders{
 		CPAAPIKeys:   keyProvider,
@@ -84,8 +85,8 @@ func TestKeyViewerCommunityRankingRouteIsReadOnly(t *testing.T) {
 }
 
 func TestKeyViewerLocalRankingRouteIsAlwaysAvailableAndReadOnly(t *testing.T) {
-	// Local ranking is now always available for viewers regardless of the deprecated config flag.
-	// We test with both flag values to ensure backward compatibility.
+	// Local ranking is now always available for viewers when the provider is available.
+	// The deprecated config flag is ignored for route registration.
 	for _, tc := range []struct {
 		name                  string
 		configFlag            bool // The deprecated flag value (now ignored for route registration)
@@ -106,14 +107,14 @@ func TestKeyViewerLocalRankingRouteIsAlwaysAvailableAndReadOnly(t *testing.T) {
 			if mutation.Code != http.StatusNotFound || local.calls != tc.wantCalls {
 				t.Fatalf("viewer local profile mutation was exposed: status=%d body=%s calls=%d", mutation.Code, mutation.Body.String(), local.calls)
 			}
-			// The session API still reports the flag value for backward compatibility.
+			// The session API now reports whether the local ranking provider is available.
+			// Since this test passes a non-nil LocalRanking provider, it should always be true.
 			session := httptest.NewRecorder()
 			router.ServeHTTP(session, viewerRankingRequest(http.MethodGet, "/api/v1/auth/session", viewerToken))
 			if session.Code != http.StatusOK {
 				t.Fatalf("viewer session request failed: status=%d body=%s", session.Code, session.Body.String())
 			}
-			expectedFlag := tc.configFlag
-			if expectedFlag && !strings.Contains(session.Body.String(), `"local_ranking_enabled":true`) {
+			if !strings.Contains(session.Body.String(), `"local_ranking_enabled":true`) {
 				t.Fatalf("viewer session missing expected local_ranking_enabled:true in response: %s", session.Body.String())
 			}
 		})

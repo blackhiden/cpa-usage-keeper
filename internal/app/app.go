@@ -333,6 +333,8 @@ func NewWithConfig(cfg config.Config) (*App, error) {
 		TrustedProxyCIDRs:               cfg.TrustedProxyCIDRs,
 		// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
 		APIKeyViewerLocalRankingEnabled: cfg.APIKeyViewerLocalRankingEnabled,
+		// Local ranking is available when the service was successfully initialized.
+		LocalRankingAvailable: localRankingService != nil,
 	}
 	// 可选的隐私保护登录 IP 反解/增强层（默认关闭，opt-in）。
 	ipEnricher := enrichgeo.NewEnricher(enrichgeo.Options{
