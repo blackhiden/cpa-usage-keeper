@@ -485,7 +485,7 @@ For cross-origin CPAMC embedding, `CPA_PUBLIC_URL` must be a complete `http://` 
 | --- | --- | --- | --- |
 | `AUTH_ENABLED` | No | `true` | Enable login protection |
 | `LOGIN_PASSWORD` | When auth is enabled | - | Login password |
-| `CPA_REQUEST_LOG_ACCESS_ENABLED` | No | `false` | Allow administrators to view and download CPA request logs through Keeper; corresponding logs must exist in CPA and may contain request or response data |
+| `CPA_REQUEST_LOG_ACCESS_ENABLED` | No | `false` | Allow administrators to view and download CPA request logs through Keeper, and API key viewers to view the full request log for their own events; corresponding logs must exist in CPA and may contain request or response data |
 | `AUTH_SESSION_TTL` | No | `168h` | Login session lifetime |
 | `IP_ENRICHMENT_ENABLED` | No | `false` | Opt-in: enrich Session Settings `login_ip`/`last_seen_ip` with privacy-preserving reverse-DNS/private-network info |
 | `IP_ENRICHMENT_TTL` | No | `24h` | Cache lifetime for IP enrichment results |

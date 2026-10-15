@@ -49,3 +49,4 @@ lerna-debug.log*
 *.sw?
 session.md
 .agents
+*.md

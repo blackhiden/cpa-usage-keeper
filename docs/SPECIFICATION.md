@@ -217,7 +217,7 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET /api/key-viewer/usage/analysis` | Analysis (latency diagnostics) scoped to the viewer's key. |
 | `GET /api/key-viewer/usage/events` | Request events list scoped to the viewer's key. Supports filters (time range, model, provider, status) and pagination. |
 | `GET /api/key-viewer/usage/events/:id` | Event detail for a single event. Returns 404 if the event belongs to a different key. |
-| `GET /api/key-viewer/usage/events/:id/request-log` | Request log download token (when `CPA_REQUEST_LOG_ACCESS_ENABLED=true`). Returns 404 for cross-key access. Request logs are redacted (prompts, bodies, headers removed). |
+| `GET /api/key-viewer/usage/events/:id/request-log` | Request log download token (when `CPA_REQUEST_LOG_ACCESS_ENABLED=true`). Returns 404 for cross-key access. API key viewers see the full request log for their own events (may contain request or response data). |
 | `POST /api/key-viewer/usage/events/export` | Export filtered events to CSV or JSON. Scoped to the viewer's key. |
 | `/api/live-flow/ws` | WebSocket connection for real-time metadata stream. API key viewers see metadata for ALL requests across all keys (global view). No prompts, bodies, headers, or credentials relayed. |
 | `GET /api/key-viewer/ranking/local` | Local API key ranking leaderboard (always enabled when local ranking provider is available). |

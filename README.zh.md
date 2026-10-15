@@ -462,7 +462,7 @@ cp .env.example .env
 | --- | --- | --- | --- |
 | `AUTH_ENABLED` | 否 | `true` | 是否启用登录保护 |
 | `LOGIN_PASSWORD` | 鉴权启用时必填 | - | 登录密码 |
-| `CPA_REQUEST_LOG_ACCESS_ENABLED` | 否 | `false` | 允许管理员通过 Keeper 查看和下载 CPA 请求日志；需要 CPA 中存在对应日志，内容可能包含请求或响应数据 |
+| `CPA_REQUEST_LOG_ACCESS_ENABLED` | 否 | `false` | 允许管理员通过 Keeper 查看和下载 CPA 请求日志，并允许 API Key 查看者查看自己事件的完整请求日志；需要 CPA 中存在对应日志，内容可能包含请求或响应数据 |
 | `AUTH_SESSION_TTL` | 否 | `168h` | 登录 session 有效时长 |
 | `IP_ENRICHMENT_ENABLED` | 否 | `false` | 可选：为 Session Settings 的 `login_ip`/`last_seen_ip` 增加隐私保护的反向 DNS/内网标记信息 |
 | `IP_ENRICHMENT_TTL` | 否 | `24h` | IP 增强结果缓存时长 |

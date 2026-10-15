@@ -328,42 +328,6 @@ func registerUsageEventsRoute(
 	})
 }
 
-// redactRequestLogForKeyViewer removes sensitive information from request logs for key viewers.
-// Strips: prompts, request bodies, request headers, response bodies.
-func redactRequestLogForKeyViewer(response service.RequestLogResponse) service.RequestLogResponse {
-	if len(response.Sections) == 0 {
-		return response
-	}
-	
-	redactedSections := make([]service.RequestLogSection, 0, len(response.Sections))
-	for _, section := range response.Sections {
-		title := strings.ToUpper(strings.TrimSpace(section.Title))
-		// Keep only metadata sections, redact sensitive content
-		switch {
-		case strings.Contains(title, "REQUEST BODY"),
-			strings.Contains(title, "RESPONSE BODY"),
-			strings.Contains(title, "REQUEST HEADERS"),
-			strings.Contains(title, "PROMPT"),
-			strings.Contains(title, "MESSAGES"):
-			// Skip sensitive sections entirely
-			continue
-		case strings.Contains(title, "METADATA"),
-			strings.Contains(title, "SUMMARY"),
-			strings.Contains(title, "TIMING"),
-			strings.Contains(title, "STATUS"),
-			strings.Contains(title, "ERROR"):
-			// Keep metadata sections
-			redactedSections = append(redactedSections, section)
-		default:
-			// Conservative: skip unknown sections
-			continue
-		}
-	}
-	
-	response.Sections = redactedSections
-	return response
-}
-
 func registerUsageEventRequestLogDownloadTokenRoutes(
 	router gin.IRoutes,
 	requestLogProvider service.RequestLogProvider,
