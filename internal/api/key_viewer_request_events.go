@@ -195,7 +195,7 @@ func registerKeyEventRequestLogRoute(
 	requestLogProvider service.RequestLogProvider,
 	requestLogAccessEnabled bool,
 ) {
-	// GET /usage/events/:id/request-log - Request log (scoped, verify ownership)
+	// FORK-ONLY: The owning API-key viewer receives every request-log section.
 	router.GET("/key-events/:id/request-log", func(c *gin.Context) {
 		if !requestLogAccessEnabled {
 			writeUsageEventRequestLogAccessDisabled(c)

@@ -26,7 +26,7 @@ layout of `WORK_DIR`.
 |---|---|---|
 | `REQUEST_TIMEOUT` | `30s` | HTTP timeout for calls to CPA (Go duration syntax). |
 | `TLS_SKIP_VERIFY` | `false` | Skip TLS certificate verification for the **outbound** CPA client only. Development aid; do not use in production. |
-| `CPA_REQUEST_LOG_ACCESS_ENABLED` | `false` | Enable access to CPA request logs (guards the request-log download token endpoints). |
+| `CPA_REQUEST_LOG_ACCESS_ENABLED` | `false` | Enable CPA request-log access. Administrators can view/download logs; API-key viewers can view every section of logs for their own events. Logs may contain request or response data. |
 
 ## 3. Ingestion (Redis)
 

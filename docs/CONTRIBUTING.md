@@ -115,6 +115,8 @@ formal measurements.
 - Keep PRs focused; reference issue/PR numbers in the body.
 - Update or add tests covering the change; keep `make verify` green on your
   platform (CI covers the rest of the matrix).
+- During an upstream merge, follow [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md)
+  before resolving conflicts or updating the submodule pointer.
 
 ## 7. Documentation Policy
 

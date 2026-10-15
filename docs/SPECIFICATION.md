@@ -48,7 +48,7 @@ exploration, cost analysis, quota monitoring, and community ranking.
 |------|-----------------------|--------------|
 | **Admin** | Password login (`LOGIN_PASSWORD`), required when `AUTH_ENABLED=true` (default) | Full dashboard: all usage data, identities, pricing, quota, settings, auth files, API keys, update checks. |
 | **Anonymous admin** | No login when `AUTH_ENABLED` is explicitly set to `false` | Same as admin. Intended only for trusted networks. |
-| **API-key viewer** | One of the sync'd CPA API Keys (`/api/auth/api-key-login` or a per-tab key session) | Read-only, scoped view: overview, realtime activity, analysis, local ranking (always enabled), request events (scoped to their key), and live flow (global metadata view). Rate-limited per viewer session. Cannot access admin settings, auth files management, or other keys' data. |
+| **API-key viewer** | One of the sync'd CPA API Keys (`/api/auth/api-key-login` or a per-tab key session) | Read-only, scoped view: overview, realtime activity, analysis, local ranking (always enabled), request events and full request logs for their own events, and live flow (global metadata view). Rate-limited per viewer session. Cannot access admin settings, auth files management, or other keys' data. |
 
 There is no user management beyond the single admin password and the CPA API
 keys that are synchronized from CPA itself.
@@ -408,6 +408,11 @@ the Session Settings panel. Controlled by `IP_ENRICHMENT_ENABLED` (default
   stored, or forwarded.
 - **Password storage.** `LOGIN_PASSWORD` is provided via environment; it is
   never returned by any endpoint.
+- **Request logs.** When `CPA_REQUEST_LOG_ACCESS_ENABLED=true`, administrators
+  can view/download logs and API-key viewers can view every section only for
+  events owned by their key. Logs may include headers, prompts, and request or
+  response payloads; restrict account access accordingly. Cross-key requests
+  return 404.
 - **Backup safety.** Backups contain the full database and must be stored
   with filesystem-level protection.
 
