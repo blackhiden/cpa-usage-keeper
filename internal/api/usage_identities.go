@@ -131,7 +131,8 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			writeInternalError(c, "get usage identity failed", err)
 			return
 		}
-		c.JSON(http.StatusOK, mapUsageIdentityResponseWithHealth(detail.Identity, &detail.CredentialHealth))
+		maskCredentials := isAPIKeyViewerRole(c)
+		c.JSON(http.StatusOK, mapUsageIdentityResponseWithHealth(detail.Identity, &detail.CredentialHealth, maskCredentials))
 	})
 	router.POST("/usage/identities/:id/stats/reset", func(c *gin.Context) {
 		resetter, ok := usageIdentityProvider.(service.UsageIdentityStatsResetter)
@@ -153,7 +154,8 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			writeInternalError(c, "reset usage identity stats failed", err)
 			return
 		}
-		c.JSON(http.StatusOK, mapUsageIdentityResponse(row))
+		maskCredentials := isAPIKeyViewerRole(c)
+		c.JSON(http.StatusOK, mapUsageIdentityResponse(row, maskCredentials))
 	})
 	router.GET("/usage/identities/page", func(c *gin.Context) {
 		if usageIdentityProvider == nil {
@@ -172,6 +174,9 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			return
 		}
 
+		// API-key viewer 角色需要对敏感凭证字段进行脱敏处理。
+		maskCredentials := isAPIKeyViewerRole(c)
+
 		// 复用统一响应映射，保证分页接口和旧列表接口的字段/脱敏规则一致。
 		response := make([]usageIdentityResponse, 0, len(result.Items))
 		for index, item := range result.Items {
@@ -179,7 +184,7 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			if index < len(result.CredentialHealth) {
 				health = &result.CredentialHealth[index]
 			}
-			response = append(response, mapUsageIdentityResponseWithHealth(item, health))
+			response = append(response, mapUsageIdentityResponseWithHealth(item, health, maskCredentials))
 		}
 		typeCounts := make([]usageIdentityTypeCount, 0, len(result.TypeCounts))
 		for _, item := range result.TypeCounts {
@@ -207,9 +212,10 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			return
 		}
 
+		maskCredentials := isAPIKeyViewerRole(c)
 		response := make([]usageIdentityResponse, 0, len(items))
 		for _, item := range items {
-			response = append(response, mapUsageIdentityResponse(item))
+			response = append(response, mapUsageIdentityResponse(item, maskCredentials))
 		}
 		c.JSON(http.StatusOK, usageIdentitiesResponse{Identities: response})
 	})
@@ -241,7 +247,8 @@ func registerUsageIdentityRoutes(router gin.IRoutes, usageIdentityProvider servi
 			writeInternalError(c, "update usage identity alias failed", err)
 			return
 		}
-		c.JSON(http.StatusOK, mapUsageIdentityResponse(row))
+		maskCredentials := isAPIKeyViewerRole(c)
+		c.JSON(http.StatusOK, mapUsageIdentityResponse(row, maskCredentials))
 	})
 }
 
@@ -301,11 +308,11 @@ func totalPages(total int64, pageSize int) int {
 	return int((total + int64(pageSize) - 1) / int64(pageSize))
 }
 
-func mapUsageIdentityResponse(item entities.UsageIdentity) usageIdentityResponse {
-	return mapUsageIdentityResponseWithHealth(item, nil)
+func mapUsageIdentityResponse(item entities.UsageIdentity, maskCredentials bool) usageIdentityResponse {
+	return mapUsageIdentityResponseWithHealth(item, nil, maskCredentials)
 }
 
-func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *service.UsageCredentialHealthSnapshot) usageIdentityResponse {
+func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *service.UsageCredentialHealthSnapshot, maskCredentials bool) usageIdentityResponse {
 	// AI Provider identity 是稳定 auth-index；响应不直接发布原始 LookupKey，OpenAI Compatibility 仅按 Issue #281 在 displayName 中保留脱敏 Key 片段。
 	var fileName *string
 	var filePath *string
@@ -319,6 +326,18 @@ func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *ser
 		disabled = *item.Disabled
 	}
 
+	// API-key viewer 角色对敏感凭证字段进行脱敏：base_url 和 prefix 显示为固定掩码。
+	baseURL := item.BaseURL
+	prefix := item.Prefix
+	if maskCredentials {
+		if baseURL != "" {
+			baseURL = "***"
+		}
+		if prefix != "" {
+			prefix = "***"
+		}
+	}
+
 	return usageIdentityResponse{
 		ID:                         strconv.FormatInt(item.ID, 10),
 		Name:                       item.Name,
@@ -329,7 +348,7 @@ func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *ser
 		Identity:                   item.Identity,
 		Type:                       item.Type,
 		Provider:                   item.Provider,
-		Prefix:                     item.Prefix,
+		Prefix:                     prefix,
 		FileName:                   fileName,
 		FilePath:                   filePath,
 		Priority:                   item.Priority,
@@ -365,6 +384,19 @@ func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *ser
 		DeletedAt:        item.DeletedAt,
 		CredentialHealth: mapUsageCredentialHealthResponse(health),
 	}
+}
+
+// isAPIKeyViewerRole 检查当前请求是否为 API-key viewer 角色。
+func isAPIKeyViewerRole(c *gin.Context) bool {
+	sessionValue, hasSession := c.Get(authSessionContextKey)
+	if !hasSession {
+		return false
+	}
+	session, ok := sessionValue.(auth.Session)
+	if !ok {
+		return false
+	}
+	return session.Role == auth.RoleAPIKeyViewer
 }
 
 func validateUsageIdentityAlias(value string) error {

@@ -621,7 +621,7 @@ export async function exportKeyEvents(request: UsageRangeRequest, format: UsageE
   }
 }
 
-export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at'] as const
+export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at', 'success_rate'] as const
 export type UsageIdentityPageSort = typeof USAGE_IDENTITY_PAGE_SORTS[number]
 
 export interface FetchUsageIdentitiesPageOptions {

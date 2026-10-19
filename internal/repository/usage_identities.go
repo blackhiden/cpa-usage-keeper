@@ -103,6 +103,7 @@ const (
 	UsageIdentityPageSortTotalRequests = "total_requests"
 	UsageIdentityPageSortTotalTokens   = "total_tokens"
 	UsageIdentityPageSortLastUsedAt    = "last_used_at"
+	UsageIdentityPageSortSuccessRate   = "success_rate"
 )
 
 const usageIdentityReadColumns = "id, name, alias, auth_type, auth_type_name, identity, type, provider, lookup_key, prefix, base_url, file_name, file_path, priority, disabled, note, account_id, project_id, xai_user_id, active_start, active_until, plan_type, total_requests, success_count, failure_count, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, total_tokens, last_aggregated_usage_event_id, first_used_at, last_used_at, stats_updated_at, is_deleted, created_at, updated_at, deleted_at, stats_reset_at, reset_total_requests, reset_success_count, reset_failure_count, reset_input_tokens, reset_cache_read_tokens, reset_total_tokens"
@@ -355,6 +356,10 @@ func applyUsageIdentityPageSort(query *gorm.DB, sort string, authType *entities.
 		return query.Order("(total_tokens - reset_total_tokens) DESC").Order("id ASC")
 	case UsageIdentityPageSortLastUsedAt:
 		return query.Order("last_used_at IS NULL ASC").Order("last_used_at DESC").Order("id ASC")
+	case UsageIdentityPageSortSuccessRate:
+		// 按成功率降序排列：计算公式 success_count / total_requests（避免除零）
+		// NULL/零请求数排最后，高成功率排最前，同分按 ID 升序
+		return query.Order("CASE WHEN (total_requests - reset_total_requests) = 0 THEN 0 ELSE CAST((success_count - reset_success_count) AS REAL) / CAST((total_requests - reset_total_requests) AS REAL) END DESC").Order("id ASC")
 	default:
 		return query.Order("(total_requests - reset_total_requests) DESC").Order("id ASC")
 	}

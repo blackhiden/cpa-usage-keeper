@@ -151,6 +151,7 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
         sortOptions={[
           { value: 'priority', label: t('usage_stats.credentials_sort_priority') },
           { value: 'total_requests', label: t('usage_stats.credentials_sort_total_requests') },
+          { value: 'success_rate', label: t('usage_stats.credentials_sort_success_rate') },
           { value: 'total_tokens', label: t('usage_stats.credentials_sort_total_tokens') },
           { value: 'last_used_at', label: t('usage_stats.credentials_sort_last_used') },
         ]}
