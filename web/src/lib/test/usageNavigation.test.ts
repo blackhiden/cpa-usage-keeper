@@ -18,7 +18,6 @@ describe('usage page navigation', () => {
       ['realtime', '/realtime'],
       ['live-flow', '/live-flow'],
       ['analysis', '/analysis'],
-      ['ranking', '/ranking'],
       ['events', '/request-events'],
       ['auth-files', '/auth-files'],
       ['ai-provider', '/ai-provider'],

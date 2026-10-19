@@ -39,12 +39,12 @@ const (
 )
 
 type AuthConfig struct {
-	Enabled                         bool
-	LoginPassword                   string
-	SessionTTL                      time.Duration
-	BasePath                        string
-	FrameAncestorOrigins            []string
-	TrustedProxyCIDRs               []string
+	Enabled              bool
+	LoginPassword        string
+	SessionTTL           time.Duration
+	BasePath             string
+	FrameAncestorOrigins []string
+	TrustedProxyCIDRs    []string
 	// Deprecated: Local ranking is now always enabled for API key viewers.
 	// This field is kept for backward compatibility with the session API response.
 	APIKeyViewerLocalRankingEnabled bool
@@ -81,9 +81,9 @@ type sessionResponse struct {
 }
 
 type sessionAPIKeyResponse struct {
-	DisplayKey          string `json:"display_key"`
-	Alias               string `json:"alias,omitempty"`
-	LocalRankingEnabled bool   `json:"local_ranking_enabled,omitempty"`
+	ID         string `json:"id"`
+	DisplayKey string `json:"display_key"`
+	Alias      string `json:"alias,omitempty"`
 }
 
 type loginResponse struct {
@@ -283,6 +283,7 @@ func (h *authHandler) getSession(c *gin.Context) {
 			return
 		}
 		response.APIKey = &sessionAPIKeyResponse{
+			ID:                  strconv.FormatInt(row.ID, 10),
 			DisplayKey:          helper.CPAAPIKeyMaskedDisplayKey(row),
 			Alias:               row.KeyAlias,
 			LocalRankingEnabled: h.config.LocalRankingAvailable,

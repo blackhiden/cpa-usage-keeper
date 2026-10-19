@@ -284,10 +284,6 @@ func Load(options LoadOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	apiKeyViewerLocalRankingEnabled, err := getBool("API_KEY_VIEWER_LOCAL_RANKING_ENABLED", false)
-	if err != nil {
-		return nil, err
-	}
 
 	appBasePath, err := normalizeBasePath(strings.TrimSpace(os.Getenv("APP_BASE_PATH")))
 	if err != nil {
