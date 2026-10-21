@@ -97,6 +97,14 @@ keys that are synchronized from CPA itself.
 - **UC-7 — Mirror CPA metadata.** As an admin, Auth Files, API Keys, and AI
   Providers are automatically synchronized from CPA so the dashboard stays
   current without manual edits.
+- **UC-7a — Inspect provider usage.** As an admin, I open `/ai-provider` to
+  see one aggregate row per AI provider, with key count, requests, success
+  rate, token total, and last-use information. I can sort the provider list by
+  success rate and open `/ai-provider/:providerId` to inspect that provider's
+  keys. The detail list paginates keys and supports success-rate sorting.
+  Provider identifiers are URL encoded as a single route segment. API-key
+  viewers cannot enter either provider route; the backend remains responsible
+  for authorizing all provider API responses.
 - **UC-8 — Per-key sharing.** As an admin, I share an API key with a user so
   they can view their own usage on a read-only page.
 - **UC-9 — Local & community ranking.** As an admin, I view local API key usage
@@ -199,8 +207,8 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET /api/usage/analysis` | Analysis: trends, cost composition, heatmaps. |
 | `GET /api/usage/analysis/latency` | Latency diagnostics. |
 | `GET /api/usage/identities`, `GET /api/usage/identities/page` | Usage grouped by identity. Codex auth-file identities may carry a `subscription` (`{provider, plan}`) derived from their stored plan metadata. |
-| `GET /api/usage/providers` | Active AI-provider identities grouped by `provider`, with `provider_type`, key count, reset-aware aggregate request/token statistics, aggregate success rate, and latest use time. Supports `sort=success_rate`, `total_requests`, `total_tokens`, or `last_used_at`; descending order is the supported presentation order. |
-| `GET /api/usage/providers/:providerId/keys` | Paginated active AI-provider keys for one provider. Supports the same statistics sorts plus `priority`, and `page`/`page_size`. Admins receive maintained identity statistics and credential metadata. |
+| `GET /api/v1/usage/providers?sort=success_rate&order=desc` | One aggregate row per AI provider. Supports server-side sorting; the dashboard defaults to descending success rate. |
+| `GET /api/v1/usage/providers/:providerId/keys?sort=success_rate&order=desc&page=1&page_size=20` | Paginated keys for one provider. The browser encodes `providerId` as one path segment; authorization is enforced server-side. |
 | `GET /api/api-keys`, `/settings`, `/options`; alias `PUT` | Mirrored CPA API keys, their settings and alias updates. |
 | `GET/... /api/auth-files` | Auth Files inventory, details, and management. |
 | `GET /api/models/used` | Models observed in usage. |

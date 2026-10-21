@@ -95,7 +95,8 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Investigate requests**: inspect and export request details, and explore success rates, time to first token (TTFT), and total latency.
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
 - **Compare providers**: browse AI providers grouped with request/token totals and success rates, then drill into each provider's paginated key list.
-- **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, provider usage, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
+- **Inspect AI providers**: administrators can review one aggregate row per provider, sort by success rate, and open a paginated key-detail page for that provider.
+- **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
 - **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials. API key viewers can access this global view with a privacy notice.
 
@@ -230,13 +231,10 @@ Docker Compose is recommended for both a complete CPA + Keeper stack and a Keepe
 
 #### CPA + Keeper
 
-<<<<<<< HEAD
 > Workspace note: `../docs/docker-compose.keeper.yml` is a copy-paste reference overlay of this block (adds `${CPA_MANAGEMENT_KEY}`/`${KEEPER_LOGIN_PASSWORD}` required-var guards and TCP/HTTP `REDIS_QUEUE_ADDR` fallback hint). See `../docs/ARCHITECTURE.md` §5 "Usage Keeper topology" for the wiring contract.
 
 Save the following as `docker-compose.yml`, then replace the management key and login password:
-=======
 **1. Prepare the configuration files**
->>>>>>> upstream/main
 
 First, download the configuration example from the [official CPA repository](https://github.com/router-for-me/CLIProxyAPI) into `./cpa/config.yaml` in your deployment directory:
 

@@ -291,6 +291,7 @@ web/
 │   ├── main.tsx                    # Entry point (React 19, Vite)
 │   ├── pages/                      # Top-level route pages
 │   │   ├── UsagePage.tsx           # Main admin dashboard
+│   │   ├── ProviderDetailPage.tsx  # Admin provider-key detail route
 │   │   ├── LoginPage.tsx           # Authentication
 │   │   ├── KeyOverviewPage.tsx    # API-key viewer (scoped)
 │   │   ├── KeyAnalysisPage.tsx    # API-key analysis (scoped)
@@ -453,6 +454,7 @@ Component (React)
 - **i18n:** every user-facing string goes through i18next (`src/i18n`); `en`, `zh`, and `zh-TW` locale files must all be updated together.
 - **Charts:** Chart.js registered only via `src/lib/chartjs.ts`.
 - **Provider Model GNN panel (permanent feature):** `ProviderModelGNNPanel` must stay mounted on the Usage overview tab. Removal or replacement requires an explicit documented architectural decision recorded in `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md` (UC-12), and `session.md`.
+- **Provider grouping:** `components/usage/credentials/ProviderSummarySection.tsx` renders the admin `/ai-provider` aggregate table from `listProviders`; `pages/ProviderDetailPage.tsx` renders `/ai-provider/:providerId` key pages from `listProviderKeys`. Keep provider IDs a single encoded segment, preserve CPAMC embed query context on Detail links, and rely on backend authorization in addition to `App.tsx` role-route normalization.
 
 ---
 
@@ -498,8 +500,8 @@ Component (React)
 - `GET /api/v1/usage/activity` - Activity time series
 - `GET /api/v1/usage/events` - Event list with pagination
 - `GET /api/v1/usage/identities` - Identity stats
-- `GET /api/v1/usage/providers` - Grouped active AI providers with aggregate statistics
-- `GET /api/v1/usage/providers/:providerId/keys` - Paginated provider key details
+- `GET /api/v1/usage/providers` - Aggregated AI-provider rows with server-side sorting
+- `GET /api/v1/usage/providers/:providerId/keys` - Paginated provider keys with server-side sorting
 - `GET /api/v1/quota/*` - Quota management & history
 - `GET /api/v1/ranking/*` - Community ranking
 - `GET /api/v1/live-flow/ws` - Live flow WebSocket

@@ -209,6 +209,13 @@ Key invariants:
 - Styling: SCSS (dart-sass) global layers + **CSS Modules** per component;
   theming via `data-theme` (light "white" / dark / auto).
 - Charts: **Chart.js 4** via `react-chartjs-2` (`src/lib/chartjs.ts`).
+- **AI Provider usage:** `/ai-provider` renders `ProviderSummarySection`, which
+  calls `listProviders` for one server-aggregated row per provider and
+  server-side sort selection. Its Detail link uses a URL-encoded single
+  provider segment. `App.tsx` routes `/ai-provider/:providerId` to
+  `ProviderDetailPage`, which calls `listProviderKeys` with server-side key
+  pagination and sorting. Provider routes are accepted only for administrators;
+  API-key viewer path normalization redirects them to their scoped dashboard.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.

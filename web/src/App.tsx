@@ -14,8 +14,9 @@ import { KeyOverviewPage } from './pages/KeyOverviewPage';
 import { KeyRankingPage } from './pages/KeyRankingPage';
 import { LoginPage } from './pages/LoginPage';
 import { UsagePage } from './pages/UsagePage';
+import { ProviderDetailPage } from './pages/ProviderDetailPage';
 import { cpamcEmbedSearch, isCPAMCEmbed, notifyCPAMCEmbedReady } from './embed/cpamcEmbed';
-import { getUsageTabPath, resolveUsageTabFromPath, stripAppBasePath } from './lib/usageNavigation';
+import { getUsageTabPath, resolveProviderDetailIdFromPath, resolveUsageTabFromPath, stripAppBasePath } from './lib/usageNavigation';
 import { useUsageStatsStore } from './stores/useUsageStatsStore';
 
 type AuthState = 'checking' | 'authenticated' | 'unauthenticated';
@@ -39,6 +40,7 @@ export const getRoleTargetPath = (
     return isKeyViewerPath(currentPath) ? currentPath : '/key-overview';
   }
   if (currentPath === '/') return '/';
+  if (resolveProviderDetailIdFromPath(currentPath)) return currentPath;
 
   const usageTab = resolveUsageTabFromPath(currentPath);
   if (!usageTab || (isEmbeddedInCPAMC && (usageTab === 'ranking' || usageTab === 'live-flow'))) return '/';
@@ -122,7 +124,11 @@ function App() {
       const currentPath = stripAppBasePath(window.location.pathname, window.__APP_BASE_PATH__) ?? '/';
       const targetPath = getRoleTargetPath(session.role ?? 'admin', currentPath, isEmbeddedInCPAMC);
       // 管理员凭据直达链接需跨登录保留；发生角色或路由重定向时仍只携带嵌入标记。
-      const keepCredentialSearch = targetPath === currentPath && (targetPath === '/auth-files' || targetPath === '/ai-provider');
+      const keepCredentialSearch = targetPath === currentPath && (
+        targetPath === '/auth-files'
+        || targetPath === '/ai-provider'
+        || resolveProviderDetailIdFromPath(targetPath) !== null
+      );
       const suffix = keepCredentialSearch ? window.location.search + window.location.hash : cpamcEmbedSearch();
       window.history.replaceState(null, '', appPath(targetPath) + suffix);
     } catch (error) {
@@ -218,7 +224,11 @@ function App() {
         break;
     }
   } else {
-    page = <UsagePage onAuthRequired={clearSession} />;
+    const currentPath = stripAppBasePath(window.location.pathname, window.__APP_BASE_PATH__) ?? '/';
+    const providerId = resolveProviderDetailIdFromPath(currentPath);
+    page = providerId
+      ? <ProviderDetailPage providerId={providerId} onAuthRequired={clearSession} />
+      : <UsagePage onAuthRequired={clearSession} />;
   }
 
   return (

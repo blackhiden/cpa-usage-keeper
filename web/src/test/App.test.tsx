@@ -23,6 +23,9 @@ vi.mock('../pages/UsagePage', () => ({
     <button data-expire onClick={onAuthRequired}>Admin</button>
   ),
 }));
+vi.mock('../pages/ProviderDetailPage', () => ({
+  ProviderDetailPage: ({ providerId }: { providerId: string }) => <div>Provider detail: {providerId}</div>,
+}));
 vi.mock('../pages/LoginPage', () => ({
   LoginPage: ({ onPasswordSubmit, onAPIKeySubmit }: ComponentProps<typeof import('../pages/LoginPage').LoginPage>) => (
     <><button data-password-login onClick={() => onPasswordSubmit('password')}>Password</button>
@@ -85,6 +88,7 @@ describe('App session and navigation', () => {
   it.each([
     { role: 'admin', path: '/auth-files', button: '[data-password-login]', page: 'Admin' },
     { role: 'admin', path: '/analysis', button: '[data-password-login]', page: 'Admin' },
+    { role: 'admin', path: '/ai-provider/openai', button: '[data-password-login]', page: 'Provider detail: openai' },
     { role: 'api_key_viewer', path: '/key-analysis', button: '[data-key-login]', page: 'Analysis' },
   ])('preserves the allowed path after $role login', async ({ role, path, button, page }) => {
     window.history.replaceState(null, '', `/cpa${path}?embed=cpamc`);
