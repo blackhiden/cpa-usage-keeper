@@ -1085,3 +1085,30 @@ export interface UsageFilterWindow {
   endMs?: number
   windowMinutes?: number
 }
+
+// Provider Grouping Types (FEAT-PROV-2.1, 2.2, 2.3, 2.4)
+export interface ProviderSummary {
+  provider: string
+  provider_type: string
+  key_count: number
+  total_requests: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  total_tokens: number
+  last_used_at?: string
+}
+
+export interface ProvidersResponse {
+  providers: ProviderSummary[]
+  total_count: number
+}
+
+export interface ProviderKeysResponse {
+  provider: string
+  keys: UsageIdentity[]
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+}

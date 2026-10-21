@@ -2,9 +2,11 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
+  getProviderDetailPath,
   getUsageTabPath,
   handleUsageTabKeyActivation,
   normalizeUsageTabValue,
+  resolveProviderDetailIdFromPath,
   resolveInitialUsageTab,
   resolveUsageTabFromPath,
   shouldHandleUsageNavigation,
@@ -29,6 +31,15 @@ describe('usage page navigation', () => {
       expect(resolveUsageTabFromPath(path)).toBe(tab);
     }
     expect(resolveUsageTabFromPath('/auth-files/')).toBeNull();
+  });
+
+  it('builds and resolves exactly one safe provider-detail path segment', () => {
+    expect(getProviderDetailPath('OpenAI Team')).toBe('/ai-provider/OpenAI%20Team');
+    expect(resolveProviderDetailIdFromPath('/ai-provider/OpenAI%20Team')).toBe('OpenAI Team');
+    expect(resolveProviderDetailIdFromPath('/ai-provider/%2E%2E')).toBeNull();
+    expect(resolveProviderDetailIdFromPath('/ai-provider/openai%2Fother')).toBeNull();
+    expect(resolveProviderDetailIdFromPath('/ai-provider/openai/other')).toBeNull();
+    expect(resolveProviderDetailIdFromPath('/ai-provider/%E0%A4%A')).toBeNull();
   });
 
   it('rejects unknown, nested, encoded, and URL-shaped path input', () => {

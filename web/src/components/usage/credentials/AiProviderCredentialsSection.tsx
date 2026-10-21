@@ -9,6 +9,7 @@ import { CredentialRowShell, CredentialSectionShell, CredentialTableHeader, Cred
 import { CredentialPriorityEditor } from './CredentialPriorityEditor'
 import { CredentialStatusToggle, CredentialStatusUnsupportedIcon, isCredentialStatusToggleSupported } from './CredentialStatusToggle'
 import { QuestionMarkHelp } from '@/components/ui/QuestionMarkHelp'
+import { ProviderBrandIcon } from '@/components/ProviderBrandIcon'
 
 interface AiProviderCredentialsSectionProps {
   rows: AiProviderCredentialRow[]
@@ -19,6 +20,10 @@ interface AiProviderCredentialsSectionProps {
   activeOnly: boolean
   sort: UsageIdentityPageSort
   loading: boolean
+  title?: string
+  subtitle?: string
+  /** Provider detail routes are read-only and do not expose credential management controls. */
+  allowManagement?: boolean
   /** 编辑行消失时，焦点留在当前列表的原生筛选控件，不改变页面容器。 */
   editFallbackRef?: Ref<HTMLInputElement>
   onEdit?: (row: AiProviderCredentialRow) => void
@@ -33,16 +38,16 @@ interface AiProviderCredentialsSectionProps {
   onSortChange: (sort: UsageIdentityPageSort) => void
 }
 
-export function AiProviderCredentialsSection({ rows, total, page, totalPages, pageSize, activeOnly, sort, loading, editFallbackRef, onEdit, onOpenDetails, statusPendingIdentityIds, onToggleStatus, onSavePriority, onPageChange, onPageSizeChange, onActiveOnlyChange, onSortChange }: AiProviderCredentialsSectionProps) {
+export function AiProviderCredentialsSection({ rows, total, page, totalPages, pageSize, activeOnly, sort, loading, title, subtitle, allowManagement = true, editFallbackRef, onEdit, onOpenDetails, statusPendingIdentityIds, onToggleStatus, onSavePriority, onPageChange, onPageSizeChange, onActiveOnlyChange, onSortChange }: AiProviderCredentialsSectionProps) {
   const { t } = useTranslation()
   const helpText = t('usage_stats.credentials_ai_providers_active_only_help')
 
   return (
     <CredentialSectionShell
-      title={t('usage_stats.credentials_ai_providers_title')}
-      subtitle={t('usage_stats.credentials_ai_providers_subtitle')}
+      title={title ?? t('usage_stats.credentials_ai_providers_title')}
+      subtitle={subtitle ?? t('usage_stats.credentials_ai_providers_subtitle')}
       countLabel={t('usage_stats.credentials_count', { count: total })}
-      titleExtra={(
+      titleExtra={allowManagement ? (
         <div className={styles.credentialAuthFileTitleControls}>
           <label className={styles.credentialActiveOnlySwitch}>
             <span className={styles.credentialActiveOnlyLabel}>{t('usage_stats.credentials_ai_providers_active_only')}</span>
@@ -65,7 +70,7 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
             <span>{helpText}</span>
           </QuestionMarkHelp>
         </div>
-      )}
+      ) : undefined}
     >
       {loading && rows.length === 0 && <div className={styles.credentialEmptyState}>{t('common.loading')}</div>}
       {!loading && rows.length === 0 && <div className={styles.credentialEmptyState}>{t('usage_stats.credentials_ai_providers_empty')}</div>}
@@ -83,7 +88,9 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
       {rows.map((row) => (
         <CredentialRowShell
           key={row.identity.id || row.identity.identity}
-          icon={isCredentialStatusToggleSupported(row.identity.type) ? (
+          icon={!allowManagement ? (
+            <ProviderBrandIcon providerType={row.identity.type} size={30} />
+          ) : isCredentialStatusToggleSupported(row.identity.type) ? (
             <CredentialStatusToggle
               providerType={row.identity.type}
               displayName={row.displayName}
@@ -96,7 +103,7 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
             // OpenAI 兼容类供应商没有对应的整条停用语义，静态图标复用同一套行内提示。
             <CredentialStatusUnsupportedIcon displayName={row.displayName} providerType={row.identity.type} />
           )}
-          title={onEdit ? (
+          title={allowManagement && onEdit ? (
             <CredentialAliasEditor
               identityId={row.identity.id}
               displayName={row.displayName}
@@ -105,7 +112,7 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
               onOpenDetails={onOpenDetails ? () => onOpenDetails(row) : undefined}
               onEdit={() => onEdit(row)}
             />
-          ) : onOpenDetails ? (
+          ) : allowManagement && onOpenDetails ? (
             <button
               type="button"
               className={styles.credentialDetailNameButton}
@@ -116,7 +123,7 @@ export function AiProviderCredentialsSection({ rows, total, page, totalPages, pa
               <span className={styles.credentialDetailNameArrow} aria-hidden="true">‹</span>
             </button>
           ) : row.displayName}
-          subtitle={row.priorityLabel || (onSavePriority && !row.identity.is_deleted) ? (
+          subtitle={allowManagement && (row.priorityLabel || (onSavePriority && !row.identity.is_deleted)) ? (
             <span className={styles.credentialIdentityBadges}>
               <CredentialPriorityEditor
                 priority={row.identity.priority}

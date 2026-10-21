@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, appPath, isCostsBusy, isUsageRangeBoundsConflict, createUsageEventRequestLogDownloadURL, deleteAuthFiles, exportUsageEvents, fetchAnalysis, fetchAnalysisLatency, fetchAuthSessions, fetchCodexQuotaHistory, fetchCpaApiKeyOptions, fetchCpaApiKeys, fetchCpaApiKeySettings, fetchKeyActivity, fetchKeyAnalysis, fetchKeyAnalysisLatency, fetchKeyOverview, fetchKeyOverviewRealtime, fetchQuotaAutoRefreshSettings, fetchUsageActivity, fetchUsageOverview, fetchUsageOverviewRealtime, fetchUsageQuotaCache, fetchUsageQuotaInspectionStatus, fetchUsageQuotaResetCredits, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventRequestLog, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentities, fetchUsageIdentitiesPage, fetchUsageQuotaRefreshTask, fetchVersion, loginWithCPAAPIKey, logout, refreshUsageQuotas, resetUsageQuota, revokeAuthSession, setAuthFilesDisabled, setCredentialDisabled, setCredentialPriority, startUsageQuotaInspection, updateAuthSessionAlias, updateCpaApiKeyAlias, updateQuotaAutoRefreshSettings } from '../api';
+import { ApiError, appPath, isCostsBusy, isUsageRangeBoundsConflict, createUsageEventRequestLogDownloadURL, deleteAuthFiles, exportUsageEvents, fetchAnalysis, fetchAnalysisLatency, fetchAuthSessions, fetchCodexQuotaHistory, fetchCpaApiKeyOptions, fetchCpaApiKeys, fetchCpaApiKeySettings, fetchKeyActivity, fetchKeyAnalysis, fetchKeyAnalysisLatency, fetchKeyOverview, fetchKeyOverviewRealtime, fetchQuotaAutoRefreshSettings, fetchUsageActivity, fetchUsageOverview, fetchUsageOverviewRealtime, fetchUsageQuotaCache, fetchUsageQuotaInspectionStatus, fetchUsageQuotaResetCredits, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventRequestLog, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentities, fetchUsageIdentitiesPage, fetchUsageQuotaRefreshTask, fetchVersion, listProviderKeys, listProviders, loginWithCPAAPIKey, logout, refreshUsageQuotas, resetUsageQuota, revokeAuthSession, setAuthFilesDisabled, setCredentialDisabled, setCredentialPriority, startUsageQuotaInspection, updateAuthSessionAlias, updateCpaApiKeyAlias, updateQuotaAutoRefreshSettings } from '../api';
 
 const headerValue = (init: RequestInit | undefined, name: string): string | null => new Headers(init?.headers).get(name);
 
@@ -939,6 +939,27 @@ describe('fetchUsageEvents', () => {
     expect(response.quota?.id).toBe('auth-1');
     expect(parsed.pathname).toBe('/api/v1/quota/refresh/auth-1');
     expect(init).toMatchObject({ credentials: 'include', signal });
+  });
+
+  it('loads grouped providers and provider keys with the documented sorting and pagination contract', async () => {
+    const fetchMock = mockJSON({ providers: [], total_count: 0 });
+    const signal = new AbortController().signal;
+
+    await listProviders({ sort: 'success_rate', order: 'desc' }, signal);
+    await listProviderKeys('OpenAI Team', { sort: 'success_rate', order: 'desc', page: 2, page_size: 20 }, signal);
+
+    const providersURL = new URL(String(fetchMock.mock.calls[0][0]), 'http://localhost');
+    const providerKeysURL = new URL(String(fetchMock.mock.calls[1][0]), 'http://localhost');
+    expect(providersURL.pathname).toBe('/api/v1/usage/providers');
+    expect(providersURL.searchParams.get('sort')).toBe('success_rate');
+    expect(providersURL.searchParams.get('order')).toBe('desc');
+    expect(providerKeysURL.pathname).toBe('/api/v1/usage/providers/OpenAI%20Team/keys');
+    expect(providerKeysURL.searchParams.get('sort')).toBe('success_rate');
+    expect(providerKeysURL.searchParams.get('order')).toBe('desc');
+    expect(providerKeysURL.searchParams.get('page')).toBe('2');
+    expect(providerKeysURL.searchParams.get('page_size')).toBe('20');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ credentials: 'include', signal });
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({ credentials: 'include', signal });
   });
 
   it('loads update check status from the protected endpoint', async () => {

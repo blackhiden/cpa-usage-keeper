@@ -94,6 +94,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Understand costs**: analyze usage, caching, and estimated costs by model, API Key, and provider.
 - **Investigate requests**: inspect and export request details, and explore success rates, time to first token (TTFT), and total latency.
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
+- **Inspect AI providers**: administrators can review one aggregate row per provider, sort by success rate, and open a paginated key-detail page for that provider.
 - **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
 - **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials. API key viewers can access this global view with a privacy notice.

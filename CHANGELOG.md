@@ -30,6 +30,8 @@ See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
 
 ### Changed
 
+- **AI Provider grouping and detail:** The administrator `/ai-provider` view now renders one server-aggregated row per provider, defaults to success-rate sorting, and provides a Detail link to `/ai-provider/:providerId`. The detail route renders that provider's paginated key list with server-side sorting, uses URL-safe provider identifiers, preserves CPAMC embed context, and remains unavailable to API-key viewers.
+
 - **API key viewers see the full request log for their own events**: The key-viewer request-log endpoint (`/api/v1/key-events/:id/request-log`) no longer strips request/response bodies, headers, prompts, or upstream payloads. Viewers now see the complete request log for events owned by their API key, matching the administrator view. Ownership verification (cross-key → 404) and the `CPA_REQUEST_LOG_ACCESS_ENABLED` gate are unchanged. Request logs may contain request or response data. The fork contract is protected by `TestAPIKeyViewerRequestLogFullContentPersistence` and `docs/MERGE-PRESERVATION.md`.
 
 - **Ranking feature converted to local API key competition by default**: The ranking feature now displays local API key usage competition as the default view, replacing the previous community-only approach. API keys are displayed with their names (fetched from CPA `/v0/management/auth-api-keys`) and masked keys (e.g., `sk-*********123456`). Community ranking remains available but is no longer the default scope; users can switch between local and community views. The backend now prioritizes CPA-provided key names over user aliases when displaying API keys throughout the application.
