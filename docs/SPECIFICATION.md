@@ -199,6 +199,8 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET /api/usage/analysis` | Analysis: trends, cost composition, heatmaps. |
 | `GET /api/usage/analysis/latency` | Latency diagnostics. |
 | `GET /api/usage/identities`, `GET /api/usage/identities/page` | Usage grouped by identity. Codex auth-file identities may carry a `subscription` (`{provider, plan}`) derived from their stored plan metadata. |
+| `GET /api/usage/providers` | Active AI-provider identities grouped by `provider`, with `provider_type`, key count, reset-aware aggregate request/token statistics, aggregate success rate, and latest use time. Supports `sort=success_rate`, `total_requests`, `total_tokens`, or `last_used_at`; descending order is the supported presentation order. |
+| `GET /api/usage/providers/:providerId/keys` | Paginated active AI-provider keys for one provider. Supports the same statistics sorts plus `priority`, and `page`/`page_size`. Admins receive maintained identity statistics and credential metadata. |
 | `GET /api/api-keys`, `/settings`, `/options`; alias `PUT` | Mirrored CPA API keys, their settings and alias updates. |
 | `GET/... /api/auth-files` | Auth Files inventory, details, and management. |
 | `GET /api/models/used` | Models observed in usage. |
@@ -218,14 +220,14 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET /api/key-viewer/usage/events` | Request events list scoped to the viewer's key. Supports filters (time range, model, provider, status) and pagination. |
 | `GET /api/key-viewer/usage/events/:id` | Event detail for a single event. Returns 404 if the event belongs to a different key. |
 | `GET /api/key-viewer/usage/events/:id/request-log` | Request log download token (when `CPA_REQUEST_LOG_ACCESS_ENABLED=true`). Returns 404 for cross-key access. API key viewers see the full request log for their own events (may contain request or response data). |
+| `GET /api/usage/providers` | Provider groups evidenced by the viewer's own `apikey` events (`usage_events.api_group_key`). Aggregate statistics are calculated from only those events. |
+| `GET /api/usage/providers/:providerId/keys` | Paginated provider keys evidenced by the viewer's own `apikey` events. An unowned or nonexistent provider returns 404 to prevent enumeration; `prefix` and `base_url` are returned as `***` when non-empty. |
 | `POST /api/key-viewer/usage/events/export` | Export filtered events to CSV or JSON. Scoped to the viewer's key. |
 | `/api/live-flow/ws` | WebSocket connection for real-time metadata stream. API key viewers see metadata for ALL requests across all keys (global view). No prompts, bodies, headers, or credentials relayed. |
 | `GET /api/key-viewer/ranking/local` | Local API key ranking leaderboard (always enabled when local ranking provider is available). |
 | `PUT /api/key-viewer/ranking/local/profile` | Update the viewer's key alias for local ranking display. |
 
-Viewer endpoints are rate-limited per viewer session. Request events and logs
-are strictly scoped to the authenticated key; cross-key access returns 404.
-Live Flow is a global metadata view with no sensitive data relayed.
+Viewer endpoints are rate-limited per viewer session. Request events, provider groups, and provider keys are strictly scoped to the authenticated key; unavailable cross-key detail access returns 404. Legacy `/usage/identities*` responses never expose `base_url`; the provider-key endpoint alone exposes it so that viewer masking can be applied. Live Flow is a global metadata view with no sensitive data relayed.
 
 
 ---

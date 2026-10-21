@@ -39,6 +39,42 @@ type usageIdentityTypeCount struct {
 	Count int64  `json:"count"`
 }
 
+type providersResponse struct {
+	Providers  []providerResponse `json:"providers"`
+	TotalCount int                `json:"total_count"`
+}
+
+type providerResponse struct {
+	Provider        string     `json:"provider"`
+	ProviderType    string     `json:"provider_type"`
+	KeyCount        int64      `json:"key_count"`
+	TotalRequests   int64      `json:"total_requests"`
+	SuccessCount    int64      `json:"success_count"`
+	FailureCount    int64      `json:"failure_count"`
+	SuccessRate     float64    `json:"success_rate"`
+	InputTokens     int64      `json:"input_tokens"`
+	CacheReadTokens int64      `json:"cache_read_tokens"`
+	TotalTokens     int64      `json:"total_tokens"`
+	LastUsedAt      *time.Time `json:"last_used_at,omitempty"`
+}
+
+type providerKeysResponse struct {
+	Provider   string                `json:"provider"`
+	Keys       []providerKeyResponse `json:"keys"`
+	TotalCount int64                 `json:"total_count"`
+	Page       int                   `json:"page"`
+	PageSize   int                   `json:"page_size"`
+	TotalPages int                   `json:"total_pages"`
+}
+
+// providerKeyResponse extends the established identity view only for the new
+// provider-key route. Legacy identity responses intentionally never publish a
+// base URL (see TestProviderMetadataSecretStaysOutOfUsageIdentityResponses).
+type providerKeyResponse struct {
+	usageIdentityResponse
+	BaseURL string `json:"base_url"`
+}
+
 type usageIdentityPeriodStats struct {
 	TotalRequests   int64 `json:"total_requests"`
 	SuccessCount    int64 `json:"success_count"`
@@ -312,6 +348,17 @@ func mapUsageIdentityResponse(item entities.UsageIdentity, maskCredentials bool)
 	return mapUsageIdentityResponseWithHealth(item, nil, maskCredentials)
 }
 
+func mapProviderKeyResponse(item entities.UsageIdentity, maskCredentials bool) providerKeyResponse {
+	baseURL := item.BaseURL
+	if maskCredentials && baseURL != "" {
+		baseURL = "***"
+	}
+	return providerKeyResponse{
+		usageIdentityResponse: mapUsageIdentityResponse(item, maskCredentials),
+		BaseURL:               baseURL,
+	}
+}
+
 func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *service.UsageCredentialHealthSnapshot, maskCredentials bool) usageIdentityResponse {
 	// AI Provider identity 是稳定 auth-index；响应不直接发布原始 LookupKey，OpenAI Compatibility 仅按 Issue #281 在 displayName 中保留脱敏 Key 片段。
 	var fileName *string
@@ -326,16 +373,11 @@ func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *ser
 		disabled = *item.Disabled
 	}
 
-	// API-key viewer 角色对敏感凭证字段进行脱敏：base_url 和 prefix 显示为固定掩码。
-	baseURL := item.BaseURL
+	// API-key viewer 角色对敏感凭证字段进行脱敏。base_url 只在
+	// provider-key endpoint 的专用响应中出现，避免扩张旧 identity API。
 	prefix := item.Prefix
-	if maskCredentials {
-		if baseURL != "" {
-			baseURL = "***"
-		}
-		if prefix != "" {
-			prefix = "***"
-		}
+	if maskCredentials && prefix != "" {
+		prefix = "***"
 	}
 
 	return usageIdentityResponse{
@@ -479,4 +521,89 @@ func mapUsageCredentialHealthResponse(snapshot *service.UsageCredentialHealthSna
 		CacheReadTokens: snapshot.CacheReadTokens,
 		Buckets:         buckets,
 	}
+}
+
+func registerProviderRoutes(router gin.IRoutes, usageIdentityProvider service.UsageIdentityProvider) {
+	router.GET("/usage/providers", func(c *gin.Context) {
+		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		if !ok {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider listing is not configured"})
+			return
+		}
+		apiKeyID, ok := providerViewerAPIKeyID(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		providers, err := reader.ListProviders(c.Request.Context(), service.ListProvidersRequest{
+			Sort:        strings.TrimSpace(c.Query("sort")),
+			CPAAPIKeyID: apiKeyID,
+		})
+		if err != nil {
+			writeInternalError(c, "list providers failed", err)
+			return
+		}
+		response := make([]providerResponse, 0, len(providers))
+		for _, provider := range providers {
+			response = append(response, providerResponse{
+				Provider: provider.Provider, ProviderType: provider.ProviderType, KeyCount: provider.KeyCount,
+				TotalRequests: provider.TotalRequests, SuccessCount: provider.SuccessCount, FailureCount: provider.FailureCount,
+				SuccessRate: provider.SuccessRate, InputTokens: provider.InputTokens, CacheReadTokens: provider.CacheReadTokens,
+				TotalTokens: provider.TotalTokens, LastUsedAt: provider.LastUsedAt,
+			})
+		}
+		c.JSON(http.StatusOK, providersResponse{Providers: response, TotalCount: len(response)})
+	})
+
+	router.GET("/usage/providers/:providerId/keys", func(c *gin.Context) {
+		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		if !ok {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider key listing is not configured"})
+			return
+		}
+		providerID := strings.TrimSpace(c.Param("providerId"))
+		if providerID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider id is required"})
+			return
+		}
+		apiKeyID, ok := providerViewerAPIKeyID(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		result, err := reader.ListProviderKeys(c.Request.Context(), service.ListProviderKeysRequest{
+			Provider: providerID, Sort: strings.TrimSpace(c.Query("sort")),
+			Page: positiveQueryInt(c, "page", 1), PageSize: positiveQueryInt(c, "page_size", 20), CPAAPIKeyID: apiKeyID,
+		})
+		if err != nil {
+			writeInternalError(c, "list provider keys failed", err)
+			return
+		}
+		if result.TotalCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "provider not found"})
+			return
+		}
+		maskCredentials := isAPIKeyViewerRole(c)
+		keys := make([]providerKeyResponse, 0, len(result.Keys))
+		for _, key := range result.Keys {
+			keys = append(keys, mapProviderKeyResponse(key, maskCredentials))
+		}
+		c.JSON(http.StatusOK, providerKeysResponse{
+			Provider: result.Provider, Keys: keys, TotalCount: result.TotalCount,
+			Page: result.Page, PageSize: result.PageSize, TotalPages: result.TotalPages,
+		})
+	})
+}
+
+// providerViewerAPIKeyID returns a trusted scope only for API-key viewers;
+// administrators intentionally retain the unrestricted zero-value scope.
+func providerViewerAPIKeyID(c *gin.Context) (int64, bool) {
+	if !isAPIKeyViewerRole(c) {
+		return 0, true
+	}
+	session, _, ok := activeAPIKeyViewerContext(c)
+	if !ok {
+		return 0, false
+	}
+	return session.CPAAPIKeyID, true
 }

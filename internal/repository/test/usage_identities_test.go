@@ -1155,6 +1155,79 @@ func intPtr(value int) *int {
 	return &value
 }
 
+func TestListProvidersAggregatesActiveAIProviderPeriodStatsAndSortsBySuccessRate(t *testing.T) {
+	db := openTestDatabase(t)
+	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	rows := []entities.UsageIdentity{
+		{Identity: "openai-a", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "openai", Provider: "OpenAI", TotalRequests: 100, SuccessCount: 40, FailureCount: 60, InputTokens: 1000, CacheReadTokens: 100, TotalTokens: 2000, ResetTotalRequests: 90, ResetSuccessCount: 36, ResetFailureCount: 54, ResetInputTokens: 900, ResetCacheReadTokens: 90, ResetTotalTokens: 1800, LastUsedAt: &now},
+		{Identity: "openai-b", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "openai", Provider: "OpenAI", TotalRequests: 20, SuccessCount: 20, InputTokens: 200, CacheReadTokens: 20, TotalTokens: 400, LastUsedAt: &now},
+		{Identity: "anthropic-a", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "anthropic", Provider: "Anthropic", TotalRequests: 5, SuccessCount: 5, InputTokens: 50, CacheReadTokens: 5, TotalTokens: 100, LastUsedAt: &now},
+		{Identity: "deleted", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Provider: "Deleted", TotalRequests: 999, SuccessCount: 999, IsDeleted: true},
+		{Identity: "oauth", AuthType: entities.UsageIdentityAuthTypeAuthFile, AuthTypeName: "oauth", Provider: "OAuth", TotalRequests: 999, SuccessCount: 999},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("seed usage identities: %v", err)
+	}
+
+	providers, err := ListProviders(context.Background(), db, ListProvidersRequest{Sort: ProviderSortSuccessRate})
+	if err != nil {
+		t.Fatalf("ListProviders returned error: %v", err)
+	}
+	if len(providers) != 2 || providers[0].Provider != "Anthropic" || providers[1].Provider != "OpenAI" {
+		t.Fatalf("unexpected provider success-rate ordering: %+v", providers)
+	}
+	openAI := providers[1]
+	if providers[0].ProviderType != "anthropic" || openAI.ProviderType != "openai" || openAI.KeyCount != 2 || openAI.TotalRequests != 30 || openAI.SuccessCount != 24 || openAI.FailureCount != 6 || openAI.InputTokens != 300 || openAI.CacheReadTokens != 30 || openAI.TotalTokens != 600 {
+		t.Fatalf("unexpected reset-aware OpenAI aggregate: %+v", openAI)
+	}
+}
+
+func TestProviderQueriesScopeViewerResultsToAPIGroupEvents(t *testing.T) {
+	db := openTestDatabase(t)
+	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
+	identities := []entities.UsageIdentity{
+		{Identity: "openai-success", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "openai", Provider: "OpenAI", Prefix: "visible-prefix", TotalRequests: 999, SuccessCount: 999, TotalTokens: 9999},
+		{Identity: "openai-failure", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "openai", Provider: "OpenAI", TotalRequests: 999, SuccessCount: 999, TotalTokens: 9999},
+		{Identity: "anthropic-other", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "anthropic", Provider: "Anthropic", TotalRequests: 999, SuccessCount: 999, TotalTokens: 9999},
+	}
+	if err := db.Create(&identities).Error; err != nil {
+		t.Fatalf("seed identities: %v", err)
+	}
+	events := []entities.UsageEvent{
+		{EventKey: "viewer-success", APIGroupKey: "viewer-key", AuthType: "apikey", AuthIndex: "openai-success", Timestamp: now, InputTokens: 11, CacheReadTokens: 3, TotalTokens: 20},
+		{EventKey: "viewer-failure", APIGroupKey: "viewer-key", AuthType: "apikey", AuthIndex: "openai-failure", Timestamp: now.Add(time.Minute), Failed: true, InputTokens: 7, CacheReadTokens: 2, TotalTokens: 12},
+		{EventKey: "other-openai", APIGroupKey: "other-key", AuthType: "apikey", AuthIndex: "openai-success", Timestamp: now, InputTokens: 100, TotalTokens: 100},
+		{EventKey: "other-anthropic", APIGroupKey: "other-key", AuthType: "apikey", AuthIndex: "anthropic-other", Timestamp: now, InputTokens: 100, TotalTokens: 100},
+	}
+	if err := db.Create(&events).Error; err != nil {
+		t.Fatalf("seed usage events: %v", err)
+	}
+
+	providers, err := ListProviders(context.Background(), db, ListProvidersRequest{APIGroupKey: "viewer-key", Sort: ProviderSortSuccessRate})
+	if err != nil {
+		t.Fatalf("ListProviders scoped query returned error: %v", err)
+	}
+	if len(providers) != 1 || providers[0].Provider != "OpenAI" || providers[0].ProviderType != "openai" || providers[0].KeyCount != 2 || providers[0].TotalRequests != 2 || providers[0].SuccessCount != 1 || providers[0].FailureCount != 1 || providers[0].InputTokens != 18 || providers[0].CacheReadTokens != 5 || providers[0].TotalTokens != 32 {
+		t.Fatalf("unexpected viewer-scoped provider aggregate: %+v", providers)
+	}
+
+	keys, total, err := ListProviderKeys(context.Background(), db, ListProviderKeysRequest{Provider: "OpenAI", APIGroupKey: "viewer-key", Sort: UsageIdentityPageSortSuccessRate, Page: 1, PageSize: 1})
+	if err != nil {
+		t.Fatalf("ListProviderKeys scoped query returned error: %v", err)
+	}
+	if total != 2 || len(keys) != 1 || keys[0].Identity != "openai-success" || keys[0].TotalRequests != 1 || keys[0].SuccessCount != 1 || keys[0].TotalTokens != 20 || keys[0].ResetTotalRequests != 0 {
+		t.Fatalf("unexpected viewer-scoped provider key page: total=%d keys=%+v", total, keys)
+	}
+
+	keys, total, err = ListProviderKeys(context.Background(), db, ListProviderKeysRequest{Provider: "Anthropic", APIGroupKey: "viewer-key", Page: 1, PageSize: 20})
+	if err != nil {
+		t.Fatalf("ListProviderKeys unavailable provider returned error: %v", err)
+	}
+	if total != 0 || len(keys) != 0 {
+		t.Fatalf("expected unavailable provider to be hidden, got total=%d keys=%+v", total, keys)
+	}
+}
+
 func boolPtr(value bool) *bool {
 	return &value
 }

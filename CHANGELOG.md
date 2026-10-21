@@ -36,6 +36,7 @@ See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
 
 ### Added
 
+- **Provider grouping and key-listing API**: `GET /api/v1/usage/providers` returns active AI providers grouped with reset-aware aggregate statistics and success-rate sorting; `GET /api/v1/usage/providers/:providerId/keys` supplies paginated, sortable keys. API-key viewers are restricted to identities evidenced by their own usage events, receive event-scoped statistics, and have non-empty `prefix`/`base_url` masked. Unavailable provider details return 404.
 - **New CPA endpoint integration**: Added support for CPA's `/v0/management/auth-api-keys` endpoint which provides API key names alongside keys. The metadata sync falls back gracefully to the legacy `/v0/management/api-keys` endpoint if the new one is unavailable.
 - **Database schema update**: Added `key_name` column to `cpa_api_keys` table to store API key names from CPA (migration `20261013_add_cpa_api_key_name`).
 - `FetchAuthAPIKeys()` method in CPA client for fetching API keys with names

@@ -188,6 +188,12 @@ Key invariants:
   iframe fallback. `frame-ancestors` CSP derives only from `CPA_PUBLIC_URL`.
 - Persistent sessions (`auth_sessions` table) when password auth is on;
   otherwise an in-memory manager.
+- Provider-group routes accept both administrators and active API-key viewers.
+  The handler derives a viewer scope from the session's CPA API-key ID; the
+  service resolves it to the synchronized `cpa_api_keys.api_key`, and repository
+  joins restrict visible provider identities to matching `usage_events.api_group_key`
+  and `auth_type='apikey'`. This keeps all SQL in the repository and prevents a
+  client from supplying an authorization scope.
 - Static SPA served from embedded FS (`web/static.go`: `go:embed all:dist`),
   including base-path rewriting when `APP_BASE_PATH` is set.
 - Structured recovery via `internal/logging/gin_recovery.go`.

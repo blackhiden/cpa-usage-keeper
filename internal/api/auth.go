@@ -209,6 +209,40 @@ func (h *authHandler) activeAPIKeyViewerMiddleware() gin.HandlerFunc {
 	}
 }
 
+// activeAPIKeyViewerIfPresentMiddleware verifies a viewer's bound CPA API key
+// while allowing authenticated administrators through unchanged.
+func (h *authHandler) activeAPIKeyViewerIfPresentMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h == nil || !h.config.Enabled {
+			c.Next()
+			return
+		}
+		sessionValue, hasSession := c.Get(authSessionContextKey)
+		session, sessionOK := sessionValue.(auth.Session)
+		if !hasSession || !sessionOK {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		if session.Role != auth.RoleAPIKeyViewer {
+			c.Next()
+			return
+		}
+		resolvedValue, hasResolved := c.Get(authResolvedContextKey)
+		resolved, resolvedOK := resolvedValue.(resolvedSessionToken)
+		if !hasResolved || !resolvedOK {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		row, ok := h.activeViewerAPIKey(c, resolved, session)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		c.Set(activeViewerKeyContextKey, row)
+		c.Next()
+	}
+}
+
 func activeAPIKeyViewerContext(c *gin.Context) (auth.Session, entities.CPAAPIKey, bool) {
 	if c == nil {
 		return auth.Session{}, entities.CPAAPIKey{}, false

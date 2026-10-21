@@ -944,3 +944,230 @@ func UpdateCodexUsageIdentityActiveUntil(ctx context.Context, db *gorm.DB, ident
 		Where("id = ? AND auth_type = ? AND identity = ? AND account_id = ? AND LOWER(TRIM(type)) = ? AND is_deleted = ?", identity.ID, entities.UsageIdentityAuthTypeAuthFile, identity.Identity, *identity.AccountID, "codex", false).
 		Update("active_until", timeutil.FormatStorageTime(activeUntil)).Error
 }
+
+const (
+	ProviderSortSuccessRate   = "success_rate"
+	ProviderSortTotalRequests = "total_requests"
+	ProviderSortTotalTokens   = "total_tokens"
+	ProviderSortLastUsedAt    = "last_used_at"
+)
+
+type ListProvidersRequest struct {
+	Sort        string
+	APIGroupKey string
+}
+
+type ListProviderKeysRequest struct {
+	Provider    string
+	Sort        string
+	Page        int
+	PageSize    int
+	APIGroupKey string
+}
+
+type providerAggregateExpressions struct {
+	Provider        string
+	ProviderType    string
+	KeyCount        string
+	TotalRequests   string
+	SuccessCount    string
+	FailureCount    string
+	InputTokens     string
+	CacheReadTokens string
+	TotalTokens     string
+	LastUsedAt      string
+}
+
+// ListProviders returns aggregate AI provider statistics. When APIGroupKey is
+// supplied, every aggregate is limited to that CPA API key's usage events.
+func ListProviders(ctx context.Context, db *gorm.DB, request ListProvidersRequest) ([]dto.ProviderAggregate, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database is nil")
+	}
+
+	expressions := providerIdentityAggregateExpressions()
+	query := db.WithContext(ctx).Clauses(dbresolver.Read).
+		Model(&entities.UsageIdentity{}).
+		Where("auth_type = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, false)
+	if apiGroupKey := strings.TrimSpace(request.APIGroupKey); apiGroupKey != "" {
+		expressions = providerEventAggregateExpressions()
+		query = db.WithContext(ctx).Clauses(dbresolver.Read).
+			Table("usage_identities AS identity").
+			Joins("JOIN usage_events AS event ON event.auth_index = identity.identity AND event.auth_type = ? AND event.api_group_key = ?", "apikey", apiGroupKey).
+			Where("identity.auth_type = ? AND identity.is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, false)
+	}
+
+	var providers []dto.ProviderAggregate
+	if err := applyProviderAggregateSort(query.Select(providerAggregateSelect(expressions)).Group(expressions.Provider), request.Sort, expressions).Find(&providers).Error; err != nil {
+		return nil, fmt.Errorf("list providers: %w", err)
+	}
+	return providers, nil
+}
+
+func providerIdentityAggregateExpressions() providerAggregateExpressions {
+	return providerAggregateExpressions{
+		Provider: "provider", ProviderType: "MIN(type)", KeyCount: "COUNT(*)",
+		TotalRequests: "SUM(total_requests - reset_total_requests)", SuccessCount: "SUM(success_count - reset_success_count)", FailureCount: "SUM(failure_count - reset_failure_count)",
+		InputTokens: "SUM(input_tokens - reset_input_tokens)", CacheReadTokens: "SUM(cache_read_tokens - reset_cache_read_tokens)", TotalTokens: "SUM(total_tokens - reset_total_tokens)", LastUsedAt: "MAX(last_used_at)",
+	}
+}
+
+func providerEventAggregateExpressions() providerAggregateExpressions {
+	return providerAggregateExpressions{
+		Provider: "identity.provider", ProviderType: "MIN(identity.type)", KeyCount: "COUNT(DISTINCT identity.id)", TotalRequests: "COUNT(event.id)",
+		SuccessCount: "SUM(CASE WHEN event.failed THEN 0 ELSE 1 END)", FailureCount: "SUM(CASE WHEN event.failed THEN 1 ELSE 0 END)",
+		InputTokens: "SUM(event.input_tokens)", CacheReadTokens: "SUM(event.cache_read_tokens)", TotalTokens: "SUM(event.total_tokens)", LastUsedAt: "MAX(event.timestamp)",
+	}
+}
+
+func providerAggregateSelect(expressions providerAggregateExpressions) string {
+	return fmt.Sprintf("%s AS provider, %s AS provider_type, %s AS key_count, %s AS total_requests, %s AS success_count, %s AS failure_count, %s AS input_tokens, %s AS cache_read_tokens, %s AS total_tokens, %s AS last_used_at", expressions.Provider, expressions.ProviderType, expressions.KeyCount, expressions.TotalRequests, expressions.SuccessCount, expressions.FailureCount, expressions.InputTokens, expressions.CacheReadTokens, expressions.TotalTokens, expressions.LastUsedAt)
+}
+
+func applyProviderAggregateSort(query *gorm.DB, sort string, expressions providerAggregateExpressions) *gorm.DB {
+	switch sort {
+	case ProviderSortSuccessRate:
+		return query.Order(fmt.Sprintf("CASE WHEN %s = 0 THEN 0 ELSE CAST(%s AS REAL) / CAST(%s AS REAL) END DESC", expressions.TotalRequests, expressions.SuccessCount, expressions.TotalRequests)).Order(expressions.Provider + " ASC")
+	case ProviderSortTotalTokens:
+		return query.Order(expressions.TotalTokens + " DESC").Order(expressions.Provider + " ASC")
+	case ProviderSortLastUsedAt:
+		return query.Order(expressions.LastUsedAt + " IS NULL ASC").Order(expressions.LastUsedAt + " DESC").Order(expressions.Provider + " ASC")
+	default:
+		return query.Order(expressions.TotalRequests + " DESC").Order(expressions.Provider + " ASC")
+	}
+}
+
+// ListProviderKeys returns active AI provider keys for one provider. When an
+// API-group scope is supplied, only keys used by that group are returned and
+// their statistics are calculated from that group's usage events.
+func ListProviderKeys(ctx context.Context, db *gorm.DB, request ListProviderKeysRequest) ([]entities.UsageIdentity, int64, error) {
+	if db == nil {
+		return nil, 0, fmt.Errorf("database is nil")
+	}
+	provider := strings.TrimSpace(request.Provider)
+	if provider == "" {
+		return nil, 0, fmt.Errorf("provider is required")
+	}
+	page, pageSize := normalizedProviderKeysPage(request.Page, request.PageSize)
+	if apiGroupKey := strings.TrimSpace(request.APIGroupKey); apiGroupKey != "" {
+		return listProviderKeysForAPIGroup(ctx, db, provider, apiGroupKey, request.Sort, page, pageSize)
+	}
+
+	query := db.WithContext(ctx).Clauses(dbresolver.Read).Model(&entities.UsageIdentity{}).
+		Where("auth_type = ? AND provider = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, provider, false)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count provider keys: %w", err)
+	}
+	var identities []entities.UsageIdentity
+	authType := entities.UsageIdentityAuthTypeAIProvider
+	if err := applyUsageIdentityPageSort(query.Select(usageIdentityReadColumns), request.Sort, &authType).Offset((page - 1) * pageSize).Limit(pageSize).Find(&identities).Error; err != nil {
+		return nil, 0, fmt.Errorf("list provider keys: %w", err)
+	}
+	return identities, total, nil
+}
+
+func normalizedProviderKeysPage(page, pageSize int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	return page, pageSize
+}
+
+func listProviderKeysForAPIGroup(ctx context.Context, db *gorm.DB, provider, apiGroupKey, sort string, page, pageSize int) ([]entities.UsageIdentity, int64, error) {
+	statsQuery := providerKeyStatsQuery(db.WithContext(ctx).Clauses(dbresolver.Read), provider, apiGroupKey)
+	var total int64
+	if err := db.WithContext(ctx).Clauses(dbresolver.Read).Table("(?) AS provider_keys", statsQuery).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count scoped provider keys: %w", err)
+	}
+
+	var stats []dto.ProviderKeyStats
+	if err := applyProviderKeyStatsSort(statsQuery, sort).Offset((page - 1) * pageSize).Limit(pageSize).Scan(&stats).Error; err != nil {
+		return nil, 0, fmt.Errorf("list scoped provider keys: %w", err)
+	}
+	if len(stats) == 0 {
+		return []entities.UsageIdentity{}, total, nil
+	}
+
+	ids := make([]int64, 0, len(stats))
+	for _, stat := range stats {
+		ids = append(ids, stat.ID)
+	}
+	var rows []entities.UsageIdentity
+	if err := db.WithContext(ctx).Clauses(dbresolver.Read).Select(usageIdentityReadColumns).Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("load scoped provider keys: %w", err)
+	}
+	identitiesByID := make(map[int64]entities.UsageIdentity, len(rows))
+	for _, row := range rows {
+		identitiesByID[row.ID] = row
+	}
+	identities := make([]entities.UsageIdentity, 0, len(stats))
+	for _, stat := range stats {
+		identity, ok := identitiesByID[stat.ID]
+		if !ok {
+			continue
+		}
+		applyProviderKeyEventStats(&identity, stat)
+		identities = append(identities, identity)
+	}
+	return identities, total, nil
+}
+
+func providerKeyStatsQuery(db *gorm.DB, provider, apiGroupKey string) *gorm.DB {
+	return db.Table("usage_identities AS identity").
+		Joins("JOIN usage_events AS event ON event.auth_index = identity.identity AND event.auth_type = ? AND event.api_group_key = ?", "apikey", apiGroupKey).
+		Where("identity.auth_type = ? AND identity.provider = ? AND identity.is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, provider, false).
+		Select(`identity.id AS id, identity.identity AS auth_index,
+			COUNT(event.id) AS total_requests,
+			SUM(CASE WHEN event.failed THEN 0 ELSE 1 END) AS success_count,
+			SUM(CASE WHEN event.failed THEN 1 ELSE 0 END) AS failure_count,
+			SUM(event.input_tokens) AS input_tokens,
+			SUM(event.output_tokens) AS output_tokens,
+			SUM(event.reasoning_tokens) AS reasoning_tokens,
+			SUM(event.cached_tokens) AS cached_tokens,
+			SUM(event.cache_read_tokens) AS cache_read_tokens,
+			SUM(event.total_tokens) AS total_tokens,
+			MIN(event.timestamp) AS first_used_at,
+			MAX(event.timestamp) AS last_used_at`).
+		Group("identity.id, identity.identity, identity.priority")
+}
+
+func applyProviderKeyStatsSort(query *gorm.DB, sort string) *gorm.DB {
+	switch sort {
+	case UsageIdentityPageSortPriority:
+		return query.Order("identity.priority IS NULL ASC").Order("identity.priority DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortTotalTokens:
+		return query.Order("SUM(event.total_tokens) DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortLastUsedAt:
+		return query.Order("MAX(event.timestamp) IS NULL ASC").Order("MAX(event.timestamp) DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortSuccessRate:
+		return query.Order("CASE WHEN COUNT(event.id) = 0 THEN 0 ELSE CAST(SUM(CASE WHEN event.failed THEN 0 ELSE 1 END) AS REAL) / CAST(COUNT(event.id) AS REAL) END DESC").Order("identity.id ASC")
+	default:
+		return query.Order("COUNT(event.id) DESC").Order("identity.id ASC")
+	}
+}
+
+func applyProviderKeyEventStats(identity *entities.UsageIdentity, stat dto.ProviderKeyStats) {
+	identity.TotalRequests = stat.TotalRequests
+	identity.SuccessCount = stat.SuccessCount
+	identity.FailureCount = stat.FailureCount
+	identity.InputTokens = stat.InputTokens
+	identity.OutputTokens = stat.OutputTokens
+	identity.ReasoningTokens = stat.ReasoningTokens
+	identity.CachedTokens = stat.CachedTokens
+	identity.CacheReadTokens = stat.CacheReadTokens
+	identity.TotalTokens = stat.TotalTokens
+	identity.FirstUsedAt = stat.FirstUsedAt
+	identity.LastUsedAt = stat.LastUsedAt
+	// Viewer aggregate data covers its complete visible event set, so global
+	// reset baselines must not be subtracted a second time by response mapping.
+	identity.ResetTotalRequests = 0
+	identity.ResetSuccessCount = 0
+	identity.ResetFailureCount = 0
+	identity.ResetInputTokens = 0
+	identity.ResetCacheReadTokens = 0
+	identity.ResetTotalTokens = 0
+}

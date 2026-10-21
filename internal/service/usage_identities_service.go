@@ -76,6 +76,48 @@ type UsageIdentityDetail struct {
 	CredentialHealth UsageCredentialHealthSnapshot
 }
 
+// ProviderReader 是 AI provider 分组查询能力。
+type ProviderReader interface {
+	ListProviders(context.Context, ListProvidersRequest) ([]ProviderAggregate, error)
+	ListProviderKeys(context.Context, ListProviderKeysRequest) (ListProviderKeysResponse, error)
+}
+
+type ListProvidersRequest struct {
+	Sort        string
+	CPAAPIKeyID int64
+}
+
+type ProviderAggregate struct {
+	Provider        string
+	ProviderType    string
+	KeyCount        int64
+	TotalRequests   int64
+	SuccessCount    int64
+	FailureCount    int64
+	SuccessRate     float64
+	InputTokens     int64
+	CacheReadTokens int64
+	TotalTokens     int64
+	LastUsedAt      *time.Time
+}
+
+type ListProviderKeysRequest struct {
+	Provider    string
+	Sort        string
+	Page        int
+	PageSize    int
+	CPAAPIKeyID int64
+}
+
+type ListProviderKeysResponse struct {
+	Provider   string
+	Keys       []entities.UsageIdentity
+	TotalCount int64
+	Page       int
+	PageSize   int
+	TotalPages int
+}
+
 type usageIdentityService struct {
 	db                   *gorm.DB
 	recentUsage          *repository.UsageRecentEventCache
@@ -220,4 +262,87 @@ func mapUsageCredentialHealthSnapshot(snapshot repository.CredentialHealthSnapsh
 		CacheReadTokens: snapshot.CacheReadTokens,
 		Buckets:         buckets,
 	}
+}
+
+func (s *usageIdentityService) ListProviders(ctx context.Context, request ListProvidersRequest) ([]ProviderAggregate, error) {
+	apiGroupKey, err := s.providerAPIGroupKey(ctx, request.CPAAPIKeyID)
+	if err != nil {
+		return nil, err
+	}
+	providers, err := repository.ListProviders(ctx, s.db, repository.ListProvidersRequest{
+		Sort:        request.Sort,
+		APIGroupKey: apiGroupKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapProviderAggregates(providers), nil
+}
+
+func (s *usageIdentityService) ListProviderKeys(ctx context.Context, request ListProviderKeysRequest) (ListProviderKeysResponse, error) {
+	apiGroupKey, err := s.providerAPIGroupKey(ctx, request.CPAAPIKeyID)
+	if err != nil {
+		return ListProviderKeysResponse{}, err
+	}
+	keys, total, err := repository.ListProviderKeys(ctx, s.db, repository.ListProviderKeysRequest{
+		Provider:    request.Provider,
+		Sort:        request.Sort,
+		Page:        request.Page,
+		PageSize:    request.PageSize,
+		APIGroupKey: apiGroupKey,
+	})
+	if err != nil {
+		return ListProviderKeysResponse{}, err
+	}
+	page := request.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := request.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	return ListProviderKeysResponse{
+		Provider:   request.Provider,
+		Keys:       keys,
+		TotalCount: total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: int((total + int64(pageSize) - 1) / int64(pageSize)),
+	}, nil
+}
+
+func (s *usageIdentityService) providerAPIGroupKey(ctx context.Context, cpaAPIKeyID int64) (string, error) {
+	if cpaAPIKeyID <= 0 {
+		return "", nil
+	}
+	apiKey, err := repository.FindActiveCPAAPIKeyByID(s.db.WithContext(ctx), cpaAPIKeyID)
+	if err != nil {
+		return "", err
+	}
+	return apiKey.APIKey, nil
+}
+
+func mapProviderAggregates(providers []repodto.ProviderAggregate) []ProviderAggregate {
+	result := make([]ProviderAggregate, 0, len(providers))
+	for _, provider := range providers {
+		successRate := 0.0
+		if provider.TotalRequests > 0 {
+			successRate = float64(provider.SuccessCount) / float64(provider.TotalRequests)
+		}
+		result = append(result, ProviderAggregate{
+			Provider:        provider.Provider,
+			ProviderType:    provider.ProviderType,
+			KeyCount:        provider.KeyCount,
+			TotalRequests:   provider.TotalRequests,
+			SuccessCount:    provider.SuccessCount,
+			FailureCount:    provider.FailureCount,
+			SuccessRate:     successRate,
+			InputTokens:     provider.InputTokens,
+			CacheReadTokens: provider.CacheReadTokens,
+			TotalTokens:     provider.TotalTokens,
+			LastUsedAt:      provider.LastUsedAt,
+		})
+	}
+	return result
 }
