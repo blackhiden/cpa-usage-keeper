@@ -498,6 +498,8 @@ Component (React)
 - `GET /api/v1/usage/activity` - Activity time series
 - `GET /api/v1/usage/events` - Event list with pagination
 - `GET /api/v1/usage/identities` - Identity stats
+- `GET /api/v1/usage/providers` - Grouped active AI providers with aggregate statistics
+- `GET /api/v1/usage/providers/:providerId/keys` - Paginated provider key details
 - `GET /api/v1/quota/*` - Quota management & history
 - `GET /api/v1/ranking/*` - Community ranking
 - `GET /api/v1/live-flow/ws` - Live flow WebSocket
@@ -510,6 +512,8 @@ Component (React)
 ### 7.3 API Key Viewer Endpoints (scoped)
 - `GET /api/v1/key-overview` - Scoped to viewer's API key
 - `GET /api/v1/key-activity` - Scoped activity
+- `GET /api/v1/usage/providers` - Event-scoped provider aggregates
+- `GET /api/v1/usage/providers/:providerId/keys` - Event-scoped keys; unavailable providers return 404
 
 ---
 

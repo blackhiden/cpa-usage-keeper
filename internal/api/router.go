@@ -156,6 +156,12 @@ func NewRouter(
 	liveFlowProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
 	registerLiveFlowRoutes(liveFlowProtected, liveFlowClient)
 
+	providerProtected := apiV1.Group("")
+	providerProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
+	providerProtected.Use(authHandler.activeAPIKeyViewerIfPresentMiddleware())
+	providerProtected.Use(costReadMiddleware(costReadGate, basePath))
+	registerProviderRoutes(providerProtected, usageIdentityProvider)
+
 	adminProtected := apiV1.Group("")
 	adminProtected.Use(authHandler.adminMiddleware())
 	adminProtected.Use(costReadMiddleware(costReadGate, basePath))
