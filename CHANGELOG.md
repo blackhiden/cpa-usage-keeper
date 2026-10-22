@@ -30,6 +30,8 @@ See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
 
 ### Changed
 
+- **Nested SPA routes:** Direct provider-detail URLs such as `/ai-provider/24%20Gitlawb` now load the Vite entry assets from the configured application root rather than resolving them beneath the nested route. This prevents a blank page at the root and when mounted under `APP_BASE_PATH`.
+
 - **Build recovery:** Restored the incomplete persisted-pricing, CPA v8 grouped-provider configuration, local-ranking, and release workflow contracts so the Go binary and Docker image build again. Local ranking is recreated by additive migration `20261022_restore_local_ranking` after the historical v2 cleanup; API-key viewers retain the local leaderboard and receive redacted provider credential labels, prefixes, and base URLs.
 
 - **AI Provider grouping and detail:** The administrator `/ai-provider` view now renders one server-aggregated row per provider, defaults to success-rate sorting, and provides a Detail link to `/ai-provider/:providerId`. The detail route renders that provider's paginated key list with server-side sorting, uses URL-safe provider identifiers, preserves CPAMC embed context, and remains unavailable to API-key viewers.

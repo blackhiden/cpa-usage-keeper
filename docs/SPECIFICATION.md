@@ -102,7 +102,8 @@ keys that are synchronized from CPA itself.
   rate, token total, and last-use information. I can sort the provider list by
   success rate and open `/ai-provider/:providerId` to inspect that provider's
   keys. The detail list paginates keys and supports success-rate sorting.
-  Provider identifiers are URL encoded as a single route segment. API-key
+  Provider identifiers are URL encoded as a single route segment, and detail
+  URLs can be loaded directly or refreshed at any nesting depth. API-key
   viewers cannot enter either provider route; the backend remains responsible
   for authorizing all provider API responses.
 - **UC-8 — Per-key sharing.** As an admin, I share an API key with a user so

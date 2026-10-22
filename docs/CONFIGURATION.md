@@ -17,7 +17,7 @@ layout of `WORK_DIR`.
 | `CPA_PUBLIC_URL` | unset | Public origin of this Keeper instance. Used to build the `frame-ancestors` CSP for embedding the UI in iframes. Must be a full origin, e.g. `https://keeper.example.com`. |
 | `APP_HOST` | all interfaces | HTTP bind address. Overridden by the `--host` CLI flag. |
 | `APP_PORT` | `8080` | HTTP listen port. |
-| `APP_BASE_PATH` | `/` | Base path the app is mounted under (for reverse proxies). Static asset URLs are rewritten accordingly. |
+| `APP_BASE_PATH` | `/` | Base path the app is mounted under (for reverse proxies). Static asset URLs are rewritten to the mount root, including for directly loaded nested SPA routes. |
 | `TZ` | `Asia/Shanghai` | Timezone anchoring all calendar-day boundaries (retention, daily stats, maintenance window). tz data is embedded, so it works in minimal containers. |
 
 ## 2. CPA Client Behavior

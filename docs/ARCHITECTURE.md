@@ -214,8 +214,11 @@ Key invariants:
   server-side sort selection. Its Detail link uses a URL-encoded single
   provider segment. `App.tsx` routes `/ai-provider/:providerId` to
   `ProviderDetailPage`, which calls `listProviderKeys` with server-side key
-  pagination and sorting. Provider routes are accepted only for administrators;
-  API-key viewer path normalization redirects them to their scoped dashboard.
+  pagination and sorting. At request time, the Go static handler rewrites
+  Vite's relative `./assets/` references to the configured base-root assets
+  path, so direct nested provider URLs load the SPA entry assets correctly.
+  Provider routes are accepted only for administrators; API-key viewer path
+  normalization redirects them to their scoped dashboard.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.

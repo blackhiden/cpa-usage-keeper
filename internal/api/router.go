@@ -272,11 +272,13 @@ func renderIndexHTML(staticFS fs.FS, basePath string) ([]byte, error) {
 		return nil, err
 	}
 
-	return bytes.ReplaceAll(
+	indexHTML = bytes.ReplaceAll(
 		indexHTML,
 		[]byte(strconv.Quote(appBasePathPlaceholder)),
 		[]byte(strconv.Quote(basePath)),
-	), nil
+	)
+	assetBasePath := strings.TrimSuffix(basePath, "/") + "/assets/"
+	return bytes.ReplaceAll(indexHTML, []byte("./assets/"), []byte(assetBasePath)), nil
 }
 
 func cleanURLPath(requestPath string) string {

@@ -428,6 +428,42 @@ func TestRootStaticRouteInjectsEmptyBasePath(t *testing.T) {
 	}
 }
 
+func TestNestedSPARoutesUseBaseRootStaticAssets(t *testing.T) {
+	staticFS := testStaticFS(t, map[string]string{
+		"index.html":     `<html><head><script>window.__APP_BASE_PATH__ = "__APP_BASE_PATH__";</script><script type="module" src="./assets/app.js"></script><link rel="stylesheet" href="./assets/app.css"></head><body>app</body></html>`,
+		"assets/app.js":  "console.log('loaded')",
+		"assets/app.css": "body { color: black; }",
+	})
+
+	for _, tc := range []struct {
+		name, basePath, detailPath, assetPath, assetPrefix string
+	}{
+		{"root", "", "/ai-provider/24%20Gitlawb", "/assets/app.js", "/assets/"},
+		{"subpath", "/cpa", "/cpa/ai-provider/24%20Gitlawb", "/cpa/assets/app.js", "/cpa/assets/"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			router := NewRouter(staticFS, nil, nil, nil, AuthConfig{BasePath: tc.basePath}, nil, tc.basePath)
+			detail := httptest.NewRecorder()
+			router.ServeHTTP(detail, httptest.NewRequest(http.MethodGet, tc.detailPath, nil))
+			if detail.Code != http.StatusOK {
+				t.Fatalf("detail route status=%d body=%s", detail.Code, detail.Body.String())
+			}
+			if !contains(detail.Body.String(), `src="`+tc.assetPrefix+`app.js"`) || !contains(detail.Body.String(), `href="`+tc.assetPrefix+`app.css"`) {
+				t.Fatalf("nested detail route did not use base-root assets: %s", detail.Body.String())
+			}
+			if contains(detail.Body.String(), `./assets/`) {
+				t.Fatalf("nested detail route retained relative asset URLs: %s", detail.Body.String())
+			}
+
+			asset := httptest.NewRecorder()
+			router.ServeHTTP(asset, httptest.NewRequest(http.MethodGet, tc.assetPath, nil))
+			if asset.Code != http.StatusOK || asset.Body.String() != "console.log('loaded')" {
+				t.Fatalf("entry asset status=%d body=%s", asset.Code, asset.Body.String())
+			}
+		})
+	}
+}
+
 func TestStaticResponsesUseContentAppropriateCaching(t *testing.T) {
 	staticFS := testStaticFS(t, map[string]string{
 		"index.html":    `<html><body>app</body></html>`,
