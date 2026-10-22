@@ -9,9 +9,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS go-builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=bind,source=go.mod,target=go.mod \
-    --mount=type=bind,source=go.sum,target=go.sum \
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build --mount=type=bind,source=go.mod,target=go.mod --mount=type=bind,source=go.sum,target=go.sum \
     go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
@@ -20,10 +18,7 @@ COPY web/static.go ./web/static.go
 ARG APP_VERSION=dev
 ARG APP_COMMIT=unknown
 ARG BUILD_DATE=1992-03-22
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    set -eux; \
-    export BUILD_DATE="$(date +%Y-%m-%d)"; \
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build set -eux; \
     CGO_ENABLED=1 GOOS=linux go build \
         -ldflags="-s -w -X cpa-usage-keeper/internal/version.Version=${APP_VERSION} -X 'main.Commit=${APP_COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" \
         -o /out/cpa-usage-keeper ./cmd/server/main.go
