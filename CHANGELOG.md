@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented here.
 
+## [2.0.2] - 2026-10-23
+
+### Merged from Upstream
+
+Synchronized with upstream/main (commit f298d065), incorporating 51 commits since merge base fc8cbde9:
+
+- **refactor(credentials)!**: Rename Auth Files terminology and routes (#658)
+- **feat(auth)**: Add generic OIDC administrator login
+- **feat(usage)**: Provider grouping and detail views
+- **feat(usage)**: Time labels and calendar-day utilities
+- Various other upstream improvements
+
+### Protected Features Verified
+
+All fork-specific features preserved through merge:
+- Provider Model GNN Panel (permanent core feature)
+- API Key Viewer Full Request Logs (FORK-ONLY)
+- Live Flow Visualization
+- Local Ranking Default
+- API Key Viewer Enhancements (Phase 2.19)
+
+### Merge Adaptations
+
+- Restored local ranking migration registration (`20261022_restore_local_ranking`)
+- Restored key-events, live-flow, and provider grouping API functions in `web/src/lib/api.ts`
+- Restored `title`/`subtitle`/`allowManagement` props on `AiProviderCredentialsSection`
+- Fixed `UsagePage` to render `CredentialProviderFilterBar` for both credentials and ai-provider tabs
+- Fixed `UsagePage` to use `AiProviderCredentialsSection` instead of `ProviderSummarySection`
+- Updated tests to use `credentials` terminology instead of `auth-files`
+
 ## [1.16.7] - 2026-10-16
 
 ### Merged from Upstream
