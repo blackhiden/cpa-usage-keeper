@@ -23,4 +23,5 @@ export { useUsageComparisonsData } from './hooks/useUsageComparisonsData';
 export { useRecentActivityWindow } from './hooks/useRecentActivityWindow';
 export { useUsageActivityData } from './hooks/useUsageActivityData';
 export { useOverviewRealtimeData } from './hooks/useOverviewRealtimeData';
+export { useModelPricingData as usePricingData } from './hooks/useModelPricingData';
 export { useSparklines } from './hooks/useSparklines';

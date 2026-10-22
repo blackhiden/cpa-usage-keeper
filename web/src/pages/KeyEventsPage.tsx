@@ -4,8 +4,6 @@ import { ApiError, exportKeyEvents, fetchKeyEventFilterOptions, fetchKeyEventReq
 import type { AuthSessionAPIKeySummary, UsageCustomRange, UsageEvent, UsageEventRequestLogResponse, UsageSourceFilterOption, UsageTimeRange } from '@/lib/types';
 import { KeyViewerShell } from '@/features/key-viewer/KeyViewerShell';
 import type { KeyViewerPath } from '@/features/key-viewer/navigation';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useThemeStore } from '@/stores';
 import { TimeRangeControl } from '@/components/usage';
 import {
   RequestEventsDetailsCard,
@@ -57,9 +55,6 @@ export interface KeyEventsPageProps {
 
 export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsPageProps) {
   const { t } = useTranslation();
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const isDark = resolvedTheme === 'dark';
   const [timeRangeState, setTimeRangeState] = useState<StoredUsageRangeState>(loadTimeRange);
   const { range: timeRange, customRange } = timeRangeState;
   const [events, setEvents] = useState<UsageEvent[]>([]);
@@ -75,7 +70,6 @@ export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsP
   const [columnSettings, setColumnSettings] = useState(loadColumnSettings);
   const [requestLog, setRequestLog] = useState<UsageEventRequestLogResponse | null>(null);
   const [requestLogEventId, setRequestLogEventId] = useState<string | null>(null);
-  const [requestLogLoading, setRequestLogLoading] = useState(false);
   const requestControllerRef = useRef<AbortController | null>(null);
   const filterOptionsControllerRef = useRef<AbortController | null>(null);
   const requestLogControllerRef = useRef<AbortController | null>(null);
@@ -228,7 +222,6 @@ export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsP
     const eventId = event.id;
     if (!eventId) return;
     setRequestLogEventId(eventId);
-    setRequestLogLoading(true);
     setRequestLog(null);
     requestLogControllerRef.current?.abort();
     const controller = new AbortController();
@@ -238,10 +231,8 @@ export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsP
       const log = await fetchKeyEventRequestLog(eventId, controller.signal);
       if (requestLogControllerRef.current !== controller) return;
       setRequestLog(log);
-      setRequestLogLoading(false);
     } catch (error) {
       if (controller.signal.aborted || requestLogControllerRef.current !== controller) return;
-      setRequestLogLoading(false);
       if (error instanceof ApiError && error.status === 401) {
         onAuthRequired?.();
       }
@@ -283,8 +274,6 @@ export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsP
     });
   }, []);
 
-  const displayEventsError = eventsError ? t('key_viewer.events_load_failed') : '';
-
   return (
     <KeyViewerShell
       activePage="events"
@@ -307,6 +296,7 @@ export function KeyEventsPage({ apiKey, onNavigate, onAuthRequired }: KeyEventsP
       onAuthRequired={onAuthRequired}
     >
       <div className={styles.content}>
+        {eventsError && <div className={styles.errorBox} role="alert">{t('key_viewer.events_load_failed')}</div>}
         <RequestEventsDetailsCard
           events={events}
           loading={eventsLoading}

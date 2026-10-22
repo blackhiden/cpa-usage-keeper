@@ -11,6 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"cpa-usage-keeper/internal/auth"
 	"cpa-usage-keeper/internal/entities"
 	"cpa-usage-keeper/internal/helper"
 	"cpa-usage-keeper/internal/quota"
@@ -72,7 +73,8 @@ type providerKeysResponse struct {
 // base URL (see TestProviderMetadataSecretStaysOutOfUsageIdentityResponses).
 type providerKeyResponse struct {
 	usageIdentityResponse
-	BaseURL string `json:"base_url"`
+	BaseURL       string `json:"base_url"`
+	BaseURLLegacy string `json:"baseUrl,omitempty"`
 }
 
 type usageIdentityPeriodStats struct {
@@ -350,12 +352,17 @@ func mapUsageIdentityResponse(item entities.UsageIdentity, maskCredentials bool)
 
 func mapProviderKeyResponse(item entities.UsageIdentity, maskCredentials bool) providerKeyResponse {
 	baseURL := item.BaseURL
-	if maskCredentials && baseURL != "" {
-		baseURL = "***"
+	response := mapUsageIdentityResponse(item, maskCredentials)
+	if maskCredentials {
+		if baseURL != "" {
+			baseURL = "***"
+		}
+		response.DisplayName = response.Identity
 	}
 	return providerKeyResponse{
-		usageIdentityResponse: mapUsageIdentityResponse(item, maskCredentials),
+		usageIdentityResponse: response,
 		BaseURL:               baseURL,
+		BaseURLLegacy:         baseURL,
 	}
 }
 

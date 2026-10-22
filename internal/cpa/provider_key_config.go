@@ -14,7 +14,7 @@ import (
 const ProviderKeyDisabledExcludedModel = "*"
 
 // providerKeyEndpoint 仅列出支持成员启停的供应商；Meta 与 OpenAI 的能力另行判断。
-func providerKeyEndpoint(providerType string) (path string, kind string, ok bool) {
+func providerKeyEndpoint(providerType string) (path, kind string, ok bool) {
 	switch strings.ToLower(strings.TrimSpace(providerType)) {
 	case "codex":
 		return cpaManagementCodexAPIKeyEndpoint, "codex api keys", true
@@ -33,8 +33,7 @@ func providerKeyEndpoint(providerType string) (path string, kind string, ok bool
 	}
 }
 
-// priorityProviderKeyEndpoint 在启停类型之外允许 Meta 编辑优先级，不因此开放其启停操作。
-func priorityProviderKeyEndpoint(providerType string) (path string, kind string, ok bool) {
+func priorityProviderKeyEndpoint(providerType string) (path, kind string, ok bool) {
 	if strings.EqualFold(strings.TrimSpace(providerType), "meta") {
 		return cpaManagementMetaAPIKeyEndpoint, "meta api keys", true
 	}

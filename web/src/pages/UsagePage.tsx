@@ -2,7 +2,7 @@ import { CredentialEditModal } from '@/components/usage/credentials/CredentialEd
 import { UsageComparisonCharts } from '@/components/usage/UsageComparisonCharts';
 import { useState, useMemo, useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, appPath, createUsageEventRequestLogDownloadURL, exportUsageEvents, fetchAnalysis, fetchAnalysisLatency, fetchAuthSessions, fetchCpaApiKeyOptions, fetchCpaApiKeySettings, fetchStatus, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventRequestLog, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentity, fetchVersion, isUsageRangeBoundsConflict, logout, revokeAuthSession, updateAuthSessionAlias, updateCpaApiKeyAlias, type UsageEventsExportFormat } from '@/lib/api';
+import { ApiError, appPath, createUsageEventRequestLogDownloadURL, exportUsageEvents, fetchAnalysis, fetchAnalysisLatency, fetchAuthSessions, fetchCpaApiKeyOptions, fetchCpaApiKeySettings, fetchStatus, fetchUpdateCheck, fetchUsageEventModelFilterOptions, fetchUsageEventRequestLog, fetchUsageEventSourceFilterOptions, fetchUsageEvents, fetchUsageIdentity, fetchVersion, isCostsBusy, isUsageRangeBoundsConflict, logout, revokeAuthSession, updateAuthSessionAlias, updateCpaApiKeyAlias, type UsageEventsExportFormat } from '@/lib/api';
 import type { AnalysisLatencyDiagnostics, AnalysisResponse, AuthManagedSessionItem, CpaApiKeyOption, CpaApiKeySettingsItem, OverviewRealtimeWindow, StatusResponse, UsageCustomRange, UsageEvent, UsageEventRequestLogResponse, UsageSourceFilterOption, UsageTimeRange, VersionResponse } from '@/lib/types';
 import { DEFAULT_USAGE_TAB, getUsageTabPath, handleUsageTabKeyActivation, resolveInitialUsageTab, shouldHandleUsageNavigation, USAGE_TAB_OPTIONS, type UsageTab } from '@/lib/usageNavigation';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { updateCredentialDetailStats } from '@/components/usage/credentials/credentialViewModels';
 import { CREDENTIAL_PAGES_REFRESH_INTERVAL_MS } from '@/components/usage/credentials/useCredentialPages';
+import { PricingSettings, type PricingSettingsHandle } from '@/components/usage/pricing/PricingSettings';
 import { buildCredentialProviderSearch } from '@/components/usage/credentials/credentialProviderFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -27,7 +28,6 @@ import {
   AnalysisPanel,
   ApiKeySettingsCard,
   SessionSettingsCard,
-  PriceSettingsCard,
   AuthFileCredentialsSection,
   ProviderSummarySection,
   CredentialDetailDrawer,
@@ -38,7 +38,6 @@ import {
   useRecentActivityWindow,
   useUsageActivityData,
   useOverviewRealtimeData,
-  usePricingData,
   useSparklines,
   useCredentialsTabData,
   type CredentialDetailSelection,
@@ -756,7 +755,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     const loadedTab = loadUsageTab();
     return isEmbeddedInCPAMC && loadedTab === 'ranking' ? DEFAULT_USAGE_TAB : loadedTab;
   });
-  // Community ranking is disabled - always use local ranking
+  const pricingSettingsRef = useRef<PricingSettingsHandle | null>(null);
   const rankingScope: RankingScope = 'local';
   const [loadedTimeRange] = useState(loadTimeRange);
   const pendingLegacyCustomRangeRef = useRef(loadedTimeRange.pendingLegacyCustomRange);
@@ -886,22 +885,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     apiKeyId: requestApiKeyId,
     realtimeWindow,
   });
-  const {
-    modelNames,
-    modelPrices,
-    loading: pricingLoading,
-    error: pricingError,
-    loadPricing,
-    saveModelPrice,
-    deleteModelPrice,
-    loadPricingRules,
-    savePricingRules,
-    syncModelPrices,
-    previewPricingSync,
-  } = usePricingData({
-    onAuthRequired,
-    enabled: activeTab === 'settings',
-  });
   const [apiKeySettings, setApiKeySettings] = useState<CpaApiKeySettingsItem[]>([]);
   const [apiKeySettingsLoading, setApiKeySettingsLoading] = useState(false);
   const [apiKeySettingsError, setApiKeySettingsError] = useState('');
@@ -924,6 +907,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState('');
   const [eventsData, setEventsData] = useState<UsageEvent[]>([]);
+  const eventsLoadedScopeRef = useRef<string | null>(null);
   const [eventsPage, setEventsPage] = useState(1);
   const [eventsTotalCount, setEventsTotalCount] = useState(0);
   const [eventsNextCursor, setEventsNextCursor] = useState<string | null>(null);
@@ -1046,6 +1030,8 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [analysisLatencyError, setAnalysisLatencyError] = useState('');
   const [analysisLatencyData, setAnalysisLatencyData] = useState<AnalysisLatencyDiagnostics | null>(null);
   const analysisRequestControllerRef = useRef<AbortController | null>(null);
+  const analysisLoadedScopeRef = useRef<string | null>(null);
+  const analysisLatencyLoadedScopeRef = useRef<string | null>(null);
 
   const tabOptions = useMemo(
     () => getUsageTabOptions(t, { includeRanking: !isEmbeddedInCPAMC, includeLiveFlow: !isEmbeddedInCPAMC }),
@@ -1246,44 +1232,50 @@ const loadApiKeyOptions = useCallback(async () => {
 
   const loadAnalysis = useCallback(async () => {
     if (!usageRangeQuery.valid || !apiKeyFilterReady) return;
+    const scope = JSON.stringify([usageRangeQuery, requestApiKeyId]);
+    const sameScope = analysisLoadedScopeRef.current === scope;
+    const sameLatencyScope = analysisLatencyLoadedScopeRef.current === scope;
     analysisRequestControllerRef.current?.abort();
     const controller = new AbortController();
     analysisRequestControllerRef.current = controller;
 
     setAnalysisLoading(true);
     setAnalysisError('');
-    setAnalysisData(null);
+    if (!sameScope) setAnalysisData(null);
     setAnalysisLatencyLoading(true);
     setAnalysisLatencyError('');
-    setAnalysisLatencyData(null);
+    if (!sameLatencyScope) setAnalysisLatencyData(null);
 
     await loadAnalysisSections({
       loadCore: () => fetchAnalysis(usageRangeQuery, controller.signal, requestApiKeyId),
       loadLatency: () => fetchAnalysisLatency(usageRangeQuery, controller.signal, requestApiKeyId),
       onCoreLoaded: (response) => {
         if (analysisRequestControllerRef.current !== controller) return;
+        analysisLoadedScopeRef.current = scope;
         setAnalysisData(response);
         setAnalysisLoading(false);
       },
       onCoreError: (error) => {
         if (controller.signal.aborted || analysisRequestControllerRef.current !== controller) return;
-        setAnalysisData(null);
+        if (!sameScope) setAnalysisData(null);
         setAnalysisLoading(false);
         if (recoverRangeBoundsConflict(error)) return;
         if (error instanceof ApiError && error.status === 401) {
           onAuthRequired?.();
           return;
         }
-        setAnalysisError(error instanceof Error ? error.message : 'Failed to load usage analysis');
+        setAnalysisError(isCostsBusy(error) ? t('usage_stats.costs_busy')
+          : error instanceof Error ? error.message : 'Failed to load usage analysis');
       },
       onLatencyLoaded: (response) => {
         if (analysisRequestControllerRef.current !== controller) return;
+        analysisLatencyLoadedScopeRef.current = scope;
         setAnalysisLatencyData(response);
         setAnalysisLatencyLoading(false);
       },
       onLatencyError: (error) => {
         if (controller.signal.aborted || analysisRequestControllerRef.current !== controller) return;
-        setAnalysisLatencyData(null);
+        if (!sameLatencyScope) setAnalysisLatencyData(null);
         setAnalysisLatencyLoading(false);
         if (recoverRangeBoundsConflict(error)) return;
         if (error instanceof ApiError && error.status === 401) {
@@ -1297,7 +1289,7 @@ const loadApiKeyOptions = useCallback(async () => {
     if (analysisRequestControllerRef.current === controller) {
       analysisRequestControllerRef.current = null;
     }
-  }, [apiKeyFilterReady, onAuthRequired, recoverRangeBoundsConflict, requestApiKeyId, usageRangeQuery]);
+  }, [apiKeyFilterReady, onAuthRequired, recoverRangeBoundsConflict, requestApiKeyId, t, usageRangeQuery]);
 
   useEffect(() => {
     try {
@@ -1482,6 +1474,8 @@ const loadApiKeyOptions = useCallback(async () => {
 
   const loadEvents = useCallback(async () => {
     if (!usageRangeQuery.valid || !apiKeyFilterReady) return;
+    const scope = JSON.stringify([usageRangeQuery, requestApiKeyId, eventsModelFilter, eventsSourceFilter, eventsResultFilter]);
+    const sameScope = eventsLoadedScopeRef.current === scope;
     eventsRequestControllerRef.current?.abort();
     eventsLoadMoreRequestControllerRef.current?.abort();
     eventsLoadMoreRequestControllerRef.current = null;
@@ -1504,6 +1498,7 @@ const loadApiKeyOptions = useCallback(async () => {
       if (eventsRequestControllerRef.current !== controller) {
         return;
       }
+      eventsLoadedScopeRef.current = scope;
       setEventsData(response.events);
       setEventsTotalCount(Math.max(response.total_count, 0));
       setEventsNextCursor(response.has_more === true ? response.next_cursor?.trim() || null : null);
@@ -1512,7 +1507,7 @@ const loadApiKeyOptions = useCallback(async () => {
       if (controller.signal.aborted) {
         return;
       }
-      if (eventsRequestControllerRef.current === controller) {
+      if (eventsRequestControllerRef.current === controller && !sameScope) {
         setEventsData([]);
         setEventsTotalCount(0);
         setEventsNextCursor(null);
@@ -1522,14 +1517,15 @@ const loadApiKeyOptions = useCallback(async () => {
         onAuthRequired?.();
         return;
       }
-      setEventsError(error instanceof Error ? error.message : 'Failed to load usage events');
+      setEventsError(isCostsBusy(error) ? t('usage_stats.costs_busy')
+        : error instanceof Error ? error.message : 'Failed to load usage events');
     } finally {
       if (eventsRequestControllerRef.current === controller) {
         setEventsLoading(false);
         eventsRequestControllerRef.current = null;
       }
     }
-  }, [apiKeyFilterReady, eventsModelFilter, eventsResultFilter, eventsSourceFilter, onAuthRequired, recoverRangeBoundsConflict, requestApiKeyId, usageRangeQuery]);
+  }, [apiKeyFilterReady, eventsModelFilter, eventsResultFilter, eventsSourceFilter, onAuthRequired, recoverRangeBoundsConflict, requestApiKeyId, t, usageRangeQuery]);
 
   const loadMoreEvents = useCallback(async () => {
     const cursor = eventsNextCursor?.trim();
@@ -1793,11 +1789,11 @@ const loadApiKeyOptions = useCallback(async () => {
       return;
     }
     if (activeTab === 'settings') {
-      await Promise.all([loadAuthSessions(), loadApiKeySettings(), loadPricing()]);
+      await Promise.all([loadAuthSessions(), loadApiKeySettings(), pricingSettingsRef.current?.refresh()]);
       return;
     }
     await Promise.all([loadUsage(), loadActivity(), loadComparisons()]);
-  }, [activeTab, apiKeyFilterReady, credentialSectionVisibility.enabled, loadActivity, loadAnalysis, loadApiKeySettings, loadAuthSessions, loadComparisons, loadEventFilterOptions, loadEvents, loadPricing, loadRealtime, loadUsage, refreshCredentialDetail, refreshCredentials, refreshRanking]);
+  }, [activeTab, apiKeyFilterReady, credentialSectionVisibility.enabled, loadActivity, loadAnalysis, loadApiKeySettings, loadAuthSessions, loadComparisons, loadEventFilterOptions, loadEvents, loadRealtime, loadUsage, refreshCredentialDetail, refreshCredentials, refreshRanking]);
 
   const refreshAutoRefreshTab = useCallback(async () => {
     if (!apiKeyFilterReady && shouldShowApiKeyFilter(activeTab)) return;
@@ -2257,10 +2253,9 @@ const loadApiKeyOptions = useCallback(async () => {
             />}
 
             {activeTab === 'overview' && (error || comparisonsError) && <div className={styles.errorBox}>{(error || comparisonsError) === 'AUTH_REQUIRED' ? t('auth.session_expired') : (error || comparisonsError)}</div>}
-            {activeTab === 'settings' && pricingError && <div className={styles.errorBox}>{pricingError === 'AUTH_REQUIRED' ? t('auth.session_expired') : pricingError}</div>}
             {activeTab === 'settings' && authSessionsError && <div className={styles.errorBox}>{authSessionsError}</div>}
             {activeTab === 'settings' && apiKeySettingsError && <div className={styles.errorBox}>{apiKeySettingsError}</div>}
-            {!(activeTab === 'overview' ? error : activeTab === 'settings' ? (pricingError || authSessionsError || apiKeySettingsError) : '') && displayStatusError && <div className={styles.errorBox}>{displayStatusError}</div>}
+            {!(activeTab === 'overview' ? error : activeTab === 'settings' ? (authSessionsError || apiKeySettingsError) : '') && displayStatusError && <div className={styles.errorBox}>{displayStatusError}</div>}
 
             {activeTab === 'overview' && (
               <>
@@ -2466,17 +2461,11 @@ const loadApiKeyOptions = useCallback(async () => {
                   onSaveAlias={handleSaveApiKeyAlias}
                   onNotice={showTopNotice}
                 />
-                <PriceSettingsCard
-                  modelNames={modelNames}
-                  modelPrices={modelPrices}
-                  onPriceSave={saveModelPrice}
-                  onPriceDelete={deleteModelPrice}
-                  onRulesLoad={loadPricingRules}
-                  onRulesSave={savePricingRules}
-                  onSyncPricesChange={syncModelPrices}
-                  onSyncPreview={previewPricingSync}
-                  onNotice={showTopNotice}
-                  loading={pricingLoading}
+                <PricingSettings
+                  ref={pricingSettingsRef}
+                  timezone={status?.timezone}
+                  onAuthRequired={onAuthRequired}
+                  onRecalculationSettled={() => { void credentialsData.refreshAfterRecalculation() }}
                 />
               </div>
             )}

@@ -67,7 +67,8 @@ describe('credential provider navigation', () => {
     vi.restoreAllMocks();
   });
 
-  it.each(['auth-files', 'ai-provider'] as const)('pins the default and manual selections for %s across reloads and other tabs', async (scope) => {
+  it('pins the default and manual selections for auth-files across reloads and other tabs', async () => {
+    const scope = 'auth-files' as const;
     save(scope, 'claude');
     window.history.replaceState(null, '', `/cpa/${scope}?embed=cpamc&other=keep#details`);
     const historyLength = window.history.length;
@@ -98,15 +99,13 @@ describe('credential provider navigation', () => {
     window.history.replaceState(null, '', '/cpa/auth-files?provider=codex&embed=cpamc');
     await act(async () => root.render(<UsagePage />));
     expect(provider()).toBe('codex');
-    expect(container.querySelector('a[href="/cpa/ai-provider?embed=cpamc&provider=claude"]')).not.toBeNull();
+    expect(container.querySelector('a[href="/cpa/ai-provider?embed=cpamc"]')).not.toBeNull();
     expect(container.querySelector('a[href="/cpa/request-events?embed=cpamc"]')).not.toBeNull();
     await navigate('ai-provider');
-    expect(provider()).toBe('claude');
-    await select('All');
-    save('auth-files', 'all');
+    expect(provider()).toBeNull();
     await navigate('auth-files');
     expect(provider()).toBe('codex');
-    expect(saved('auth-files')).toBe('all');
+    expect(saved('auth-files')).toBe('claude');
     await reload();
     expect(provider()).toBe('codex');
   });

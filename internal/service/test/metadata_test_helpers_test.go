@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -80,8 +81,7 @@ func (f *metadataTestFetcher) FetchAuthFiles(context.Context) (*response.AuthFil
 
 func (f *metadataTestFetcher) FetchAuthAPIKeys(context.Context) (*response.AuthAPIKeysResult, error) {
 	f.recordCall("auth-api-keys")
-	// Test helper returns empty result; tests can override if needed
-	return &response.AuthAPIKeysResult{StatusCode: 200, Payload: cpaapikeys.AuthAPIKeysResponse{}}, nil
+	return nil, errors.New("auth api keys unavailable")
 }
 
 func (f *metadataTestFetcher) FetchManagementAPIKeys(context.Context) (*response.ManagementAPIKeysResult, error) {

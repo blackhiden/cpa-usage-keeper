@@ -81,9 +81,10 @@ type sessionResponse struct {
 }
 
 type sessionAPIKeyResponse struct {
-	ID         string `json:"id"`
-	DisplayKey string `json:"display_key"`
-	Alias      string `json:"alias,omitempty"`
+	ID                  string `json:"id"`
+	DisplayKey          string `json:"display_key"`
+	Alias               string `json:"alias,omitempty"`
+	LocalRankingEnabled bool   `json:"local_ranking_enabled,omitempty"`
 }
 
 type loginResponse struct {

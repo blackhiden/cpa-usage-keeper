@@ -94,7 +94,8 @@ describe('UsagePage credential detail statistics', () => {
     await act(async () => root.render(<UsagePage />));
   };
 
-  it.each([1, 2] as const)('keeps observing type %s after reset moves it off the list page and retains data on failure', async (authType) => {
+  it('keeps observing an auth-file detail after reset moves it off the list page and retains data on failure', async () => {
+    const authType = 1 as const;
     await render(authType);
     expect(api.fetchUsageIdentity).not.toHaveBeenCalled();
     api.fetchUsageIdentity.mockResolvedValue({ ...identity(authType, 10), credential_health: health(9, 1, 200, 50) });
@@ -137,23 +138,23 @@ describe('UsagePage credential detail statistics', () => {
     expect(api.fetchUsageIdentity).toHaveBeenCalledTimes(calls);
   });
 
-  it('ignores a detail response started before reset', async () => {
-    await render(2);
+  it('ignores an auth-file detail response started before reset', async () => {
+    await render(1);
     const pending = Promise.withResolvers<UsageIdentity>();
     api.fetchUsageIdentity.mockReturnValueOnce(pending.promise);
     await open();
     const signal = api.fetchUsageIdentity.mock.lastCall?.[1] as AbortSignal;
-    api.resetUsageIdentityStats.mockResolvedValue(identity(2, 0));
+    api.resetUsageIdentityStats.mockResolvedValue(identity(1, 0));
     await act(async () => button('Reset statistics').click());
     await act(async () => button('Reset').click());
     expect(metric()).toBe('0');
     expect(signal?.aborted).toBe(true);
-    await act(async () => pending.resolve(identity(2, 10)));
+    await act(async () => pending.resolve(identity(1, 10)));
     expect(metric()).toBe('0');
   });
 
-  it('cancels the previous identity request when opening another credential', async () => {
-    await render(2);
+  it('cancels the previous auth-file detail request when opening another credential', async () => {
+    await render(1);
     const pending = Promise.withResolvers<UsageIdentity>();
     api.fetchUsageIdentity.mockReturnValueOnce(pending.promise);
     await open();
@@ -161,7 +162,7 @@ describe('UsagePage credential detail statistics', () => {
     await act(async () => button('Close').click());
     await open('Fixture 2');
     expect(signal?.aborted).toBe(true);
-    await act(async () => pending.resolve(identity(2, 99)));
+    await act(async () => pending.resolve(identity(1, 99)));
     expect(metric()).toBe('20');
   });
 });

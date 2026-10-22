@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { CLIPROXYAPI_REPOSITORY_URL, GITHUB_PROFILE_URL, GITHUB_REPOSITORY_URL } from '@/utils/constants';
+import { CLIPROXYAPI_REPOSITORY_URL, GITHUB_PROFILE_URL, GITHUB_REPOSITORY_URL, GITHUB_REPOSITORY_URL_BLACKHIDEN } from '@/utils/constants';
 import { AppFooter, footerVersionLabel, loadFooterVersion } from '../AppFooter';
 
 const appStyles = readFileSync(new URL('../../App.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -11,7 +11,7 @@ describe('AppFooter', () => {
   it('renders project links, powered by line, and version label', () => {
     const html = renderToStaticMarkup(<AppFooter version="v1.2.3" />);
 
-    expect(html).toContain(`href="${GITHUB_REPOSITORY_URL}"`);
+    expect(html).toContain(`href="${GITHUB_REPOSITORY_URL_BLACKHIDEN}"`);
     expect(html).toContain('>CPA Usage Keeper</a>');
     expect(html).toContain('License');
     expect(html).toContain('CLIProxyAPI Integration');

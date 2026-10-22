@@ -233,3 +233,21 @@ func UpdateCPAAPIKeyAlias(db *gorm.DB, id int64, keyAlias string) error {
 	}
 	return nil
 }
+
+func UpdateCPAAPIKeyLocalRankingProfile(db *gorm.DB, id int64, keyAlias string, avatarID uint8) (entities.CPAAPIKey, error) {
+	var row entities.CPAAPIKey
+	err := db.Clauses(dbresolver.Write).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&entities.CPAAPIKey{}).Where("id = ?", id).Updates(map[string]any{
+			"key_alias":               strings.TrimSpace(keyAlias),
+			"local_ranking_avatar_id": avatarID,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Where("id = ?", id).First(&row).Error
+	})
+	return row, err
+}

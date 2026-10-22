@@ -73,6 +73,7 @@ type App struct {
 	CPAErrors Runner
 	// UsageAggregation 是唯一串行调度三类派生聚合事务的后台 runner。
 	UsageAggregation  Runner
+	LocalRanking      Runner
 	Maintenance       *StorageCleanupRunner
 	MetadataSync      *MetadataSyncRunner
 	QuotaService      QuotaRunner
@@ -126,6 +127,16 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	recentUsageCache, err := newUsageRecentEventCache(db, repository.UsageRecentEventCacheOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("initialize recent usage event cache: %w", err)
+	}
+	localRankingService, err := ranking.NewLocalRankingService(db, ranking.LocalRankingServiceOptions{})
+	if err != nil {
+		recentUsageCache.Close()
+		return nil, fmt.Errorf("initialize local ranking service: %w", err)
+	}
+	localRankingRunner, err := ranking.NewLocalRankingRunner(localRankingService)
+	if err != nil {
+		recentUsageCache.Close()
+		return nil, fmt.Errorf("initialize local ranking runner: %w", err)
 	}
 	pricingSnapshot, err := repository.LoadPricingSnapshot(context.Background(), db)
 	if err != nil {
@@ -233,12 +244,12 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		Timeout: cfg.IPEnrichmentTimeout,
 	}, nil)
 	authConfig := api.AuthConfig{
-		Enabled:                         cfg.AuthEnabled,
-		LoginPassword:                   cfg.LoginPassword,
-		SessionTTL:                      cfg.AuthSessionTTL,
-		BasePath:                        cfg.AppBasePath,
-		FrameAncestorOrigins:            frameAncestorOrigins(cfg),
-		TrustedProxyCIDRs:               cfg.TrustedProxyCIDRs,
+		Enabled:              cfg.AuthEnabled,
+		LoginPassword:        cfg.LoginPassword,
+		SessionTTL:           cfg.AuthSessionTTL,
+		BasePath:             cfg.AppBasePath,
+		FrameAncestorOrigins: frameAncestorOrigins(cfg),
+		TrustedProxyCIDRs:    cfg.TrustedProxyCIDRs,
 		// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
 		APIKeyViewerLocalRankingEnabled: cfg.APIKeyViewerLocalRankingEnabled,
 		// Local ranking is available when the service was successfully initialized.
@@ -259,6 +270,7 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		RedisProcess:      redisProcessRunner,
 		CPAErrors:         redisErrorIngestRunner,
 		UsageAggregation:  usageAggregationRunner,
+		LocalRanking:      localRankingRunner,
 		Maintenance:       NewStorageCleanupRunner(syncService),
 		MetadataSync:      metadataSyncRunner,
 		QuotaService:      quotaService,
@@ -431,6 +443,13 @@ func (a *App) startReadyBackgroundTasks(ctx context.Context) {
 			// runner 错误只终止该后台任务，不影响 HTTP 或已提交 usage 数据。
 			if err := a.UsageAggregation.Run(ctx); err != nil {
 				logrus.Errorf("usage aggregation stopped: %v", err)
+			}
+		})
+	}
+	if a.LocalRanking != nil {
+		a.startBackgroundTask(func() {
+			if err := a.LocalRanking.Run(ctx); err != nil {
+				logrus.Errorf("local ranking stopped: %v", err)
 			}
 		})
 	}

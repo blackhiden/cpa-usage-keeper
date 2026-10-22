@@ -99,7 +99,7 @@ func (a *App) Initialize(ctx context.Context) error {
 // installReadyApp 只移交已构造的业务字段；HTTP 外壳、生命周期和唯一接收实例仍属原 App。
 func (a *App) installReadyApp(ready *App) {
 	a.Poller, a.RedisIngest, a.RedisProcess = ready.Poller, ready.RedisIngest, ready.RedisProcess
-	a.CPAErrors, a.UsageAggregation = ready.CPAErrors, ready.UsageAggregation
+	a.CPAErrors, a.UsageAggregation, a.LocalRanking = ready.CPAErrors, ready.UsageAggregation, ready.LocalRanking
 	a.Maintenance = ready.Maintenance
 	a.MetadataSync, a.QuotaService, a.QuotaAutoRefresh = ready.MetadataSync, ready.QuotaService, ready.QuotaAutoRefresh
 	a.BackupMaintenance, a.RecentUsageCache = ready.BackupMaintenance, ready.RecentUsageCache

@@ -96,6 +96,7 @@ func TestOrderedMigrationsPreservesExecutionOrder(t *testing.T) {
 		"20261009_pricing_storage_structure",
 		"20261009_remove_ranking",
 		"20261018_recover_execution_usage_events",
+		"20261022_restore_local_ranking",
 	}
 	assertStringSlicesEqual(t, want, got)
 }
