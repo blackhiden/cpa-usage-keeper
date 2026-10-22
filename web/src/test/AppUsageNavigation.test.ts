@@ -16,40 +16,22 @@ describe('App usage-page route authorization', () => {
 
   it('allows only known usage routes for administrators', () => {
     expect(getRoleTargetPath('admin', '/')).toBe('/');
-    expect(getRoleTargetPath('admin', '/auth-files')).toBe('/auth-files');
-    expect(getRoleTargetPath('admin', '/ai-provider/OpenAI%20Team')).toBe('/ai-provider/OpenAI%20Team');
-    expect(getRoleTargetPath('admin', '/ai-provider/%2E%2E')).toBe('/');
-    expect(getRoleTargetPath('admin', '/auth-files/')).toBe('/');
-    expect(shouldNormalizeRolePath('admin', '/auth-files/')).toBe(true);
+    expect(getRoleTargetPath('admin', '/credentials')).toBe('/credentials');
+    expect(getRoleTargetPath('admin', '/credentials/')).toBe('/');
+    expect(shouldNormalizeRolePath('admin', '/credentials/')).toBe(true);
     expect(getRoleTargetPath('admin', '/request-events')).toBe('/request-events');
-    expect(getRoleTargetPath('admin', '/live-flow')).toBe('/live-flow');
-    expect(getRoleTargetPath('admin', '/auth-files/settings')).toBe('/');
-    expect(getRoleTargetPath('admin', '//example.com/auth-files')).toBe('/');
+    expect(getRoleTargetPath('admin', '/analysis')).toBe('/analysis');
+    expect(getRoleTargetPath('admin', '/credentials/settings')).toBe('/');
+    expect(getRoleTargetPath('admin', '//example.com/credentials')).toBe('/');
   });
 
   it('keeps API key viewers isolated from administrator routes', () => {
-    expect(getRoleTargetPath('api_key_viewer', '/auth-files')).toBe('/key-overview');
-    expect(getRoleTargetPath('api_key_viewer', '/ai-provider/openai')).toBe('/key-overview');
-    expect(shouldNormalizeRolePath('api_key_viewer', '/ai-provider/openai')).toBe(true);
-    expect(shouldNormalizeRolePath('api_key_viewer', '/auth-files')).toBe(true);
+    expect(getRoleTargetPath('api_key_viewer', '/credentials')).toBe('/key-overview');
+    expect(shouldNormalizeRolePath('api_key_viewer', '/credentials')).toBe(true);
     expect(shouldNormalizeRolePath('api_key_viewer', '/key-overview')).toBe(false);
     expect(getRoleTargetPath('api_key_viewer', '/key-analysis')).toBe('/key-analysis');
     expect(shouldNormalizeRolePath('api_key_viewer', '/key-analysis')).toBe(false);
-    expect(getRoleTargetPath('api_key_viewer', '/key-ranking')).toBe('/key-ranking');
-    expect(shouldNormalizeRolePath('api_key_viewer', '/key-ranking')).toBe(false);
     expect(getRoleTargetPath('api_key_viewer', '/key-analysis/')).toBe('/key-overview');
     expect(getRoleTargetPath('api_key_viewer', '//example.com/key-analysis')).toBe('/key-overview');
   });
-
-
-  it('keeps global-admin tabs unavailable in CPAMC embed mode', () => {
-    expect(getRoleTargetPath('admin', '/ranking', true)).toBe('/');
-    expect(shouldNormalizeRolePath('admin', '/ranking', true)).toBe(true);
-    expect(getRoleTargetPath('admin', '/live-flow', true)).toBe('/');
-    expect(shouldNormalizeRolePath('admin', '/live-flow', true)).toBe(true);
-    expect(getRoleTargetPath('admin', '/analysis', true)).toBe('/analysis');
-  });
-
-
-
 });

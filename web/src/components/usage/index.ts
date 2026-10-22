@@ -1,15 +1,10 @@
 export { StatCards } from './StatCards';
 export { DailyAverageCard } from './DailyAverageCard';
 export { OverviewRealtimePanel } from './OverviewRealtimePanel';
-// Note: ProviderModelGNNPanel lives in its own permanent feature domain at
-// @/features/model-gnn (see docs/ARCHITECTURE.md §7). It is intentionally NOT
-// re-exported here so the whole domain stays independently mergeable.
-// Note: ProviderModelReagraphPanel is intentionally NOT re-exported here — it is
-// lazy-loaded by ProviderModelGNNPanel so the WebGL/three.js code chunks separately.
 export { AnalysisPanel } from './analysis';
 export { ApiKeySettingsCard } from './ApiKeySettingsCard';
 export { SessionSettingsCard } from './SessionSettingsCard';
-export { AiProviderCredentialsSection, AuthFileCredentialsSection, CredentialDetailDrawer, CredentialProviderFilterBar, ProviderSummarySection, useCredentialsTabData } from './credentials';
+export { AiProviderCredentialsSection, CredentialsSection, CredentialDetailDrawer, CredentialProviderFilterBar, useCredentialsTabData } from './credentials';
 export type { CredentialDetailSelection } from './credentials';
 export { RequestEventsDetailsCard } from './RequestEventsDetailsCard';
 export { ServiceHealthCard } from './ServiceHealthCard';
@@ -23,5 +18,4 @@ export { useUsageComparisonsData } from './hooks/useUsageComparisonsData';
 export { useRecentActivityWindow } from './hooks/useRecentActivityWindow';
 export { useUsageActivityData } from './hooks/useUsageActivityData';
 export { useOverviewRealtimeData } from './hooks/useOverviewRealtimeData';
-export { useModelPricingData as usePricingData } from './hooks/useModelPricingData';
 export { useSparklines } from './hooks/useSparklines';

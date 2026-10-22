@@ -1,10 +1,12 @@
-import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type AuthFilesManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type DeletePricingModelResponse, type ErrorEventsResponse, type ModelPricingConfig, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingErrorResponse, type PricingFieldError, type PricingModelOptionsResponse, type PricingModelsResponse, type PricingRecalculationOptions, type PricingRecalculationTask, type PricingSyncApplyRequest, type PricingSyncApplyResponse, type PricingSyncFetchResponse, type PricingSyncSource, type ProviderKeysResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type SavePricingModelResponse, type StartPricingRecalculationRequest, type StartPricingRecalculationResponse, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewResponse, type UsageOverviewComparisons, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
+import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type VersionResponse } from './types'
+import type { DeletePricingModelResponse, ModelPricingConfig, PricingErrorResponse, PricingFieldError, PricingModelOptionsResponse, PricingModelsResponse, PricingRecalculationOptions, PricingRecalculationTask, PricingSyncApplyRequest, PricingSyncApplyResponse, PricingSyncFetchResponse, SavePricingModelResponse, StartPricingRecalculationRequest, StartPricingRecalculationResponse } from './types'
 import { isCPAMCEmbed } from '@/embed/cpamcEmbed'
 import { resolveUsageRequestRange } from '@/utils/usage/rangeQuery'
 
 export class ApiError extends Error {
   status: number
   code?: string
+  // 价格表单按字段路径标红，分支冲突用 branch_ids 指明双方。
   fields?: PricingFieldError[]
 
   constructor(message: string, status: number, code?: string, fields?: PricingFieldError[]) {
@@ -16,14 +18,6 @@ export class ApiError extends Error {
   }
 }
 
-export const isUsageRangeBoundsConflict = (error: unknown): error is ApiError => (
-  error instanceof ApiError && error.status === 409
-)
-
-export const isCostsBusy = (error: unknown): error is ApiError => (
-  error instanceof ApiError && error.status === 503 && error.code === 'costs_busy'
-)
-
 export const MIGRATION_IN_PROGRESS_EVENT = 'keeper:migration-in-progress'
 
 export interface MigrationInProgressEventDetail {
@@ -32,7 +26,17 @@ export interface MigrationInProgressEventDetail {
 
 let apiRequestSequence = 0
 
+// 标记最近发出的 API 请求，让启动门禁忽略恢复 ready 前发出的迁移晚响应。
 export const latestApiRequestSequence = (): number => apiRequestSequence
+
+export const isUsageRangeBoundsConflict = (error: unknown): error is ApiError => (
+  error instanceof ApiError && error.status === 409
+)
+
+// 手工费用重算期间的普通暂缓响应不改变登录态，也不进入启动迁移门禁。
+export const isCostsBusy = (error: unknown): error is ApiError => (
+  error instanceof ApiError && error.status === 503 && error.code === 'costs_busy'
+)
 
 const APP_BASE_PATH_PLACEHOLDER = '__APP_BASE_PATH__'
 const EMBED_SESSION_STORAGE_KEY = 'cpa_usage_keeper_embed_session'
@@ -68,7 +72,14 @@ function normalizeOverviewRealtimeBlock(
   return {
     window: resolvedWindow,
     insights: block.insights,
-    model_speed: block.model_speed ?? { available: false, series: [], start: undefined, mid: undefined, end: undefined },
+    // 旧响应缺字段时速度明确不可用，继续复用这一轮 Realtime 请求。
+    model_speed: {
+      available: block.model_speed?.available ?? false,
+      start: block.model_speed?.start,
+      mid: block.model_speed?.mid,
+      end: block.model_speed?.end,
+      series: block.model_speed?.series ?? [],
+    },
     timezone: block.timezone,
     bucket_seconds: block.bucket_seconds ?? realtimeBucketSecondsForWindow(resolvedWindow),
     window_start: block.window_start,
@@ -85,7 +96,7 @@ function normalizeOverviewRealtimeBlock(
     current_usage: {
       models: currentUsage.models ?? [],
       api_keys: currentUsage.api_keys ?? [],
-      auth_files: currentUsage.auth_files ?? [],
+      credentials: currentUsage.credentials ?? [],
       ai_providers: currentUsage.ai_providers ?? [],
     },
     request_level: block.request_level ?? [],
@@ -116,12 +127,6 @@ export function apiPath(path: string): string {
   return `${normalizeBasePath(window.__APP_BASE_PATH__)}/api/v1${normalizedPath}`
 }
 
-export function liveFlowWebSocketURL(): string {
-  const url = new URL(apiPath('/live-flow/ws'), window.location.href)
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-  return url.toString()
-}
-
 async function parseApiError(response: Response, fallback: string): Promise<never> {
   let message = fallback
   let code: string | undefined
@@ -134,7 +139,7 @@ async function parseApiError(response: Response, fallback: string): Promise<neve
       message = payload.message
     }
     code = payload.code
-    fields = payload.fields
+    fields = Array.isArray(payload.fields) ? payload.fields : undefined
   } catch {
     // ignore invalid error payloads
   }
@@ -206,22 +211,21 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     credentials: 'include',
     headers,
   })
-  if (response.status === 401) {
-    clearEmbedSessionToken()
-  }
-  // Dispatch migration-in-progress event when the backend is restarting
-  if (response.status === 503) {
+  if (response.status === 503 && typeof window !== 'undefined') {
     try {
       const payload = await response.clone().json() as { code?: string }
+      // 仅迁移专用错误会令已有页面退回启动页；costs_busy 仍由原业务处理。
       if (payload.code === 'migration_in_progress') {
-        const event = new CustomEvent<MigrationInProgressEventDetail>(MIGRATION_IN_PROGRESS_EVENT, {
+        window.dispatchEvent(new CustomEvent<MigrationInProgressEventDetail>(MIGRATION_IN_PROGRESS_EVENT, {
           detail: { requestSequence },
-        })
-        window.dispatchEvent(event)
+        }))
       }
     } catch {
-      // Ignore JSON parse errors for 503 responses
+      // 非标准 503 响应交由原请求调用方处理。
     }
+  }
+  if (response.status === 401) {
+    clearEmbedSessionToken()
   }
   return response
 }
@@ -236,6 +240,18 @@ export async function getSession(signal?: AbortSignal): Promise<AuthSessionRespo
     clearEmbedSessionToken()
   }
   return session
+}
+
+export async function startOIDCLogin(returnTo: string): Promise<{ authorization_url: string }> {
+  const response = await apiFetch(apiPath('/auth/oidc/login'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ return_to: returnTo }),
+  })
+  if (!response.ok) {
+    await parseApiError(response, `Unable to start OIDC login: ${response.status}`)
+  }
+  return await response.json()
 }
 
 async function readEmbedLoginResponse(response: Response): Promise<EmbedLoginResponse> {
@@ -620,48 +636,7 @@ export async function exportUsageEvents(request: UsageRangeRequest, format: Usag
   }
 }
 
-// Key Viewer Events API (scoped to viewer's API key)
-export async function fetchKeyEvents(request: UsageRangeRequest | undefined, signal?: AbortSignal, options?: FetchUsageEventsOptions): Promise<UsageEventsResponse> {
-  const params = buildUsageEventsParams(request, options)
-  const query = params.toString()
-  const response = await apiFetch(`${apiPath('/key-events')}${query ? `?${query}` : ''}`, { signal })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to load key events: ${response.status}`)
-  }
-  return response.json()
-}
-
-export async function fetchKeyEventFilterOptions(signal?: AbortSignal): Promise<{ models: string[]; sources: UsageSourceFilterOption[] }> {
-  const response = await apiFetch(apiPath('/key-events/filter-options'), { signal, cache: 'no-store' })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to load key event filter options: ${response.status}`)
-  }
-  return response.json()
-}
-
-export async function fetchKeyEventRequestLog(eventId: string, signal?: AbortSignal): Promise<UsageEventRequestLogResponse> {
-  const response = await apiFetch(apiPath(`/key-events/${encodeURIComponent(eventId)}/request-log`), { signal, cache: 'no-store' })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to load key event request log: ${response.status}`)
-  }
-  return response.json()
-}
-
-export async function exportKeyEvents(request: UsageRangeRequest, format: UsageEventsExportFormat, options?: FetchUsageEventsOptions): Promise<UsageEventsExportFile> {
-  const params = buildUsageEventsParams(request, options, false)
-  params.set('format', format)
-  const query = params.toString()
-  const response = await apiFetch(`${apiPath('/key-events/export')}${query ? `?${query}` : ''}`, { method: 'POST' })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to export key events: ${response.status}`)
-  }
-  return {
-    blob: await response.blob(),
-    filename: parseAttachmentFilename(response.headers.get('Content-Disposition'), `key-events.${format}`),
-  }
-}
-
-export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at', 'success_rate'] as const
+export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at'] as const
 export type UsageIdentityPageSort = typeof USAGE_IDENTITY_PAGE_SORTS[number]
 
 export interface FetchUsageIdentitiesPageOptions {
@@ -738,61 +713,6 @@ export async function resetUsageIdentityStats(id: string): Promise<UsageIdentity
   const response = await apiFetch(apiPath(`/usage/identities/${encodeURIComponent(id)}/stats/reset`), { method: 'POST' })
   if (!response.ok) {
     await parseApiError(response, `Failed to reset usage identity stats: ${response.status}`)
-  }
-  return response.json()
-}
-
-// Provider Grouping API (FEAT-PROV-2.1, 2.2, 2.3, 2.4)
-export interface ListProvidersOptions {
-  sort?: string
-  order?: 'asc' | 'desc'
-}
-
-export async function listProviders(options?: ListProvidersOptions, signal?: AbortSignal): Promise<ProvidersResponse> {
-  const params = new URLSearchParams()
-  if (options?.sort) {
-    params.set('sort', options.sort)
-  }
-  if (options?.order) {
-    params.set('order', options.order)
-  }
-  const query = params.toString()
-  const response = await apiFetch(`${apiPath('/usage/providers')}${query ? `?${query}` : ''}`, { signal })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to load providers: ${response.status}`)
-  }
-  return response.json()
-}
-
-export interface ListProviderKeysOptions {
-  sort?: string
-  order?: 'asc' | 'desc'
-  page?: number
-  page_size?: number
-}
-
-export async function listProviderKeys(
-  providerId: string,
-  options?: ListProviderKeysOptions,
-  signal?: AbortSignal,
-): Promise<ProviderKeysResponse> {
-  const params = new URLSearchParams()
-  if (options?.sort) {
-    params.set('sort', options.sort)
-  }
-  if (options?.order) {
-    params.set('order', options.order)
-  }
-  if (typeof options?.page === 'number' && Number.isFinite(options.page) && options.page > 0) {
-    params.set('page', String(Math.floor(options.page)))
-  }
-  if (typeof options?.page_size === 'number' && Number.isFinite(options.page_size) && options.page_size > 0) {
-    params.set('page_size', String(Math.floor(options.page_size)))
-  }
-  const query = params.toString()
-  const response = await apiFetch(`${apiPath(`/usage/providers/${encodeURIComponent(providerId)}/keys`)}${query ? `?${query}` : ''}`, { signal })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to load provider keys: ${response.status}`)
   }
   return response.json()
 }
@@ -916,8 +836,8 @@ export async function fetchUsageQuotaRefreshTask(authIndex: string, signal?: Abo
   return response.json()
 }
 
-export async function setAuthFilesDisabled(names: string[], disabled: boolean): Promise<AuthFilesManagementResponse> {
-  const response = await apiFetch(apiPath('/auth-files/status'), {
+export async function setCredentialsDisabled(names: string[], disabled: boolean): Promise<CredentialsManagementResponse> {
+  const response = await apiFetch(apiPath('/credentials/status'), {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -925,21 +845,21 @@ export async function setAuthFilesDisabled(names: string[], disabled: boolean): 
     body: JSON.stringify({ names, disabled }),
   })
   if (!response.ok) {
-    await parseApiError(response, `Failed to update auth file status: ${response.status}`)
+    await parseApiError(response, `Failed to update credential status: ${response.status}`)
   }
   return response.json()
 }
 
-export type CredentialStatusKind = 'auth-file' | 'ai-provider'
+export type CredentialStatusKind = 'credential' | 'ai-provider'
 
 export interface CredentialStatusResponse {
   auth_index: string
   disabled: boolean
 }
 
-// 认证文件与 AI 供应商共用前端调用形状，由后端按 auth_index 翻译成各自的上游写操作。
+// 凭证与 AI 供应商共用前端调用形状，由后端按 auth_index 翻译成各自的上游写操作。
 const credentialStatusPathByKind: Record<CredentialStatusKind, string> = {
-  'auth-file': '/auth-files',
+  'credential': '/credentials',
   'ai-provider': '/ai-providers',
 }
 
@@ -974,8 +894,8 @@ export async function setCredentialPriority(kind: CredentialStatusKind, authInde
   return response.json()
 }
 
-export async function deleteAuthFiles(names: string[]): Promise<AuthFilesManagementResponse> {
-  const response = await apiFetch(apiPath('/auth-files'), {
+export async function deleteCredentials(names: string[]): Promise<CredentialsManagementResponse> {
+  const response = await apiFetch(apiPath('/credentials'), {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -983,7 +903,7 @@ export async function deleteAuthFiles(names: string[]): Promise<AuthFilesManagem
     body: JSON.stringify({ names }),
   })
   if (!response.ok) {
-    await parseApiError(response, `Failed to delete auth files: ${response.status}`)
+    await parseApiError(response, `Failed to delete credentials: ${response.status}`)
   }
   return response.json()
 }
@@ -1100,6 +1020,7 @@ export async function fetchUpdateCheck(signal?: AbortSignal): Promise<UpdateChec
   return response.json()
 }
 
+// 列表同时返回完整配置与已保存修订，供编辑和重算确认使用。
 export async function fetchPricingModels(signal?: AbortSignal): Promise<PricingModelsResponse> {
   const response = await apiFetch(apiPath('/pricing/models'), { signal, cache: 'no-store' })
   if (!response.ok) {
@@ -1108,6 +1029,7 @@ export async function fetchPricingModels(signal?: AbortSignal): Promise<PricingM
   return response.json()
 }
 
+// 候选模型沿用服务端的完整标识来源与去重结果。
 export async function fetchPricingModelOptions(signal?: AbortSignal): Promise<PricingModelOptionsResponse> {
   const response = await apiFetch(apiPath('/pricing/model-options'), { signal, cache: 'no-store' })
   if (!response.ok) {
@@ -1116,12 +1038,11 @@ export async function fetchPricingModelOptions(signal?: AbortSignal): Promise<Pr
   return response.json()
 }
 
+// 一次保存完整配置；空倍率和分支数组表示清空，历史已存费用保持原值。
 export async function savePricingModel(config: ModelPricingConfig, signal?: AbortSignal): Promise<SavePricingModelResponse> {
   const response = await apiFetch(apiPath('/pricing/models'), {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
     signal,
   })
@@ -1131,6 +1052,7 @@ export async function savePricingModel(config: ModelPricingConfig, signal?: Abor
   return response.json()
 }
 
+// 仅删除当前配置；模型名放在查询参数中，包含斜杠时仍可准确传递。
 export async function deletePricingModel(model: string, signal?: AbortSignal): Promise<DeletePricingModelResponse> {
   const params = new URLSearchParams({ model })
   const response = await apiFetch(`${apiPath('/pricing/models')}?${params.toString()}`, {
@@ -1143,29 +1065,7 @@ export async function deletePricingModel(model: string, signal?: AbortSignal): P
   return response.json()
 }
 
-export async function fetchPricingSync(source: PricingSyncSource, signal?: AbortSignal): Promise<PricingSyncFetchResponse> {
-  const response = await apiFetch(`${apiPath('/pricing/sync/fetch')}?source=${encodeURIComponent(source)}`, { signal, cache: 'no-store' })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to fetch pricing sync: ${response.status}`)
-  }
-  return response.json()
-}
-
-export async function applyPricingSync(request: PricingSyncApplyRequest, signal?: AbortSignal): Promise<PricingSyncApplyResponse> {
-  const response = await apiFetch(apiPath('/pricing/sync/apply'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-    signal,
-  })
-  if (!response.ok) {
-    await parseApiError(response, `Failed to apply pricing sync: ${response.status}`)
-  }
-  return response.json()
-}
-
+// 重算弹框读取部署时区、合法小时边界及本次需要确认的配置修订。
 export async function fetchPricingRecalculationOptions(signal?: AbortSignal): Promise<PricingRecalculationOptions> {
   const response = await apiFetch(apiPath('/pricing/recalculations/options'), { signal, cache: 'no-store' })
   if (!response.ok) {
@@ -1174,6 +1074,21 @@ export async function fetchPricingRecalculationOptions(signal?: AbortSignal): Pr
   return response.json()
 }
 
+// 启动只提交用户确认的起点与修订；运行中服务端会返回现有任务而不另行排队。
+export async function startPricingRecalculation(request: StartPricingRecalculationRequest, signal?: AbortSignal): Promise<StartPricingRecalculationResponse> {
+  const response = await apiFetch(apiPath('/pricing/recalculations'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to start pricing recalculation: ${response.status}`)
+  }
+  return response.json()
+}
+
+// 当前任务是唯一进度入口；进程重启或从未启动时返回 null。
 export async function fetchCurrentPricingRecalculation(signal?: AbortSignal): Promise<PricingRecalculationTask | null> {
   const response = await apiFetch(apiPath('/pricing/recalculations/current'), { signal, cache: 'no-store' })
   if (!response.ok) {
@@ -1182,17 +1097,26 @@ export async function fetchCurrentPricingRecalculation(signal?: AbortSignal): Pr
   return response.json()
 }
 
-export async function startPricingRecalculation(request: StartPricingRecalculationRequest, signal?: AbortSignal): Promise<StartPricingRecalculationResponse> {
-  const response = await apiFetch(apiPath('/pricing/recalculations'), {
+// 仅在用户明确拉取时请求选定来源；响应包含来源 ID、匹配提供商显示名和四项候选基础价。
+export async function fetchPricingSync(source: PricingSyncSource, signal?: AbortSignal): Promise<PricingSyncFetchResponse> {
+  const params = new URLSearchParams({ source })
+  const response = await apiFetch(`${apiPath('/pricing/sync/fetch')}?${params.toString()}`, { signal, cache: 'no-store' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to fetch pricing sync: ${response.status}`)
+  }
+  return response.json()
+}
+
+// 整批应用所选基础价；请求不带倍率或分支，避免覆盖已有完整配置。
+export async function applyPricingSync(request: PricingSyncApplyRequest, signal?: AbortSignal): Promise<PricingSyncApplyResponse> {
+  const response = await apiFetch(apiPath('/pricing/sync/apply'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
     signal,
   })
   if (!response.ok) {
-    await parseApiError(response, `Failed to start pricing recalculation: ${response.status}`)
+    await parseApiError(response, `Failed to apply pricing sync: ${response.status}`)
   }
   return response.json()
 }

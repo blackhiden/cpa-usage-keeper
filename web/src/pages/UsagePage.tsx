@@ -28,8 +28,8 @@ import {
   AnalysisPanel,
   ApiKeySettingsCard,
   SessionSettingsCard,
-  AuthFileCredentialsSection,
-  ProviderSummarySection,
+  CredentialsSection,
+  AiProviderCredentialsSection,
   CredentialDetailDrawer,
   CredentialProviderFilterBar,
   TimeRangeControl,
@@ -86,11 +86,11 @@ const USAGE_TAB_LABEL_KEYS: Record<UsageTab, string> = {
   analysis: 'usage_stats.tab_analysis',
   ranking: 'usage_stats.tab_ranking',
   events: 'usage_stats.tab_events',
-  'auth-files': 'usage_stats.tab_auth_files',
+  'credentials': 'usage_stats.tab_credentials',
   'ai-provider': 'usage_stats.tab_ai_provider',
   settings: 'usage_stats.tab_settings',
 };
-const USAGE_TAB_STORAGE_KEY = 'cli-proxy-usage-tab-v1';
+const USAGE_TAB_STORAGE_KEY = 'cli-proxy-usage-tab-v2';
 const REQUEST_EVENTS_DEFAULT_PAGE_SIZE = 50;
 const REQUEST_EVENTS_CUSTOM_DAY_RANGE_MAX_DAYS = 90;
 // v9 将强关联字段折叠为组合列，并加入 Executor；旧版本直接重置列设置以避免错误折叠。
@@ -145,8 +145,8 @@ export const loadAnalysisSections = async <TCore, TLatency>({
 };
 
 export const getCredentialSectionVisibility = (tab: UsageTab) => ({
-  enabled: tab === 'auth-files' || tab === 'ai-provider',
-  showAuthFiles: tab === 'auth-files',
+  enabled: tab === 'credentials' || tab === 'ai-provider',
+  showCredentials: tab === 'credentials',
   showAiProvider: tab === 'ai-provider',
 });
 
@@ -988,9 +988,8 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     api: RANKING_PREVIEW_API,
   });
   const credentialsData = useCredentialsTabData({
-    enabledAuthFiles: credentialSectionVisibility.showAuthFiles && pageVisible,
-    // /ai-provider now loads server-side provider summaries. Identity pages remain needed only for Auth Files.
-    enabledAiProviders: false,
+    enabledCredentials: credentialSectionVisibility.showCredentials && pageVisible,
+    enabledAiProviders: credentialSectionVisibility.showAiProvider && pageVisible,
     onAuthRequired,
     onNotice: showTopNotice,
     onPrioritySaved: () => setCredentialPriorityRevision((current) => current + 1),
@@ -998,13 +997,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const refreshCredentials = credentialsData.refresh;
   const getUsageTabHref = useCallback((tab: UsageTab) => {
     let search = tab === activeTab ? window.location.search : cpamcEmbedSearch();
-    if (tab === 'auth-files') {
-      search = buildCredentialProviderSearch(search, credentialsData.authFileProviderFilter);
+    if (tab === 'credentials' || tab === 'ai-provider') {
+      search = buildCredentialProviderSearch(search, tab === 'credentials' ? credentialsData.credentialProviderFilter : credentialsData.aiProviderProviderFilter);
     } else {
       search = cpamcEmbedSearch();
     }
     return appPath(getUsageTabPath(tab)) + search + (tab === activeTab ? window.location.hash : '');
-  }, [activeTab, credentialsData.authFileProviderFilter]);
+  }, [activeTab, credentialsData.credentialProviderFilter, credentialsData.aiProviderProviderFilter]);
   const activateUsageTab = useCallback((tab: UsageTab) => {
     window.history.replaceState(null, '', getUsageTabHref(tab));
     setActiveTab(tab);
@@ -1016,7 +1015,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     activateUsageTab(tab);
   }, [activateUsageTab]);
   useEffect(() => {
-    if (activeTab !== 'auth-files' && activeTab !== 'ai-provider') return;
+    if (activeTab !== 'credentials' && activeTab !== 'ai-provider') return;
     // 无参数入口也固定本标签页的筛选，避免刷新时再次读取其他标签页改过的默认偏好。
     const href = getUsageTabHref(activeTab);
     if (href !== window.location.pathname + window.location.search + window.location.hash) {
@@ -1045,13 +1044,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     [apiKeyOptions, t],
   );
   const credentialTypeCountsForProviderFilter = useMemo(() => {
-    if (credentialSectionVisibility.showAuthFiles) return credentialsData.authFileTypeCounts;
+    if (credentialSectionVisibility.showCredentials) return credentialsData.credentialTypeCounts;
     if (credentialSectionVisibility.showAiProvider) return credentialsData.aiProviderTypeCounts;
     return [];
-  }, [credentialSectionVisibility.showAiProvider, credentialSectionVisibility.showAuthFiles, credentialsData.aiProviderTypeCounts, credentialsData.authFileTypeCounts]);
-  const activeCredentialProviderFilter = credentialSectionVisibility.showAiProvider ? credentialsData.aiProviderProviderFilter : credentialsData.authFileProviderFilter;
-  const setActiveCredentialProviderFilter = credentialSectionVisibility.showAiProvider ? credentialsData.setAiProviderProviderFilter : credentialsData.setAuthFileProviderFilter;
-  const activeCredentialProviderFilterScope = credentialSectionVisibility.showAiProvider ? 'ai-provider' : 'auth-files';
+  }, [credentialSectionVisibility.showAiProvider, credentialSectionVisibility.showCredentials, credentialsData.aiProviderTypeCounts, credentialsData.credentialTypeCounts]);
+  const activeCredentialProviderFilter = credentialSectionVisibility.showAiProvider ? credentialsData.aiProviderProviderFilter : credentialsData.credentialProviderFilter;
+  const setActiveCredentialProviderFilter = credentialSectionVisibility.showAiProvider ? credentialsData.setAiProviderProviderFilter : credentialsData.setCredentialProviderFilter;
+  const activeCredentialProviderFilterScope = credentialSectionVisibility.showAiProvider ? 'ai-provider' : 'credentials';
   const themeOptions = useMemo(
     () =>
       THEME_OPTIONS.map((option) => ({
@@ -1734,13 +1733,13 @@ const loadApiKeyOptions = useCallback(async () => {
   const currentCredentialDetailSelection = useMemo<CredentialDetailSelection | null>(() => {
     if (!credentialDetailSelection) return null;
     const id = credentialDetailSelection.row.identity.id;
-    if (credentialDetailSelection.kind === 'auth-file') {
-      const row = credentialsData.authFileRows.find((item) => item.identity.id === id);
-      return row ? updateCredentialDetailStats({ kind: 'auth-file', row }, { ...credentialDetailSelection.row.identity, priority: row.identity.priority }) : credentialDetailSelection;
+    if (credentialDetailSelection.kind === 'credential') {
+      const row = credentialsData.credentialRows.find((item) => item.identity.id === id);
+      return row ? updateCredentialDetailStats({ kind: 'credential', row }, { ...credentialDetailSelection.row.identity, priority: row.identity.priority }) : credentialDetailSelection;
     }
     const row = credentialsData.aiProviderRows.find((item) => item.identity.id === id);
     return row ? updateCredentialDetailStats({ kind: 'ai-provider', row }, { ...credentialDetailSelection.row.identity, priority: row.identity.priority }) : credentialDetailSelection;
-  }, [credentialDetailSelection, credentialsData.authFileRows, credentialsData.aiProviderRows]);
+  }, [credentialDetailSelection, credentialsData.credentialRows, credentialsData.aiProviderRows]);
 
   const handleRequestLogDownload = useCallback(async (eventId: string) => {
     if (!requestLogAccessEnabled) return;
@@ -2399,16 +2398,16 @@ const loadApiKeyOptions = useCallback(async () => {
                   />
                 )}
                 <div className={styles.credentialsSections}>
-                  {credentialSectionVisibility.showAuthFiles && (
-                    <AuthFileCredentialsSection
-                      rows={credentialsData.authFileRows}
+                  {credentialSectionVisibility.showCredentials && (
+                    <CredentialsSection
+                      rows={credentialsData.credentialRows}
                       timeZone={credentialTimeZone}
-                      total={credentialsData.authFileTotal}
-                      page={credentialsData.authFilePage}
-                      totalPages={credentialsData.authFileTotalPages}
-                      pageSize={credentialsData.authFilePageSize}
-                      activeOnly={credentialsData.authFileActiveOnly}
-                      sort={credentialsData.authFileSort}
+                      total={credentialsData.credentialTotal}
+                      page={credentialsData.credentialPage}
+                      totalPages={credentialsData.credentialTotalPages}
+                      pageSize={credentialsData.credentialPageSize}
+                      activeOnly={credentialsData.credentialActiveOnly}
+                      sort={credentialsData.credentialSort}
                       loading={credentialsData.loading}
                       quotaRefreshing={credentialsData.quotaRefreshing}
                       quotaRefreshError={credentialsData.quotaRefreshError}
@@ -2416,19 +2415,19 @@ const loadApiKeyOptions = useCallback(async () => {
                       quotaInspectionLoading={credentialsData.quotaInspectionLoading}
                       quotaInspectionStarting={credentialsData.quotaInspectionStarting}
                       quotaInspectionError={credentialsData.quotaInspectionError}
-                      onPageChange={credentialsData.setAuthFilePage}
-                      onPageSizeChange={credentialsData.setAuthFilePageSize}
-                      onActiveOnlyChange={credentialsData.setAuthFileActiveOnly}
-                      onSortChange={credentialsData.setAuthFileSort}
-                      onRefreshQuota={credentialsData.refreshQuotaForCurrentAuthFilePage}
+                      onPageChange={credentialsData.setCredentialPage}
+                      onPageSizeChange={credentialsData.setCredentialPageSize}
+                      onActiveOnlyChange={credentialsData.setCredentialActiveOnly}
+                      onSortChange={credentialsData.setCredentialSort}
+                      onRefreshQuota={credentialsData.refreshQuotaForCurrentCredentialPage}
                       onRefreshQuotaForAuthIndex={credentialsData.refreshQuotaForAuthIndex}
                       onResetQuotaForAuthIndex={credentialsData.resetQuotaForAuthIndex}
                       editFallbackRef={credentialEditFallbackRef}
-                      onEdit={(row) => setCredentialEditSelection({ kind: 'auth-file', row })}
-                      onOpenDetails={(row) => handleCredentialDetailOpen({ kind: 'auth-file', row })}
+                      onEdit={(row) => setCredentialEditSelection({ kind: 'credential', row })}
+                      onOpenDetails={(row) => handleCredentialDetailOpen({ kind: 'credential', row })}
                       statusPendingIdentityIds={credentialsData.credentialStatusPendingIdentityIds}
-                      onToggleStatus={credentialsData.toggleAuthFileStatus}
-                      onSavePriority={credentialsData.saveAuthFilePriority}
+                      onToggleStatus={credentialsData.toggleCredentialStatus}
+                      onSavePriority={credentialsData.saveCredentialPriority}
                       onRefreshInspectionStatus={credentialsData.refreshQuotaInspectionStatus}
                       onStartInspection={credentialsData.startQuotaInspection}
                       onAfterInvalidAccountAction={credentialsData.refresh}
