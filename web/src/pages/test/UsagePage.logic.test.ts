@@ -840,7 +840,7 @@ describe('UsagePage tab labels', () => {
   it('omits Ranking from the CPAMC embedded navigation', () => {
     const values = getUsageTabOptions((key) => key, { includeRanking: false, includeLiveFlow: false }).map((option) => option.value);
 
-    expect(values).toEqual(['overview', 'realtime', 'analysis', 'events', 'auth-files', 'ai-provider', 'settings']);
+    expect(values).toEqual(['overview', 'realtime', 'analysis', 'events', 'credentials', 'ai-provider', 'settings']);
   });
 });
 

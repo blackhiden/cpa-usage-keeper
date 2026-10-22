@@ -159,7 +159,7 @@ function App() {
     } finally {
       setSubmitting(false);
     }
-  }, [clearSession, isEmbeddedInCPAMC, loadSession, t]);
+  }, [clearSession, isEmbeddedInCPAMC, loadSession]);
 
   const handleAPIKeyLogin = useCallback(async (apiKey: string) => {
     setSubmitting(true);

@@ -258,18 +258,10 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		TTL:     cfg.IPEnrichmentTTL,
 		Timeout: cfg.IPEnrichmentTimeout,
 	}, nil)
-	authConfig := appAuthConfig(cfg)
 	// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
 	authConfig.APIKeyViewerLocalRankingEnabled = cfg.APIKeyViewerLocalRankingEnabled
 	// Local ranking is available when the service was successfully initialized.
 	authConfig.LocalRankingAvailable = localRankingService != nil
-	if cfg.OIDC.Enabled {
-		oidcClient, err := oidc.NewClient(cfg.OIDC, nil)
-		if err != nil {
-			return nil, fmt.Errorf("initialize OIDC client: %w", err)
-		}
-		authConfig.OIDC = oidcClient
-	}
 	authHandler := api.NewAuthHandler(authConfig, sessionManager)
 	authHandler.SetIPEnricher(ipEnricher)
 

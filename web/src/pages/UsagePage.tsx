@@ -780,7 +780,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   // which assert the DashboardHeader backToCPA wiring exists.
   const cpaManagementURL = useMemo(() => getBackToCPALinkURL(status), [status]);
   const [versionInfo, setVersionInfo] = useState<VersionResponse | null>(null);
-  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const apiKeyOptionsRequestControllerRef = useRef<AbortController | null>(null);
   const credentialSectionVisibility = getCredentialSectionVisibility(activeTab);
   const activeCustomRange = useMemo(() => getUsageCustomRangeForTab(activeTab, customRange, {
@@ -1776,7 +1775,7 @@ const loadApiKeyOptions = useCallback(async () => {
       return;
     }
     if (activeTab === 'ai-provider') {
-      setProviderSummaryRefreshRevision((current) => current + 1);
+      await refreshCredentials();
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -1808,7 +1807,7 @@ const loadApiKeyOptions = useCallback(async () => {
       return;
     }
     if (activeTab === 'ai-provider') {
-      setProviderSummaryRefreshRevision((current) => current + 1);
+      await refreshCredentials();
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -2389,14 +2388,12 @@ const loadApiKeyOptions = useCallback(async () => {
             {credentialSectionVisibility.enabled && (
               <>
                 {credentialsData.error && <div className={styles.errorBox}>{credentialsData.error}</div>}
-                {credentialSectionVisibility.showAuthFiles && (
-                  <CredentialProviderFilterBar
-                    scope={activeCredentialProviderFilterScope}
-                    typeCounts={credentialTypeCountsForProviderFilter}
-                    value={activeCredentialProviderFilter}
-                    onChange={setActiveCredentialProviderFilter}
-                  />
-                )}
+                <CredentialProviderFilterBar
+                  scope={activeCredentialProviderFilterScope}
+                  typeCounts={credentialTypeCountsForProviderFilter}
+                  value={activeCredentialProviderFilter}
+                  onChange={setActiveCredentialProviderFilter}
+                />
                 <div className={styles.credentialsSections}>
                   {credentialSectionVisibility.showCredentials && (
                     <CredentialsSection
@@ -2434,9 +2431,25 @@ const loadApiKeyOptions = useCallback(async () => {
                     />
                   )}
                   {credentialSectionVisibility.showAiProvider && (
-                    <ProviderSummarySection
-                      onAuthRequired={onAuthRequired}
-                      refreshRevision={providerSummaryRefreshRevision}
+                    <AiProviderCredentialsSection
+                      rows={credentialsData.aiProviderRows}
+                      total={credentialsData.aiProviderTotal}
+                      page={credentialsData.aiProviderPage}
+                      totalPages={credentialsData.aiProviderTotalPages}
+                      pageSize={credentialsData.aiProviderPageSize}
+                      activeOnly={credentialsData.aiProviderActiveOnly}
+                      sort={credentialsData.aiProviderSort}
+                      loading={credentialsData.loading}
+                      editFallbackRef={credentialEditFallbackRef}
+                      onEdit={(row) => setCredentialEditSelection({ kind: 'ai-provider', row })}
+                      onOpenDetails={(row) => handleCredentialDetailOpen({ kind: 'ai-provider', row })}
+                      statusPendingIdentityIds={credentialsData.credentialStatusPendingIdentityIds}
+                      onToggleStatus={credentialsData.toggleAiProviderStatus}
+                      onSavePriority={credentialsData.saveAiProviderPriority}
+                      onPageChange={credentialsData.setAiProviderPage}
+                      onPageSizeChange={credentialsData.setAiProviderPageSize}
+                      onActiveOnlyChange={credentialsData.setAiProviderActiveOnly}
+                      onSortChange={credentialsData.setAiProviderSort}
                     />
                   )}
                 </div>

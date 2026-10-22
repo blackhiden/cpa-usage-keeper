@@ -1,4 +1,4 @@
-import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type VersionResponse } from './types'
+import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type ProviderKeysResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
 import type { DeletePricingModelResponse, ModelPricingConfig, PricingErrorResponse, PricingFieldError, PricingModelOptionsResponse, PricingModelsResponse, PricingRecalculationOptions, PricingRecalculationTask, PricingSyncApplyRequest, PricingSyncApplyResponse, PricingSyncFetchResponse, SavePricingModelResponse, StartPricingRecalculationRequest, StartPricingRecalculationResponse } from './types'
 import { isCPAMCEmbed } from '@/embed/cpamcEmbed'
 import { resolveUsageRequestRange } from '@/utils/usage/rangeQuery'
@@ -125,6 +125,12 @@ export function appPath(path: string): string {
 export function apiPath(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${normalizeBasePath(window.__APP_BASE_PATH__)}/api/v1${normalizedPath}`
+}
+
+export function liveFlowWebSocketURL(): string {
+  const url = new URL(apiPath('/live-flow/ws'), window.location.href)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  return url.toString()
 }
 
 async function parseApiError(response: Response, fallback: string): Promise<never> {
@@ -636,7 +642,47 @@ export async function exportUsageEvents(request: UsageRangeRequest, format: Usag
   }
 }
 
-export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at'] as const
+export async function fetchKeyEvents(request: UsageRangeRequest | undefined, signal?: AbortSignal, options?: FetchUsageEventsOptions): Promise<UsageEventsResponse> {
+  const params = buildUsageEventsParams(request, options)
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath('/key-events')}${query ? `?${query}` : ''}`, { signal })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key events: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchKeyEventFilterOptions(signal?: AbortSignal): Promise<{ models: string[]; sources: UsageSourceFilterOption[] }> {
+  const response = await apiFetch(apiPath('/key-events/filter-options'), { signal, cache: 'no-store' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key event filter options: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function fetchKeyEventRequestLog(eventId: string, signal?: AbortSignal): Promise<UsageEventRequestLogResponse> {
+  const response = await apiFetch(apiPath(`/key-events/${encodeURIComponent(eventId)}/request-log`), { signal, cache: 'no-store' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load key event request log: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function exportKeyEvents(request: UsageRangeRequest, format: UsageEventsExportFormat, options?: FetchUsageEventsOptions): Promise<UsageEventsExportFile> {
+  const params = buildUsageEventsParams(request, options, false)
+  params.set('format', format)
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath('/key-events/export')}${query ? `?${query}` : ''}`, { method: 'POST' })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to export key events: ${response.status}`)
+  }
+  return {
+    blob: await response.blob(),
+    filename: parseAttachmentFilename(response.headers.get('Content-Disposition'), `key-events.${format}`),
+  }
+}
+
+export const USAGE_IDENTITY_PAGE_SORTS = ['priority', 'total_requests', 'total_tokens', 'last_used_at', 'success_rate'] as const
 export type UsageIdentityPageSort = typeof USAGE_IDENTITY_PAGE_SORTS[number]
 
 export interface FetchUsageIdentitiesPageOptions {
@@ -713,6 +759,61 @@ export async function resetUsageIdentityStats(id: string): Promise<UsageIdentity
   const response = await apiFetch(apiPath(`/usage/identities/${encodeURIComponent(id)}/stats/reset`), { method: 'POST' })
   if (!response.ok) {
     await parseApiError(response, `Failed to reset usage identity stats: ${response.status}`)
+  }
+  return response.json()
+}
+
+// Provider Grouping API (FEAT-PROV-2.1, 2.2, 2.3, 2.4)
+export interface ListProvidersOptions {
+  sort?: string
+  order?: 'asc' | 'desc'
+}
+
+export async function listProviders(options?: ListProvidersOptions, signal?: AbortSignal): Promise<ProvidersResponse> {
+  const params = new URLSearchParams()
+  if (options?.sort) {
+    params.set('sort', options.sort)
+  }
+  if (options?.order) {
+    params.set('order', options.order)
+  }
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath('/usage/providers')}${query ? `?${query}` : ''}`, { signal })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load providers: ${response.status}`)
+  }
+  return response.json()
+}
+
+export interface ListProviderKeysOptions {
+  sort?: string
+  order?: 'asc' | 'desc'
+  page?: number
+  page_size?: number
+}
+
+export async function listProviderKeys(
+  providerId: string,
+  options?: ListProviderKeysOptions,
+  signal?: AbortSignal,
+): Promise<ProviderKeysResponse> {
+  const params = new URLSearchParams()
+  if (options?.sort) {
+    params.set('sort', options.sort)
+  }
+  if (options?.order) {
+    params.set('order', options.order)
+  }
+  if (typeof options?.page === 'number' && Number.isFinite(options.page) && options.page > 0) {
+    params.set('page', String(Math.floor(options.page)))
+  }
+  if (typeof options?.page_size === 'number' && Number.isFinite(options.page_size) && options.page_size > 0) {
+    params.set('page_size', String(Math.floor(options.page_size)))
+  }
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath(`/usage/providers/${encodeURIComponent(providerId)}/keys`)}${query ? `?${query}` : ''}`, { signal })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load provider keys: ${response.status}`)
   }
   return response.json()
 }

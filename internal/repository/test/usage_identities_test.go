@@ -1163,7 +1163,7 @@ func TestListProvidersAggregatesActiveAIProviderPeriodStatsAndSortsBySuccessRate
 		{Identity: "openai-b", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "openai", Provider: "OpenAI", TotalRequests: 20, SuccessCount: 20, InputTokens: 200, CacheReadTokens: 20, TotalTokens: 400, LastUsedAt: &now},
 		{Identity: "anthropic-a", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Type: "anthropic", Provider: "Anthropic", TotalRequests: 5, SuccessCount: 5, InputTokens: 50, CacheReadTokens: 5, TotalTokens: 100, LastUsedAt: &now},
 		{Identity: "deleted", AuthType: entities.UsageIdentityAuthTypeAIProvider, AuthTypeName: "apikey", Provider: "Deleted", TotalRequests: 999, SuccessCount: 999, IsDeleted: true},
-		{Identity: "oauth", AuthType: entities.UsageIdentityAuthTypeAuthFile, AuthTypeName: "oauth", Provider: "OAuth", TotalRequests: 999, SuccessCount: 999},
+		{Identity: "oauth", AuthType: entities.UsageIdentityAuthTypeCredential, AuthTypeName: "oauth", Provider: "OAuth", TotalRequests: 999, SuccessCount: 999},
 	}
 	if err := db.Create(&rows).Error; err != nil {
 		t.Fatalf("seed usage identities: %v", err)
