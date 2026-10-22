@@ -17,6 +17,7 @@ import (
 	"cpa-usage-keeper/internal/logging"
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/quota"
+	rankinghttpapi "cpa-usage-keeper/internal/ranking/httpapi"
 	"cpa-usage-keeper/internal/service"
 	"cpa-usage-keeper/internal/updatecheck"
 	"cpa-usage-keeper/internal/version"
@@ -61,10 +62,12 @@ type OptionalProviders struct {
 	ErrorEvents        service.ErrorEventProvider
 	Quota              QuotaProvider
 	CPAAPIKeys         service.CPAAPIKeyProvider
-	AuthFiles          service.AuthFilesManagementProvider
+	Credentials        service.CredentialsManagementProvider
 	CredentialStatus   service.CredentialStatusProvider
 	CredentialPriority service.CredentialPriorityProvider
 	RequestLogs        service.RequestLogProvider
+	Ranking            rankinghttpapi.Provider
+	LocalRanking       rankinghttpapi.LocalProvider
 	Status             StatusRouteConfig
 	LiveFlowClient     LiveFlowProvider
 	ProviderModelGraph gnnhttpapi.Provider
@@ -115,7 +118,7 @@ func NewRouter(
 	var errorEventProvider service.ErrorEventProvider
 	var quotaProvider QuotaProvider
 	var cpaAPIKeyProvider service.CPAAPIKeyProvider
-	var authFilesProvider service.AuthFilesManagementProvider
+	var credentialsProvider service.CredentialsManagementProvider
 	var credentialStatusProvider service.CredentialStatusProvider
 	var credentialPriorityProvider service.CredentialPriorityProvider
 	var requestLogProvider service.RequestLogProvider
@@ -131,7 +134,7 @@ func NewRouter(
 		errorEventProvider = optionalProviders[0].ErrorEvents
 		quotaProvider = optionalProviders[0].Quota
 		cpaAPIKeyProvider = optionalProviders[0].CPAAPIKeys
-		authFilesProvider = optionalProviders[0].AuthFiles
+		credentialsProvider = optionalProviders[0].Credentials
 		credentialStatusProvider = optionalProviders[0].CredentialStatus
 		credentialPriorityProvider = optionalProviders[0].CredentialPriority
 		requestLogProvider = optionalProviders[0].RequestLogs
@@ -156,6 +159,12 @@ func NewRouter(
 	liveFlowProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
 	registerLiveFlowRoutes(liveFlowProtected, liveFlowClient)
 
+	providerProtected := apiV1.Group("")
+	providerProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
+	providerProtected.Use(authHandler.activeAPIKeyViewerIfPresentMiddleware())
+	providerProtected.Use(costReadMiddleware(costReadGate, basePath))
+	registerProviderRoutes(providerProtected, usageIdentityProvider)
+
 	adminProtected := apiV1.Group("")
 	adminProtected.Use(authHandler.adminMiddleware())
 	adminProtected.Use(costReadMiddleware(costReadGate, basePath))
@@ -167,7 +176,7 @@ func NewRouter(
 	registerUsageEventsRoute(adminProtected, usageProvider, usageIdentityProvider, cpaAPIKeyProvider, requestLogProvider, requestLogDownloadTokens, statusConfig.CPARequestLogAccessEnabled)
 	registerUsageIdentityRoutes(adminProtected, usageIdentityProvider)
 	registerErrorEventRoutes(adminProtected, errorEventProvider)
-	registerAuthFileManagementRoutes(adminProtected, authFilesProvider)
+	registerCredentialManagementRoutes(adminProtected, credentialsProvider)
 	registerCredentialStatusRoutes(adminProtected, credentialStatusProvider)
 	registerCredentialPriorityRoutes(adminProtected, credentialPriorityProvider)
 	registerAuthSessionManagementRoutes(adminProtected, authHandler)
@@ -263,11 +272,13 @@ func renderIndexHTML(staticFS fs.FS, basePath string) ([]byte, error) {
 		return nil, err
 	}
 
-	return bytes.ReplaceAll(
+	indexHTML = bytes.ReplaceAll(
 		indexHTML,
 		[]byte(strconv.Quote(appBasePathPlaceholder)),
 		[]byte(strconv.Quote(basePath)),
-	), nil
+	)
+	assetBasePath := strings.TrimSuffix(basePath, "/") + "/assets/"
+	return bytes.ReplaceAll(indexHTML, []byte("./assets/"), []byte(assetBasePath)), nil
 }
 
 func cleanURLPath(requestPath string) string {

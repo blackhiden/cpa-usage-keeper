@@ -6,6 +6,30 @@ import (
 	"strings"
 )
 
+// firstString returns the first non-empty string value from the given keys in the map.
+func firstString(m map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if v, ok := m[key]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return strings.TrimSpace(s)
+			}
+		}
+	}
+	return ""
+}
+
+// firstBool returns the first non-nil bool value from the given keys in the map.
+func firstBool(m map[string]any, keys ...string) *bool {
+	for _, key := range keys {
+		if v, ok := m[key]; ok {
+			if b, ok := v.(bool); ok {
+				return &b
+			}
+		}
+	}
+	return nil
+}
+
 // ModelAliasEntry 是 /v0/management/config 中 provider 模型条目的最小视图，只保留 name 与 alias。
 // label() 遵循 alias 优先规则：alias 为空时回退到 name。
 type ModelAliasEntry struct {

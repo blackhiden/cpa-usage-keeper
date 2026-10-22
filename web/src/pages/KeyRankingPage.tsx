@@ -8,7 +8,6 @@ import {
   RankingApiError,
 } from '@/features/ranking/api';
 import { RankingLeaderboardResults } from '@/features/ranking/components/RankingLeaderboardResults';
-import { RankingScopeSwitch } from '@/features/ranking/components/RankingScopeSwitch';
 import { RankingMetricSelect, RankingToolbar } from '@/features/ranking/components/RankingToolbar';
 import type {
   RankingLeaderboardResponse,

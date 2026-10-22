@@ -16,6 +16,7 @@ import (
 	"cpa-usage-keeper/internal/enrichgeo"
 	"cpa-usage-keeper/internal/gnn"
 	"cpa-usage-keeper/internal/logging"
+	"cpa-usage-keeper/internal/oidc"
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/pricing"
 	"cpa-usage-keeper/internal/quota"
@@ -73,6 +74,7 @@ type App struct {
 	CPAErrors Runner
 	// UsageAggregation 是唯一串行调度三类派生聚合事务的后台 runner。
 	UsageAggregation  Runner
+	LocalRanking      Runner
 	Maintenance       *StorageCleanupRunner
 	MetadataSync      *MetadataSyncRunner
 	QuotaService      QuotaRunner
@@ -126,6 +128,16 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	recentUsageCache, err := newUsageRecentEventCache(db, repository.UsageRecentEventCacheOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("initialize recent usage event cache: %w", err)
+	}
+	localRankingService, err := ranking.NewLocalRankingService(db, ranking.LocalRankingServiceOptions{})
+	if err != nil {
+		recentUsageCache.Close()
+		return nil, fmt.Errorf("initialize local ranking service: %w", err)
+	}
+	localRankingRunner, err := ranking.NewLocalRankingRunner(localRankingService)
+	if err != nil {
+		recentUsageCache.Close()
+		return nil, fmt.Errorf("initialize local ranking runner: %w", err)
 	}
 	pricingSnapshot, err := repository.LoadPricingSnapshot(context.Background(), db)
 	if err != nil {
@@ -211,7 +223,7 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	providerModelGraphService := gnn.NewService(cpaClient)
 	// 单条凭证开关成功后立即与 CPA 对齐；runner 自带合并窗口和 nil 保护。
 	credentialMutationLocks := &service.CredentialMutationLocks{}
-	authFilesManagementService := service.NewAuthFilesManagementService(cpaClient, credentialMutationLocks)
+	credentialsManagementService := service.NewCredentialsManagementService(cpaClient, credentialMutationLocks)
 	credentialStatusService := service.NewCredentialStatusService(db, cpaClient, metadataSyncRunner, credentialMutationLocks)
 	credentialPriorityService := service.NewCredentialPriorityService(db, cpaClient, metadataSyncRunner, credentialMutationLocks)
 	if cfg.TLSSkipVerify {
@@ -221,10 +233,24 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		LifecycleCtx: lifecycleCtx, Sync: syncService, Aggregation: usageAggregationRunner,
 		CostReadGate: costReadGate, Recent: recentUsageCache, Quota: quotaService,
 	}, cpaClient)
+	authConfig := appAuthConfig(cfg)
+	if cfg.OIDC.Enabled {
+		oidcClient, err := oidc.NewClient(cfg.OIDC, nil)
+		if err != nil {
+			return nil, fmt.Errorf("initialize OIDC client: %w", err)
+		}
+		authConfig.OIDC = oidcClient
+	}
+	// 缓存尚未建立，业务路由尚未就绪；即使旧浏览器不再访问，也要先持久撤销失效的 OIDC 会话。
+	sessionStore := auth.NewGormSessionStore(db)
+	policy := auth.OIDCSessionPolicy{Enabled: cfg.AuthEnabled && cfg.OIDC.Enabled, Issuer: cfg.OIDC.Issuer, ClientID: cfg.OIDC.ClientID, AllowedSubjects: cfg.OIDC.AllowedSubjects}
+	if _, err := sessionStore.RevokeInvalidOIDCSessions(policy); err != nil {
+		return nil, fmt.Errorf("revoke invalid OIDC sessions: %w", err)
+	}
 	sessionManager := auth.NewSessionManager(cfg.AuthSessionTTL)
 	if cfg.AuthEnabled {
 		// Session Get/List 自动走 reader，Save/Delete 仍由写回调路由到唯一 writer。
-		sessionManager = auth.NewPersistentSessionManager(cfg.AuthSessionTTL, auth.NewGormSessionStore(db))
+		sessionManager = auth.NewPersistentSessionManager(cfg.AuthSessionTTL, sessionStore)
 	}
 	// 可选的隐私保护登录 IP 反解/增强层（默认关闭，opt-in）。
 	ipEnricher := enrichgeo.NewEnricher(enrichgeo.Options{
@@ -232,18 +258,10 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		TTL:     cfg.IPEnrichmentTTL,
 		Timeout: cfg.IPEnrichmentTimeout,
 	}, nil)
-	authConfig := api.AuthConfig{
-		Enabled:                         cfg.AuthEnabled,
-		LoginPassword:                   cfg.LoginPassword,
-		SessionTTL:                      cfg.AuthSessionTTL,
-		BasePath:                        cfg.AppBasePath,
-		FrameAncestorOrigins:            frameAncestorOrigins(cfg),
-		TrustedProxyCIDRs:               cfg.TrustedProxyCIDRs,
-		// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
-		APIKeyViewerLocalRankingEnabled: cfg.APIKeyViewerLocalRankingEnabled,
-		// Local ranking is available when the service was successfully initialized.
-		LocalRankingAvailable: localRankingService != nil,
-	}
+	// Deprecated: Local ranking is now always enabled; this field is kept for session API backward compatibility.
+	authConfig.APIKeyViewerLocalRankingEnabled = cfg.APIKeyViewerLocalRankingEnabled
+	// Local ranking is available when the service was successfully initialized.
+	authConfig.LocalRankingAvailable = localRankingService != nil
 	authHandler := api.NewAuthHandler(authConfig, sessionManager)
 	authHandler.SetIPEnricher(ipEnricher)
 
@@ -259,6 +277,7 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		RedisProcess:      redisProcessRunner,
 		CPAErrors:         redisErrorIngestRunner,
 		UsageAggregation:  usageAggregationRunner,
+		LocalRanking:      localRankingRunner,
 		Maintenance:       NewStorageCleanupRunner(syncService),
 		MetadataSync:      metadataSyncRunner,
 		QuotaService:      quotaService,
@@ -283,8 +302,8 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				ErrorEvents:   errorEventService,
 				Quota:         quotaService,
 				CPAAPIKeys:    cpaAPIKeyService,
-				AuthFiles:     authFilesManagementService,
-				// 认证文件与 AI 供应商共用一个 service，路由层按类型分发。
+				Credentials:   credentialsManagementService,
+				// 凭证与 AI 供应商共用一个 service，路由层按类型分发。
 				CredentialStatus:   credentialStatusService,
 				CredentialPriority: credentialPriorityService,
 				RequestLogs:        requestLogService,
@@ -431,6 +450,13 @@ func (a *App) startReadyBackgroundTasks(ctx context.Context) {
 			// runner 错误只终止该后台任务，不影响 HTTP 或已提交 usage 数据。
 			if err := a.UsageAggregation.Run(ctx); err != nil {
 				logrus.Errorf("usage aggregation stopped: %v", err)
+			}
+		})
+	}
+	if a.LocalRanking != nil {
+		a.startBackgroundTask(func() {
+			if err := a.LocalRanking.Run(ctx); err != nil {
+				logrus.Errorf("local ranking stopped: %v", err)
 			}
 		})
 	}

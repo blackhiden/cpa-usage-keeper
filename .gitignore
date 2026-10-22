@@ -51,3 +51,5 @@ session.md
 .agents
 *.md
 !docs/MERGE-PRESERVATION.md
+!SCHEMA.md
+*.sh

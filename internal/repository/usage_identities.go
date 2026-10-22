@@ -36,7 +36,7 @@ func hasPendingUsageIdentityAggregation(db *gorm.DB) (bool, error) {
 		 AND event.auth_index = identity.identity
 		 AND ((identity.auth_type = ? AND event.auth_type = ?) OR (identity.auth_type = ? AND event.auth_type = ?))
 		LIMIT 1
-	)`, entities.UsageIdentityAuthTypeAuthFile, "oauth", entities.UsageIdentityAuthTypeAIProvider, "apikey").Scan(&pending).Error
+	)`, entities.UsageIdentityAuthTypeCredential, "oauth", entities.UsageIdentityAuthTypeAIProvider, "apikey").Scan(&pending).Error
 	if err != nil {
 		return false, err
 	}
@@ -71,7 +71,7 @@ func ReplaceUsageIdentitiesForProviderTypes(ctx context.Context, db *gorm.DB, id
 	}
 	// Provider replace 同样在事务前拒绝零时间，避免部分 provider scope 被错误刷新。
 	if now.IsZero() {
-		// 与 Auth File 入口返回同一明确错误，保持调用方处理简单。
+		// 与 Credential 入口返回同一明确错误，保持调用方处理简单。
 		return fmt.Errorf("usage identity sync time is zero")
 	}
 	// provider 的所有成功类型共用一轮规范化时间，不能各自读取系统时钟。
@@ -103,6 +103,7 @@ const (
 	UsageIdentityPageSortTotalRequests = "total_requests"
 	UsageIdentityPageSortTotalTokens   = "total_tokens"
 	UsageIdentityPageSortLastUsedAt    = "last_used_at"
+	UsageIdentityPageSortSuccessRate   = "success_rate"
 )
 
 const usageIdentityReadColumns = "id, name, alias, auth_type, auth_type_name, identity, type, provider, lookup_key, prefix, base_url, file_name, file_path, priority, disabled, note, account_id, project_id, xai_user_id, active_start, active_until, plan_type, total_requests, success_count, failure_count, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, total_tokens, last_aggregated_usage_event_id, first_used_at, last_used_at, stats_updated_at, is_deleted, created_at, updated_at, deleted_at, stats_reset_at, reset_total_requests, reset_success_count, reset_failure_count, reset_input_tokens, reset_cache_read_tokens, reset_total_tokens"
@@ -112,7 +113,7 @@ const usageIdentityAggregationColumns = "id, auth_type, identity, total_requests
 // UsageIdentityAggregationBatchSize 限制单个 Identity 写事务最多处理 25 行。
 const UsageIdentityAggregationBatchSize = 25
 
-const activeAuthFileUsageIdentityLookupBatchSize = 500
+const activeCredentialUsageIdentityLookupBatchSize = 500
 const openAIProviderPriorityUpdateBatchSize = 500
 
 func ListUsageIdentities(ctx context.Context, db *gorm.DB) ([]entities.UsageIdentity, error) {
@@ -345,9 +346,9 @@ func applyUsageIdentityTypesFilter(query *gorm.DB, types []string) *gorm.DB {
 func applyUsageIdentityPageSort(query *gorm.DB, sort string, authType *entities.UsageIdentityAuthType) *gorm.DB {
 	switch sort {
 	case UsageIdentityPageSortPriority:
-		// Auth Files 的 priority 同分按 CPA 文件名排列；AI Provider 只保留同步顺序兜底。
+		// Credentials 的 priority 同分按 CPA 文件名排列；AI Provider 只保留同步顺序兜底。
 		query = query.Order("priority IS NULL ASC").Order("priority DESC")
-		if authType != nil && *authType == entities.UsageIdentityAuthTypeAuthFile {
+		if authType != nil && *authType == entities.UsageIdentityAuthTypeCredential {
 			query = query.Order("LOWER(file_name) ASC")
 		}
 		return query.Order("id ASC")
@@ -355,26 +356,30 @@ func applyUsageIdentityPageSort(query *gorm.DB, sort string, authType *entities.
 		return query.Order("(total_tokens - reset_total_tokens) DESC").Order("id ASC")
 	case UsageIdentityPageSortLastUsedAt:
 		return query.Order("last_used_at IS NULL ASC").Order("last_used_at DESC").Order("id ASC")
+	case UsageIdentityPageSortSuccessRate:
+		// 按成功率降序排列：计算公式 success_count / total_requests（避免除零）
+		// NULL/零请求数排最后，高成功率排最前，同分按 ID 升序
+		return query.Order("CASE WHEN (total_requests - reset_total_requests) = 0 THEN 0 ELSE CAST((success_count - reset_success_count) AS REAL) / CAST((total_requests - reset_total_requests) AS REAL) END DESC").Order("id ASC")
 	default:
 		return query.Order("(total_requests - reset_total_requests) DESC").Order("id ASC")
 	}
 }
 
-func GetActiveAuthFileUsageIdentityByAuthIndex(ctx context.Context, db *gorm.DB, authIndex string) (entities.UsageIdentity, error) {
+func GetActiveCredentialUsageIdentityByAuthIndex(ctx context.Context, db *gorm.DB, authIndex string) (entities.UsageIdentity, error) {
 	var identity entities.UsageIdentity
 	if db == nil {
 		return identity, fmt.Errorf("database is nil")
 	}
 	if err := db.WithContext(ctx).
 		Select(usageIdentityReadColumns).
-		Where("auth_type = ? AND identity = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAuthFile, strings.TrimSpace(authIndex), false).
+		Where("auth_type = ? AND identity = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeCredential, strings.TrimSpace(authIndex), false).
 		First(&identity).Error; err != nil {
-		return identity, fmt.Errorf("get active auth file usage identity by auth index: %w", err)
+		return identity, fmt.Errorf("get active credential usage identity by auth index: %w", err)
 	}
 	return identity, nil
 }
 
-func ListActiveAuthFileUsageIdentitiesByAuthIndexes(ctx context.Context, db *gorm.DB, authIndexes []string) ([]entities.UsageIdentity, error) {
+func ListActiveCredentialUsageIdentitiesByAuthIndexes(ctx context.Context, db *gorm.DB, authIndexes []string) ([]entities.UsageIdentity, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database is nil")
 	}
@@ -387,14 +392,14 @@ func ListActiveAuthFileUsageIdentitiesByAuthIndexes(ctx context.Context, db *gor
 	}
 	identities := make([]entities.UsageIdentity, 0, len(authIndexes))
 	queryDB := db.WithContext(ctx)
-	for start := 0; start < len(authIndexes); start += activeAuthFileUsageIdentityLookupBatchSize {
-		end := min(start+activeAuthFileUsageIdentityLookupBatchSize, len(authIndexes))
+	for start := 0; start < len(authIndexes); start += activeCredentialUsageIdentityLookupBatchSize {
+		end := min(start+activeCredentialUsageIdentityLookupBatchSize, len(authIndexes))
 		var batch []entities.UsageIdentity
 		if err := queryDB.
 			Select(usageIdentityReadColumns).
-			Where("auth_type = ? AND identity IN ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAuthFile, authIndexes[start:end], false).
+			Where("auth_type = ? AND identity IN ? AND is_deleted = ?", entities.UsageIdentityAuthTypeCredential, authIndexes[start:end], false).
 			Find(&batch).Error; err != nil {
-			return nil, fmt.Errorf("list active auth file usage identities by auth indexes: %w", err)
+			return nil, fmt.Errorf("list active credential usage identities by auth indexes: %w", err)
 		}
 		identities = append(identities, batch...)
 	}
@@ -610,7 +615,7 @@ func aggregateUsageIdentityDelta(tx *gorm.DB, identity entities.UsageIdentity) (
 func usageIdentityEventsQuery(query *gorm.DB, identity entities.UsageIdentity) (*gorm.DB, bool) {
 	var eventAuthType string
 	switch identity.AuthType {
-	case entities.UsageIdentityAuthTypeAuthFile:
+	case entities.UsageIdentityAuthTypeCredential:
 		eventAuthType = "oauth"
 	case entities.UsageIdentityAuthTypeAIProvider:
 		eventAuthType = "apikey"
@@ -774,7 +779,7 @@ func prepareUsageIdentitySync(reader *gorm.DB, identities []entities.UsageIdenti
 		changes.create = append(changes.create, identity)
 	}
 
-	// Auth File 的成功空列表覆盖整个来源；Provider 只删除本轮成功 fetch 的类型。
+	// Credential 的成功空列表覆盖整个来源；Provider 只删除本轮成功 fetch 的类型。
 	allowedTypes := make(map[string]struct{}, len(providerTypes))
 	for _, providerType := range providerTypes {
 		allowedTypes[providerType] = struct{}{}
@@ -898,7 +903,7 @@ func usageIdentityMetadataDiff(existing, incoming entities.UsageIdentity) map[st
 	if !optionalEqual(existing.PlanType, incoming.PlanType) {
 		fields["plan_type"] = incoming.PlanType
 	}
-	if incoming.AuthType == entities.UsageIdentityAuthTypeAuthFile && strings.EqualFold(strings.TrimSpace(incoming.Type), "codex") {
+	if incoming.AuthType == entities.UsageIdentityAuthTypeCredential && strings.EqualFold(strings.TrimSpace(incoming.Type), "codex") {
 		// 官方订阅时间可在 reader 快照之后更新；SQL 条件仍原子地保留较晚值。
 		if incoming.ActiveUntil != nil && (existing.ActiveUntil == nil || incoming.ActiveUntil.After(*existing.ActiveUntil)) {
 			value := timeutil.FormatStorageTime(*incoming.ActiveUntil)
@@ -936,6 +941,233 @@ func UpdateCodexUsageIdentityActiveUntil(ctx context.Context, db *gorm.DB, ident
 		return nil
 	}
 	return db.WithContext(ctx).Model(&entities.UsageIdentity{}).
-		Where("id = ? AND auth_type = ? AND identity = ? AND account_id = ? AND LOWER(TRIM(type)) = ? AND is_deleted = ?", identity.ID, entities.UsageIdentityAuthTypeAuthFile, identity.Identity, *identity.AccountID, "codex", false).
+		Where("id = ? AND auth_type = ? AND identity = ? AND account_id = ? AND LOWER(TRIM(type)) = ? AND is_deleted = ?", identity.ID, entities.UsageIdentityAuthTypeCredential, identity.Identity, *identity.AccountID, "codex", false).
 		Update("active_until", timeutil.FormatStorageTime(activeUntil)).Error
+}
+
+const (
+	ProviderSortSuccessRate   = "success_rate"
+	ProviderSortTotalRequests = "total_requests"
+	ProviderSortTotalTokens   = "total_tokens"
+	ProviderSortLastUsedAt    = "last_used_at"
+)
+
+type ListProvidersRequest struct {
+	Sort        string
+	APIGroupKey string
+}
+
+type ListProviderKeysRequest struct {
+	Provider    string
+	Sort        string
+	Page        int
+	PageSize    int
+	APIGroupKey string
+}
+
+type providerAggregateExpressions struct {
+	Provider        string
+	ProviderType    string
+	KeyCount        string
+	TotalRequests   string
+	SuccessCount    string
+	FailureCount    string
+	InputTokens     string
+	CacheReadTokens string
+	TotalTokens     string
+	LastUsedAt      string
+}
+
+// ListProviders returns aggregate AI provider statistics. When APIGroupKey is
+// supplied, every aggregate is limited to that CPA API key's usage events.
+func ListProviders(ctx context.Context, db *gorm.DB, request ListProvidersRequest) ([]dto.ProviderAggregate, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database is nil")
+	}
+
+	expressions := providerIdentityAggregateExpressions()
+	query := db.WithContext(ctx).Clauses(dbresolver.Read).
+		Model(&entities.UsageIdentity{}).
+		Where("auth_type = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, false)
+	if apiGroupKey := strings.TrimSpace(request.APIGroupKey); apiGroupKey != "" {
+		expressions = providerEventAggregateExpressions()
+		query = db.WithContext(ctx).Clauses(dbresolver.Read).
+			Table("usage_identities AS identity").
+			Joins("JOIN usage_events AS event ON event.auth_index = identity.identity AND event.auth_type = ? AND event.api_group_key = ?", "apikey", apiGroupKey).
+			Where("identity.auth_type = ? AND identity.is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, false)
+	}
+
+	var providers []dto.ProviderAggregate
+	if err := applyProviderAggregateSort(query.Select(providerAggregateSelect(expressions)).Group(expressions.Provider), request.Sort, expressions).Find(&providers).Error; err != nil {
+		return nil, fmt.Errorf("list providers: %w", err)
+	}
+	return providers, nil
+}
+
+func providerIdentityAggregateExpressions() providerAggregateExpressions {
+	return providerAggregateExpressions{
+		Provider: "provider", ProviderType: "MIN(type)", KeyCount: "COUNT(*)",
+		TotalRequests: "SUM(total_requests - reset_total_requests)", SuccessCount: "SUM(success_count - reset_success_count)", FailureCount: "SUM(failure_count - reset_failure_count)",
+		InputTokens: "SUM(input_tokens - reset_input_tokens)", CacheReadTokens: "SUM(cache_read_tokens - reset_cache_read_tokens)", TotalTokens: "SUM(total_tokens - reset_total_tokens)", LastUsedAt: "MAX(last_used_at)",
+	}
+}
+
+func providerEventAggregateExpressions() providerAggregateExpressions {
+	return providerAggregateExpressions{
+		Provider: "identity.provider", ProviderType: "MIN(identity.type)", KeyCount: "COUNT(DISTINCT identity.id)", TotalRequests: "COUNT(event.id)",
+		SuccessCount: "SUM(CASE WHEN event.failed THEN 0 ELSE 1 END)", FailureCount: "SUM(CASE WHEN event.failed THEN 1 ELSE 0 END)",
+		InputTokens: "SUM(event.input_tokens)", CacheReadTokens: "SUM(event.cache_read_tokens)", TotalTokens: "SUM(event.total_tokens)", LastUsedAt: "MAX(event.timestamp)",
+	}
+}
+
+func providerAggregateSelect(expressions providerAggregateExpressions) string {
+	return fmt.Sprintf("%s AS provider, %s AS provider_type, %s AS key_count, %s AS total_requests, %s AS success_count, %s AS failure_count, %s AS input_tokens, %s AS cache_read_tokens, %s AS total_tokens, %s AS last_used_at", expressions.Provider, expressions.ProviderType, expressions.KeyCount, expressions.TotalRequests, expressions.SuccessCount, expressions.FailureCount, expressions.InputTokens, expressions.CacheReadTokens, expressions.TotalTokens, expressions.LastUsedAt)
+}
+
+func applyProviderAggregateSort(query *gorm.DB, sort string, expressions providerAggregateExpressions) *gorm.DB {
+	switch sort {
+	case ProviderSortSuccessRate:
+		return query.Order(fmt.Sprintf("CASE WHEN %s = 0 THEN 0 ELSE CAST(%s AS REAL) / CAST(%s AS REAL) END DESC", expressions.TotalRequests, expressions.SuccessCount, expressions.TotalRequests)).Order(expressions.Provider + " ASC")
+	case ProviderSortTotalTokens:
+		return query.Order(expressions.TotalTokens + " DESC").Order(expressions.Provider + " ASC")
+	case ProviderSortLastUsedAt:
+		return query.Order(expressions.LastUsedAt + " IS NULL ASC").Order(expressions.LastUsedAt + " DESC").Order(expressions.Provider + " ASC")
+	default:
+		return query.Order(expressions.TotalRequests + " DESC").Order(expressions.Provider + " ASC")
+	}
+}
+
+// ListProviderKeys returns active AI provider keys for one provider. When an
+// API-group scope is supplied, only keys used by that group are returned and
+// their statistics are calculated from that group's usage events.
+func ListProviderKeys(ctx context.Context, db *gorm.DB, request ListProviderKeysRequest) ([]entities.UsageIdentity, int64, error) {
+	if db == nil {
+		return nil, 0, fmt.Errorf("database is nil")
+	}
+	provider := strings.TrimSpace(request.Provider)
+	if provider == "" {
+		return nil, 0, fmt.Errorf("provider is required")
+	}
+	page, pageSize := normalizedProviderKeysPage(request.Page, request.PageSize)
+	if apiGroupKey := strings.TrimSpace(request.APIGroupKey); apiGroupKey != "" {
+		return listProviderKeysForAPIGroup(ctx, db, provider, apiGroupKey, request.Sort, page, pageSize)
+	}
+
+	query := db.WithContext(ctx).Clauses(dbresolver.Read).Model(&entities.UsageIdentity{}).
+		Where("auth_type = ? AND provider = ? AND is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, provider, false)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count provider keys: %w", err)
+	}
+	var identities []entities.UsageIdentity
+	authType := entities.UsageIdentityAuthTypeAIProvider
+	if err := applyUsageIdentityPageSort(query.Select(usageIdentityReadColumns), request.Sort, &authType).Offset((page - 1) * pageSize).Limit(pageSize).Find(&identities).Error; err != nil {
+		return nil, 0, fmt.Errorf("list provider keys: %w", err)
+	}
+	return identities, total, nil
+}
+
+func normalizedProviderKeysPage(page, pageSize int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	return page, pageSize
+}
+
+func listProviderKeysForAPIGroup(ctx context.Context, db *gorm.DB, provider, apiGroupKey, sort string, page, pageSize int) ([]entities.UsageIdentity, int64, error) {
+	statsQuery := providerKeyStatsQuery(db.WithContext(ctx).Clauses(dbresolver.Read), provider, apiGroupKey)
+	var total int64
+	if err := db.WithContext(ctx).Clauses(dbresolver.Read).Table("(?) AS provider_keys", statsQuery).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count scoped provider keys: %w", err)
+	}
+
+	var stats []dto.ProviderKeyStats
+	if err := applyProviderKeyStatsSort(statsQuery, sort).Offset((page - 1) * pageSize).Limit(pageSize).Scan(&stats).Error; err != nil {
+		return nil, 0, fmt.Errorf("list scoped provider keys: %w", err)
+	}
+	if len(stats) == 0 {
+		return []entities.UsageIdentity{}, total, nil
+	}
+
+	ids := make([]int64, 0, len(stats))
+	for _, stat := range stats {
+		ids = append(ids, stat.ID)
+	}
+	var rows []entities.UsageIdentity
+	if err := db.WithContext(ctx).Clauses(dbresolver.Read).Select(usageIdentityReadColumns).Where("id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("load scoped provider keys: %w", err)
+	}
+	identitiesByID := make(map[int64]entities.UsageIdentity, len(rows))
+	for _, row := range rows {
+		identitiesByID[row.ID] = row
+	}
+	identities := make([]entities.UsageIdentity, 0, len(stats))
+	for _, stat := range stats {
+		identity, ok := identitiesByID[stat.ID]
+		if !ok {
+			continue
+		}
+		applyProviderKeyEventStats(&identity, stat)
+		identities = append(identities, identity)
+	}
+	return identities, total, nil
+}
+
+func providerKeyStatsQuery(db *gorm.DB, provider, apiGroupKey string) *gorm.DB {
+	return db.Table("usage_identities AS identity").
+		Joins("JOIN usage_events AS event ON event.auth_index = identity.identity AND event.auth_type = ? AND event.api_group_key = ?", "apikey", apiGroupKey).
+		Where("identity.auth_type = ? AND identity.provider = ? AND identity.is_deleted = ?", entities.UsageIdentityAuthTypeAIProvider, provider, false).
+		Select(`identity.id AS id, identity.identity AS auth_index,
+			COUNT(event.id) AS total_requests,
+			SUM(CASE WHEN event.failed THEN 0 ELSE 1 END) AS success_count,
+			SUM(CASE WHEN event.failed THEN 1 ELSE 0 END) AS failure_count,
+			SUM(event.input_tokens) AS input_tokens,
+			SUM(event.output_tokens) AS output_tokens,
+			SUM(event.reasoning_tokens) AS reasoning_tokens,
+			SUM(event.cached_tokens) AS cached_tokens,
+			SUM(event.cache_read_tokens) AS cache_read_tokens,
+			SUM(event.total_tokens) AS total_tokens,
+			MIN(event.timestamp) AS first_used_at,
+			MAX(event.timestamp) AS last_used_at`).
+		Group("identity.id, identity.identity, identity.priority")
+}
+
+func applyProviderKeyStatsSort(query *gorm.DB, sort string) *gorm.DB {
+	switch sort {
+	case UsageIdentityPageSortPriority:
+		return query.Order("identity.priority IS NULL ASC").Order("identity.priority DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortTotalTokens:
+		return query.Order("SUM(event.total_tokens) DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortLastUsedAt:
+		return query.Order("MAX(event.timestamp) IS NULL ASC").Order("MAX(event.timestamp) DESC").Order("identity.id ASC")
+	case UsageIdentityPageSortSuccessRate:
+		return query.Order("CASE WHEN COUNT(event.id) = 0 THEN 0 ELSE CAST(SUM(CASE WHEN event.failed THEN 0 ELSE 1 END) AS REAL) / CAST(COUNT(event.id) AS REAL) END DESC").Order("identity.id ASC")
+	default:
+		return query.Order("COUNT(event.id) DESC").Order("identity.id ASC")
+	}
+}
+
+func applyProviderKeyEventStats(identity *entities.UsageIdentity, stat dto.ProviderKeyStats) {
+	identity.TotalRequests = stat.TotalRequests
+	identity.SuccessCount = stat.SuccessCount
+	identity.FailureCount = stat.FailureCount
+	identity.InputTokens = stat.InputTokens
+	identity.OutputTokens = stat.OutputTokens
+	identity.ReasoningTokens = stat.ReasoningTokens
+	identity.CachedTokens = stat.CachedTokens
+	identity.CacheReadTokens = stat.CacheReadTokens
+	identity.TotalTokens = stat.TotalTokens
+	identity.FirstUsedAt = stat.FirstUsedAt
+	identity.LastUsedAt = stat.LastUsedAt
+	// Viewer aggregate data covers its complete visible event set, so global
+	// reset baselines must not be subtracted a second time by response mapping.
+	identity.ResetTotalRequests = 0
+	identity.ResetSuccessCount = 0
+	identity.ResetFailureCount = 0
+	identity.ResetInputTokens = 0
+	identity.ResetCacheReadTokens = 0
+	identity.ResetTotalTokens = 0
 }

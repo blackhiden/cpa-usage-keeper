@@ -96,7 +96,9 @@ constructor builds components in this strict order (see
 1. `logging.Configure` (logrus, file rotation, GORM logger).
 2. `repository.OpenDatabasePools` — **writer + reader** SQLite pools via
    GORM dbresolver (single writer, concurrent readers).
-3. `ranking.NewService` / `NewRunner` (inert unless enabled).
+3. `ranking.NewLocalRankingService` / `NewLocalRankingRunner` for the local
+   API-key leaderboard; its five-minute refresh remains independent of the
+   optional community-ranking client.
 4. `UsageRecentEventCache` — failure-tolerant; falls back to DB reads.
 5. `LoadPricingSnapshot` → `pricing.NewCatalog`.
 6. `cpa.NewClient` — CPA management API client.
@@ -120,7 +122,7 @@ constructor builds components in this strict order (see
     in-memory) → auth handler → `api.NewRouter(webui.Static, ...)`.
 
 `Run()` starts background tasks — **RedisIngest, RedisProcess,
-UsageAggregation, Ranking, Maintenance, MetadataSync, QuotaAutoRefresh,
+UsageAggregation, LocalRanking, Maintenance, MetadataSync, QuotaAutoRefresh,
 BackupMaintenance** — then serves HTTP (`ListenAndServe` or
 `ListenAndServeTLS`). `Close()` shuts down in strict reverse order: stop
 tasks → quota stop → cache close → reader pool → writer pool → logs.
@@ -146,6 +148,11 @@ CPA ──► IngestSource (subscribe | redis pull | http pull)
                                                 ▼
                                        API handlers ──► React SPA
 ```
+
+`LocalRankingRunner` independently refreshes local API-key day and month
+snapshots every five minutes. `LocalRankingService` also creates a missing
+current-day or current-month snapshot during the corresponding leaderboard
+read, covering the startup and post-migration interval before the first tick.
 
 Key invariants:
 
@@ -188,6 +195,12 @@ Key invariants:
   iframe fallback. `frame-ancestors` CSP derives only from `CPA_PUBLIC_URL`.
 - Persistent sessions (`auth_sessions` table) when password auth is on;
   otherwise an in-memory manager.
+- Provider-group routes accept both administrators and active API-key viewers.
+  The handler derives a viewer scope from the session's CPA API-key ID; the
+  service resolves it to the synchronized `cpa_api_keys.api_key`, and repository
+  joins restrict visible provider identities to matching `usage_events.api_group_key`
+  and `auth_type='apikey'`. This keeps all SQL in the repository and prevents a
+  client from supplying an authorization scope.
 - Static SPA served from embedded FS (`web/static.go`: `go:embed all:dist`),
   including base-path rewriting when `APP_BASE_PATH` is set.
 - Structured recovery via `internal/logging/gin_recovery.go`.
@@ -203,6 +216,16 @@ Key invariants:
 - Styling: SCSS (dart-sass) global layers + **CSS Modules** per component;
   theming via `data-theme` (light "white" / dark / auto).
 - Charts: **Chart.js 4** via `react-chartjs-2` (`src/lib/chartjs.ts`).
+- **AI Provider usage:** `/ai-provider` renders `ProviderSummarySection`, which
+  calls `listProviders` for one server-aggregated row per provider and
+  server-side sort selection. Its Detail link uses a URL-encoded single
+  provider segment. `App.tsx` routes `/ai-provider/:providerId` to
+  `ProviderDetailPage`, which calls `listProviderKeys` with server-side key
+  pagination and sorting. At request time, the Go static handler rewrites
+  Vite's relative `./assets/` references to the configured base-root assets
+  path, so direct nested provider URLs load the SPA entry assets correctly.
+  Provider routes are accepted only for administrators; API-key viewer path
+  normalization redirects them to their scoped dashboard.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.

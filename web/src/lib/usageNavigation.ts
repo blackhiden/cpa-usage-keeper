@@ -3,8 +3,9 @@ export const USAGE_TAB_OPTIONS = [
   'realtime',
   'live-flow',
   'analysis',
+  'ranking',
   'events',
-  'auth-files',
+  'credentials',
   'ai-provider',
   'settings',
 ] as const;
@@ -17,8 +18,9 @@ const USAGE_TAB_PATHS: Record<UsageTab, string> = {
   realtime: '/realtime',
   'live-flow': '/live-flow',
   analysis: '/analysis',
+  ranking: '/ranking',
   events: '/request-events',
-  'auth-files': '/auth-files',
+  'credentials': '/credentials',
   'ai-provider': '/ai-provider',
   settings: '/settings',
 };
@@ -28,13 +30,38 @@ const USAGE_PATH_TABS = new Map<string, UsageTab>(
 );
 
 export const normalizeUsageTabValue = (value: unknown): UsageTab | null => {
-  if (value === 'credentials') return 'auth-files';
   return typeof value === 'string' && USAGE_TAB_OPTIONS.includes(value as UsageTab)
     ? value as UsageTab
     : null;
 };
 
 export const getUsageTabPath = (tab: UsageTab): string => USAGE_TAB_PATHS[tab];
+
+export const getProviderDetailPath = (providerId: string): string => (
+  `${USAGE_TAB_PATHS['ai-provider']}/${encodeURIComponent(providerId)}`
+);
+
+/**
+ * Extract the sole, URL-encoded provider identifier from an admin detail route.
+ * The route never accepts nested, traversal, or encoded path-separator values.
+ */
+export const resolveProviderDetailIdFromPath = (path: string): string | null => {
+  const prefix = `${USAGE_TAB_PATHS['ai-provider']}/`;
+  if (!path.startsWith(prefix)) return null;
+
+  const encodedProviderId = path.slice(prefix.length);
+  if (!encodedProviderId || encodedProviderId.includes('/') || encodedProviderId.includes('\\')) return null;
+
+  try {
+    const providerId = decodeURIComponent(encodedProviderId);
+    if (!providerId || providerId === '.' || providerId === '..' || providerId.includes('/') || providerId.includes('\\')) {
+      return null;
+    }
+    return providerId;
+  } catch {
+    return null;
+  }
+};
 
 export const resolveUsageTabFromPath = (path: string): UsageTab | null => {
   // 仅精确匹配静态白名单，不兼容尾斜杠或嵌套路径，避免扩大服务端路由边界。

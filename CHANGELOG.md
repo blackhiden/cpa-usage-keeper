@@ -30,12 +30,24 @@ See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
 
 ### Changed
 
+- **Local ranking recovery:** The current-day and current-month local API-key
+  leaderboard now builds a missing snapshot on its first read. A restart or
+  local-ranking schema recovery therefore no longer shows an empty ranking
+  board until the five-minute background refresh runs.
+
+- **Nested SPA routes:** Direct provider-detail URLs such as `/ai-provider/24%20Gitlawb` now load the Vite entry assets from the configured application root rather than resolving them beneath the nested route. This prevents a blank page at the root and when mounted under `APP_BASE_PATH`.
+
+- **Build recovery:** Restored the incomplete persisted-pricing, CPA v8 grouped-provider configuration, local-ranking, and release workflow contracts so the Go binary and Docker image build again. Local ranking is recreated by additive migration `20261022_restore_local_ranking` after the historical v2 cleanup; API-key viewers retain the local leaderboard and receive redacted provider credential labels, prefixes, and base URLs.
+
+- **AI Provider grouping and detail:** The administrator `/ai-provider` view now renders one server-aggregated row per provider, defaults to success-rate sorting, and provides a Detail link to `/ai-provider/:providerId`. The detail route renders that provider's paginated key list with server-side sorting, uses URL-safe provider identifiers, preserves CPAMC embed context, and remains unavailable to API-key viewers.
+
 - **API key viewers see the full request log for their own events**: The key-viewer request-log endpoint (`/api/v1/key-events/:id/request-log`) no longer strips request/response bodies, headers, prompts, or upstream payloads. Viewers now see the complete request log for events owned by their API key, matching the administrator view. Ownership verification (cross-key → 404) and the `CPA_REQUEST_LOG_ACCESS_ENABLED` gate are unchanged. Request logs may contain request or response data. The fork contract is protected by `TestAPIKeyViewerRequestLogFullContentPersistence` and `docs/MERGE-PRESERVATION.md`.
 
 - **Ranking feature converted to local API key competition by default**: The ranking feature now displays local API key usage competition as the default view, replacing the previous community-only approach. API keys are displayed with their names (fetched from CPA `/v0/management/auth-api-keys`) and masked keys (e.g., `sk-*********123456`). Community ranking remains available but is no longer the default scope; users can switch between local and community views. The backend now prioritizes CPA-provided key names over user aliases when displaying API keys throughout the application.
 
 ### Added
 
+- **Provider grouping and key-listing API**: `GET /api/v1/usage/providers` returns active AI providers grouped with reset-aware aggregate statistics and success-rate sorting; `GET /api/v1/usage/providers/:providerId/keys` supplies paginated, sortable keys. API-key viewers are restricted to identities evidenced by their own usage events, receive event-scoped statistics, and have non-empty `prefix`/`base_url` masked. Unavailable provider details return 404.
 - **New CPA endpoint integration**: Added support for CPA's `/v0/management/auth-api-keys` endpoint which provides API key names alongside keys. The metadata sync falls back gracefully to the legacy `/v0/management/api-keys` endpoint if the new one is unavailable.
 - **Database schema update**: Added `key_name` column to `cpa_api_keys` table to store API key names from CPA (migration `20261013_add_cpa_api_key_name`).
 - `FetchAuthAPIKeys()` method in CPA client for fetching API keys with names
