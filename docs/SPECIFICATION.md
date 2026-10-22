@@ -320,9 +320,16 @@ Viewer endpoints are rate-limited per viewer session. Request events, provider g
   `subscription` on the identities endpoints. Quota rows no longer carry a
   per-row `planType` field — subscription info lives at the response level.
 
-### 6.6 Ranking (opt-in)
+### 6.6 Ranking
 
-- Disabled unless explicitly enabled. When on, the instance generates an
+- **Local API-key ranking** is available by default. It stores current-day and
+  current-month per-key snapshots in `local_ranking_period_stats` and refreshes
+  them every five minutes. If the current snapshot is absent after startup or a
+  schema migration, the first matching leaderboard read builds it before
+  returning, so current usage does not appear as an empty board while waiting
+  for the background interval.
+
+- **Community ranking** is opt-in. When enabled, the instance generates an
   **ed25519** identity persisted via `AppSetting` (saved transactionally with
   deleted-state protection).
 - Talks to the official center `https://keepers.cc.cd/`

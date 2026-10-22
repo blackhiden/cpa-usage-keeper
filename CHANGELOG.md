@@ -30,6 +30,11 @@ See `docs/MERGE-PRESERVATION.md` for the complete protected features policy.
 
 ### Changed
 
+- **Local ranking recovery:** The current-day and current-month local API-key
+  leaderboard now builds a missing snapshot on its first read. A restart or
+  local-ranking schema recovery therefore no longer shows an empty ranking
+  board until the five-minute background refresh runs.
+
 - **Nested SPA routes:** Direct provider-detail URLs such as `/ai-provider/24%20Gitlawb` now load the Vite entry assets from the configured application root rather than resolving them beneath the nested route. This prevents a blank page at the root and when mounted under `APP_BASE_PATH`.
 
 - **Build recovery:** Restored the incomplete persisted-pricing, CPA v8 grouped-provider configuration, local-ranking, and release workflow contracts so the Go binary and Docker image build again. Local ranking is recreated by additive migration `20261022_restore_local_ranking` after the historical v2 cleanup; API-key viewers retain the local leaderboard and receive redacted provider credential labels, prefixes, and base URLs.

@@ -100,7 +100,10 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
 - **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials. API key viewers can access this global view with a privacy notice.
 
-Optional local API key rankings (always enabled) and community rankings are also available. Deploy with Docker Compose, Homebrew, or binaries; login protection is enabled by default.
+Local API key rankings are always enabled; their current-day and current-month
+snapshots are available on the first leaderboard read and refresh every five
+minutes. Optional community rankings are also available. Deploy with Docker
+Compose, Homebrew, or binaries; login protection is enabled by default.
 
 ## Sponsors and Special Thanks
 
@@ -152,6 +155,7 @@ internal/benchmark/      Capacity suite, reports, manifests, and legacy microben
 deploy/                  Deployment templates
 web/                     React + TypeScript frontend
 docs/                    Project documentation (spec, architecture, roadmap, config, contributing)
+SCHEMA.md                SQLite schema and local-ranking storage reference
 session.md               Cross-session working notes
 ```
 
@@ -166,6 +170,7 @@ session.md               Cross-session working notes
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Future work organized into phases, each broken down into concrete steps. |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Complete environment variable & CLI flag reference plus WORK_DIR layout. |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Dev setup, the `make verify` baseline, and backend/frontend conventions. |
+| [SCHEMA.md](SCHEMA.md) | SQLite tables, local-ranking storage, and migration rules. |
 | [session.md](session.md) | Working notes kept across sessions (session durability). |
 
 ## Local Development

@@ -96,7 +96,9 @@ constructor builds components in this strict order (see
 1. `logging.Configure` (logrus, file rotation, GORM logger).
 2. `repository.OpenDatabasePools` — **writer + reader** SQLite pools via
    GORM dbresolver (single writer, concurrent readers).
-3. `ranking.NewService` / `NewRunner` (inert unless enabled).
+3. `ranking.NewLocalRankingService` / `NewLocalRankingRunner` for the local
+   API-key leaderboard; its five-minute refresh remains independent of the
+   optional community-ranking client.
 4. `UsageRecentEventCache` — failure-tolerant; falls back to DB reads.
 5. `LoadPricingSnapshot` → `pricing.NewCatalog`.
 6. `cpa.NewClient` — CPA management API client.
@@ -120,7 +122,7 @@ constructor builds components in this strict order (see
     in-memory) → auth handler → `api.NewRouter(webui.Static, ...)`.
 
 `Run()` starts background tasks — **RedisIngest, RedisProcess,
-UsageAggregation, Ranking, Maintenance, MetadataSync, QuotaAutoRefresh,
+UsageAggregation, LocalRanking, Maintenance, MetadataSync, QuotaAutoRefresh,
 BackupMaintenance** — then serves HTTP (`ListenAndServe` or
 `ListenAndServeTLS`). `Close()` shuts down in strict reverse order: stop
 tasks → quota stop → cache close → reader pool → writer pool → logs.
@@ -146,6 +148,11 @@ CPA ──► IngestSource (subscribe | redis pull | http pull)
                                                 ▼
                                        API handlers ──► React SPA
 ```
+
+`LocalRankingRunner` independently refreshes local API-key day and month
+snapshots every five minutes. `LocalRankingService` also creates a missing
+current-day or current-month snapshot during the corresponding leaderboard
+read, covering the startup and post-migration interval before the first tick.
 
 Key invariants:
 

@@ -414,6 +414,9 @@ func (s *LocalRankingService) Leaderboard(ctx context.Context, period Leaderboar
 	if !ok {
 		return Leaderboard{}, ErrInvalidLeaderboard
 	}
+	if err := s.ensureCurrentLocalRankingSnapshot(ctx, window); err != nil {
+		return Leaderboard{}, err
+	}
 	rows, err := s.loadLocalRankingPopulation(ctx, window)
 	if err != nil {
 		return Leaderboard{}, err
@@ -435,6 +438,24 @@ func (s *LocalRankingService) Leaderboard(ctx context.Context, period Leaderboar
 		board.ScoreExplanation = localOverallScoreExplanation()
 	}
 	return board, nil
+}
+
+func (s *LocalRankingService) ensureCurrentLocalRankingSnapshot(ctx context.Context, window localRankingPeriodWindow) error {
+	if window.Period != LeaderboardToday && window.Period != LeaderboardCurrentMonth {
+		return nil
+	}
+	today := localRankingTodayWindow(window.End)
+	var count int64
+	if err := s.db.Clauses(dbresolver.Read).WithContext(ctx).
+		Model(&entities.LocalRankingPeriodStat{}).
+		Where("period_kind = ? AND period_key = ?", today.Kind, today.Key).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("check current local ranking snapshot: %w", err)
+	}
+	if count != 0 {
+		return nil
+	}
+	return s.AggregateOnce(ctx)
 }
 
 func (s *LocalRankingService) loadLocalRankingPopulation(ctx context.Context, window localRankingPeriodWindow) ([]localRankingPopulationRow, error) {
