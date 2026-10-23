@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **i18n(ranking)**: Add missing `ranking` translation namespace and `usage_stats.tab_ranking` key across all three locales (`en`, `zh`, `zh-TW`). The `/ranking` route previously rendered raw translation keys (e.g. `usage_stats.tab_ranking`, `ranking.metric_short_overall`, `ranking.local_empty_title`) because the keys were absent from `web/src/i18n/index.ts`.
+
 ## [2.0.2] - 2026-10-23
 
 ### Merged from Upstream
