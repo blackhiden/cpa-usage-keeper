@@ -4,7 +4,13 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **AI Provider Table Redesign & Detail Navigation — restored and protected as permanent core feature.** The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation are now fully restored and protected from removal or replacement by upstream merges. The merge adaptation had reverted the fork's wiring so `/ai-provider` rendered the flat key list (`AiProviderCredentialsSection`) instead of the grouped provider table (`ProviderSummarySection`); this is now corrected. Added as §6 in `docs/MERGE-PRESERVATION.md` with verification commands. Updated `docs/ARCHITECTURE.md` (permanence requirement), `docs/SPECIFICATION.md` (UC-7a permanent contract), `docs/CODE_GRAPH.md` (protected feature note), `docs/ROADMAP.md` (phase marked complete + policy reminder), `README.md` / `README.zh.md` (permanent feature note), and `session.md` (restoration and protection decision).
+
 ### Fixed
+
+- **AI Provider Table Redesign & Detail Navigation — restored `/ai-provider` wiring.** The `/ai-provider` tab now renders the server-side grouped `ProviderSummarySection` (one row per provider with success-rate sorting and Detail links) instead of the flat `AiProviderCredentialsSection` key list. The `ProviderSummarySection` export was restored in `web/src/components/usage/credentials/index.ts` and `web/src/components/usage/index.ts`. The `UsagePage` now disables ai-provider identity fetching (`enabledAiProviders: false`), bumps `providerSummaryRefreshRevision` on refresh, and only shows the `CredentialProviderFilterBar` on the `credentials` tab. Updated `UsagePageProviderNavigation.test.tsx` to reflect that `/ai-provider` no longer carries a provider filter in the URL.
 
 - **i18n(ranking)**: Add missing `ranking` translation namespace and `usage_stats.tab_ranking` key across all three locales (`en`, `zh`, `zh-TW`). The `/ranking` route previously rendered raw translation keys (e.g. `usage_stats.tab_ranking`, `ranking.metric_short_overall`, `ranking.local_empty_title`) because the keys were absent from `web/src/i18n/index.ts`.
 

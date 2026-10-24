@@ -212,6 +212,73 @@ grep -q "live.*flow" web/src/pages/KeyViewerPage.tsx || grep -q "LiveFlow" web/s
 
 ---
 
+### 6. AI Provider Table Redesign & Detail Navigation
+
+**Status:** Permanent core feature  
+**Commit baseline:** Since fork inception (restored through upstream merge v2.0.2)
+
+The administrator `/ai-provider` view must render **one server-aggregated row per
+provider** (not one row per key), with success-rate sorting and a Detail link to
+`/ai-provider/:providerId`. The detail route renders that provider's paginated
+key list with server-side sorting. API-key viewers are restricted to providers
+evidenced by their own usage events and receive event-scoped statistics.
+
+- **Backend endpoints:**
+  - `GET /api/v1/usage/providers` — grouped provider list with aggregate stats and success-rate sorting
+  - `GET /api/v1/usage/providers/:providerId/keys` — paginated, sortable keys for a provider
+- **Backend files:**
+  - `internal/api/usage_identities.go` — `registerProviderRoutes` handler
+  - `internal/service/usage_identities_service.go` — `ProviderReader` interface, `ListProviders`, `ListProviderKeys`
+  - `internal/repository/usage_identities.go` — `ListProviders`, `ListProviderKeys` SQL queries
+- **Frontend files:**
+  - `web/src/components/usage/credentials/ProviderSummarySection.tsx` — admin `/ai-provider` aggregate table
+  - `web/src/pages/ProviderDetailPage.tsx` — `/ai-provider/:providerId` key detail page
+  - `web/src/lib/api.ts` — `listProviders`, `listProviderKeys` API clients
+  - `web/src/lib/usageNavigation.ts` — `getProviderDetailPath`, `resolveProviderDetailIdFromPath`
+  - `web/src/App.tsx` — route `/ai-provider/:providerId` → `ProviderDetailPage`
+- **Access control:** Provider routes are accepted only for administrators; API-key viewer path normalization redirects them to their scoped dashboard. Backend authorization enforces API-key viewer scoping (only providers with keys they own).
+- **Tests:**
+  - `internal/api/test/usage_providers_test.go` — route auth, admin/viewer scoping, 404 handling
+  - `internal/repository/test/usage_identities_test.go` — `TestListProvidersAggregatesActiveAIProviderPeriodStatsAndSortsBySuccessRate`
+  - `web/src/pages/test/ProviderDetailPage.test.tsx` — detail page load, sort, CPAMC embed
+  - `web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx` — aggregate table
+
+**Documentation:**
+- `docs/ARCHITECTURE.md` §7 (AI Provider usage, permanence requirement)
+- `docs/SPECIFICATION.md` UC-7a (inspect provider usage, permanent contract)
+- `docs/CODE_GRAPH.md` §7 (provider grouping frontend conventions)
+- `docs/ROADMAP.md` (policy reminder)
+- `README.md` / `README.zh.md` (permanent feature note)
+- `session.md` (restoration and protection decision)
+
+**Verification after merge:**
+```bash
+# Verify backend endpoints
+grep -q '"/usage/providers"' internal/api/usage_identities.go && echo "✓ Provider list route exists" || echo "✗ MISSING"
+grep -q '"/usage/providers/:providerId/keys"' internal/api/usage_identities.go && echo "✓ Provider keys route exists" || echo "✗ MISSING"
+
+# Verify service interface
+grep -q "ListProviders" internal/service/usage_identities_service.go && echo "✓ ListProviders exists" || echo "✗ MISSING"
+grep -q "ListProviderKeys" internal/service/usage_identities_service.go && echo "✓ ListProviderKeys exists" || echo "✗ MISSING"
+
+# Verify frontend
+test -f web/src/pages/ProviderDetailPage.tsx && echo "✓ ProviderDetailPage exists" || echo "✗ MISSING"
+test -f web/src/components/usage/credentials/ProviderSummarySection.tsx && echo "✓ ProviderSummarySection exists" || echo "✗ MISSING"
+grep -q "listProviders" web/src/lib/api.ts && echo "✓ listProviders API exists" || echo "✗ MISSING"
+grep -q "listProviderKeys" web/src/lib/api.ts && echo "✓ listProviderKeys API exists" || echo "✗ MISSING"
+
+# Verify routing
+grep -q "ProviderDetailPage" web/src/App.tsx && echo "✓ Detail route wired" || echo "✗ MISSING"
+
+# Run protection tests
+go test ./internal/api/test/ -run 'TestProviderRoutes' -count=1
+go test ./internal/repository/test/ -run 'TestListProviders' -count=1
+npm --prefix ./web run test -- --run pages/test/ProviderDetailPage.test.tsx
+npm --prefix ./web run test -- --run components/usage/credentials/test/ProviderSummarySection.test.tsx
+```
+
+---
+
 ## Merge Workflow
 
 When merging from upstream:

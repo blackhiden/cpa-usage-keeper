@@ -67,7 +67,8 @@ describe('credential provider navigation', () => {
     vi.restoreAllMocks();
   });
 
-  it.each(['credentials', 'ai-provider'] as const)('pins the default and manual selections for %s across reloads and other tabs', async (scope) => {
+  it('pins the default and manual selections for credentials across reloads and other tabs', async () => {
+    const scope = 'credentials';
     save(scope, 'claude');
     window.history.replaceState(null, '', `/cpa/${scope}?embed=cpamc&other=keep#details`);
     const historyLength = window.history.length;
@@ -92,17 +93,32 @@ describe('credential provider navigation', () => {
     expect(window.history.length).toBe(historyLength);
   });
 
+  it('does not pin a provider filter for the ai-provider tab (server-side grouped summaries)', async () => {
+    const scope = 'ai-provider';
+    save(scope, 'claude');
+    window.history.replaceState(null, '', `/cpa/${scope}?embed=cpamc&other=keep#details`);
+    const historyLength = window.history.length;
+    await act(async () => root.render(<UsagePage />));
+    // /ai-provider renders ProviderSummarySection (server-side grouped), so no provider filter is pinned.
+    expect(provider()).toBeNull();
+    // Only the embed marker is preserved; other query params are not carried into the ai-provider tab.
+    expect(new URLSearchParams(window.location.search).get('other')).toBeNull();
+    expect(new URLSearchParams(window.location.search).get('embed')).toBe('cpamc');
+    expect(window.location.hash).toBe('#details');
+    expect(window.history.length).toBe(historyLength);
+  });
+
   it('keeps independent page selections in navigation links and when returning to a page', async () => {
     save('credentials', 'claude');
     save('ai-provider', 'claude');
     window.history.replaceState(null, '', '/cpa/credentials?provider=codex&embed=cpamc');
     await act(async () => root.render(<UsagePage />));
     expect(provider()).toBe('codex');
-    expect(container.querySelector('a[href="/cpa/ai-provider?embed=cpamc&provider=claude"]')).not.toBeNull();
+    // /ai-provider renders server-side grouped summaries and does not carry a provider filter.
+    expect(container.querySelector('a[href="/cpa/ai-provider?embed=cpamc"]')).not.toBeNull();
     expect(container.querySelector('a[href="/cpa/request-events?embed=cpamc"]')).not.toBeNull();
     await navigate('ai-provider');
-    expect(provider()).toBe('claude');
-    await select('All');
+    expect(provider()).toBeNull();
     save('credentials', 'all');
     await navigate('credentials');
     expect(provider()).toBe('codex');

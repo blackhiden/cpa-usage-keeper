@@ -29,7 +29,7 @@ import {
   ApiKeySettingsCard,
   SessionSettingsCard,
   CredentialsSection,
-  AiProviderCredentialsSection,
+  ProviderSummarySection,
   CredentialDetailDrawer,
   CredentialProviderFilterBar,
   TimeRangeControl,
@@ -780,6 +780,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   // which assert the DashboardHeader backToCPA wiring exists.
   const cpaManagementURL = useMemo(() => getBackToCPALinkURL(status), [status]);
   const [versionInfo, setVersionInfo] = useState<VersionResponse | null>(null);
+  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const apiKeyOptionsRequestControllerRef = useRef<AbortController | null>(null);
   const credentialSectionVisibility = getCredentialSectionVisibility(activeTab);
   const activeCustomRange = useMemo(() => getUsageCustomRangeForTab(activeTab, customRange, {
@@ -988,7 +989,8 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   });
   const credentialsData = useCredentialsTabData({
     enabledCredentials: credentialSectionVisibility.showCredentials && pageVisible,
-    enabledAiProviders: credentialSectionVisibility.showAiProvider && pageVisible,
+    // /ai-provider now loads server-side provider summaries. Identity pages remain needed only for Credentials.
+    enabledAiProviders: false,
     onAuthRequired,
     onNotice: showTopNotice,
     onPrioritySaved: () => setCredentialPriorityRevision((current) => current + 1),
@@ -996,13 +998,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const refreshCredentials = credentialsData.refresh;
   const getUsageTabHref = useCallback((tab: UsageTab) => {
     let search = tab === activeTab ? window.location.search : cpamcEmbedSearch();
-    if (tab === 'credentials' || tab === 'ai-provider') {
-      search = buildCredentialProviderSearch(search, tab === 'credentials' ? credentialsData.credentialProviderFilter : credentialsData.aiProviderProviderFilter);
+    if (tab === 'credentials') {
+      search = buildCredentialProviderSearch(search, credentialsData.credentialProviderFilter);
     } else {
       search = cpamcEmbedSearch();
     }
     return appPath(getUsageTabPath(tab)) + search + (tab === activeTab ? window.location.hash : '');
-  }, [activeTab, credentialsData.credentialProviderFilter, credentialsData.aiProviderProviderFilter]);
+  }, [activeTab, credentialsData.credentialProviderFilter]);
   const activateUsageTab = useCallback((tab: UsageTab) => {
     window.history.replaceState(null, '', getUsageTabHref(tab));
     setActiveTab(tab);
@@ -1775,7 +1777,7 @@ const loadApiKeyOptions = useCallback(async () => {
       return;
     }
     if (activeTab === 'ai-provider') {
-      await refreshCredentials();
+      setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -1807,7 +1809,7 @@ const loadApiKeyOptions = useCallback(async () => {
       return;
     }
     if (activeTab === 'ai-provider') {
-      await refreshCredentials();
+      setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -2388,12 +2390,14 @@ const loadApiKeyOptions = useCallback(async () => {
             {credentialSectionVisibility.enabled && (
               <>
                 {credentialsData.error && <div className={styles.errorBox}>{credentialsData.error}</div>}
-                <CredentialProviderFilterBar
-                  scope={activeCredentialProviderFilterScope}
-                  typeCounts={credentialTypeCountsForProviderFilter}
-                  value={activeCredentialProviderFilter}
-                  onChange={setActiveCredentialProviderFilter}
-                />
+                {credentialSectionVisibility.showCredentials && (
+                  <CredentialProviderFilterBar
+                    scope={activeCredentialProviderFilterScope}
+                    typeCounts={credentialTypeCountsForProviderFilter}
+                    value={activeCredentialProviderFilter}
+                    onChange={setActiveCredentialProviderFilter}
+                  />
+                )}
                 <div className={styles.credentialsSections}>
                   {credentialSectionVisibility.showCredentials && (
                     <CredentialsSection
@@ -2431,25 +2435,9 @@ const loadApiKeyOptions = useCallback(async () => {
                     />
                   )}
                   {credentialSectionVisibility.showAiProvider && (
-                    <AiProviderCredentialsSection
-                      rows={credentialsData.aiProviderRows}
-                      total={credentialsData.aiProviderTotal}
-                      page={credentialsData.aiProviderPage}
-                      totalPages={credentialsData.aiProviderTotalPages}
-                      pageSize={credentialsData.aiProviderPageSize}
-                      activeOnly={credentialsData.aiProviderActiveOnly}
-                      sort={credentialsData.aiProviderSort}
-                      loading={credentialsData.loading}
-                      editFallbackRef={credentialEditFallbackRef}
-                      onEdit={(row) => setCredentialEditSelection({ kind: 'ai-provider', row })}
-                      onOpenDetails={(row) => handleCredentialDetailOpen({ kind: 'ai-provider', row })}
-                      statusPendingIdentityIds={credentialsData.credentialStatusPendingIdentityIds}
-                      onToggleStatus={credentialsData.toggleAiProviderStatus}
-                      onSavePriority={credentialsData.saveAiProviderPriority}
-                      onPageChange={credentialsData.setAiProviderPage}
-                      onPageSizeChange={credentialsData.setAiProviderPageSize}
-                      onActiveOnlyChange={credentialsData.setAiProviderActiveOnly}
-                      onSortChange={credentialsData.setAiProviderSort}
+                    <ProviderSummarySection
+                      onAuthRequired={onAuthRequired}
+                      refreshRevision={providerSummaryRefreshRevision}
                     />
                   )}
                 </div>
