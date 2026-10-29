@@ -18,6 +18,7 @@ type CPAAPIKey struct {
 	ID                   int64  `gorm:"primaryKey"`
 	APIKey               string `gorm:"uniqueIndex:uniq_cpa_api_keys_api_key"`
 	DisplayKey           string
+	KeyName              string
 	KeyAlias             string
 	SourceType           string     `gorm:"not null;default:'native'"`
 	AccessProvider       string     `gorm:"not null;default:''"`

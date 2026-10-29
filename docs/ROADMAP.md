@@ -48,6 +48,44 @@
 
 **Goal:** deeper insight and a more polished dashboard experience.
 
+### Restoration Tasks (Upstream Merge Recovery)
+
+- **2.20 Restore API Key Name Display (Key Name Alias).** 🟡 (in progress)
+  - **Problem:** The upstream merge removed the `KeyName` field from
+    `entities.CPAAPIKey` and broke the display priority chain. Currently, API
+    keys display as: User Alias → Masked Key. The intended priority is:
+    **CPA Key Name → User Alias → Masked Key**.
+  - **Root cause:** Although the database schema (`key_name` column),
+    migration (`20261013_add_cpa_api_key_name`), CPA client endpoint
+    (`FetchAuthAPIKeys` for `/v0/management/auth-api-keys`), and sync
+    function (`SyncCPAAPIKeysWithNames`) all exist, the entity field was
+    removed and the sync function doesn't write to the column.
+  - **Scope:**
+    - Backend: Add `KeyName` field to `entities.CPAAPIKey` struct
+    - Backend: Fix `SyncCPAAPIKeysWithNames()` to actually sync `key_name`
+    - Backend: Update `CPAAPIKeyDisplayName()` helper to use priority:
+      `KeyName` → `KeyAlias` → `MaskedKey`
+    - Backend: Ensure all API key queries include `key_name` column
+    - Frontend: Verify all components use the backend-provided display name
+    - Tests: Add/restore tests for the three-tier display priority
+    - Tests: Add test for fallback when `key_name` is empty
+    - Documentation: Update `docs/MERGE-PRESERVATION.md` with explicit
+      protection of this display logic and verification steps
+  - **Affected modules:**
+    - `internal/entities/cpa_api_key.go` (add `KeyName` field)
+    - `internal/repository/cpa_api_key.go` (sync logic for `key_name`)
+    - `internal/helper/redact.go` (display priority function)
+    - `internal/helper/test/redact_test.go` (test coverage)
+    - `internal/ranking/local_service.go` (already reads it in local struct)
+    - `web/src/features/ranking/components/RankingLeaderboardResults.tsx` (uses backend name)
+  - **Verification steps:**
+    - Ranking leaderboard shows key names when available
+    - API key settings card shows key names when available
+    - Key viewer dashboard shows key name when available
+    - Fallback chain works: name missing → use alias → use masked key
+    - `make verify` passes (backend + frontend tests)
+  - **Protected by:** `docs/MERGE-PRESERVATION.md` §6 (API Key Name Display)
+
 - **2.1 Theme system polish.** ⬜
   - Extend the light/dark/auto `data-theme` system with additional theme
     variants (e.g., high-contrast, OLED dark) and per-user persistence.
