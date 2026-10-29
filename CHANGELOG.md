@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+- **API Key Name display restoration (Phase 2.20):** After the upstream merge, the API Key Name display feature was partially lost. The database column (`key_name`) and CPA client endpoint (`/v0/management/auth-api-keys`) remained intact, but the entity field, sync logic, and display helper were incomplete. This release restores the complete three-tier display priority: CPA Key Name → User Alias → Masked Key. The sync function now correctly writes CPA-provided key names to the database, the display helper prioritizes `KeyName` before `KeyAlias`, and all queries (including local ranking) properly fetch and use the `key_name` column. Test coverage includes display priority tests and sync verification. See `docs/ROADMAP.md` Phase 2.20 and `docs/MERGE-PRESERVATION.md` §6 for protection contracts.
+
 ## [2.0.2] - 2026-10-23
 
 ### Merged from Upstream
