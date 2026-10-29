@@ -145,3 +145,94 @@ func TestSyncCPAAPIKeysDoesNotConsumeIDsForExistingKeys(t *testing.T) {
 		t.Fatalf("expected second key id to be 2 without upsert sequence burn, got %d", row.ID)
 	}
 }
+
+func TestSyncCPAAPIKeysWithNamesWritesKeyNameColumn(t *testing.T) {
+	db := openTestDatabase(t)
+	syncedAt := time.Date(2026, 10, 29, 10, 0, 0, 0, time.UTC)
+
+	items := []struct{ Key, Name string }{
+		{Key: "sk-alpha123456", Name: "Production Key"},
+		{Key: "sk-beta654321", Name: "Development Key"},
+	}
+
+	if err := repository.SyncCPAAPIKeysWithNames(db, items, syncedAt); err != nil {
+		t.Fatalf("SyncCPAAPIKeysWithNames returned error: %v", err)
+	}
+
+	var rows []entities.CPAAPIKey
+	if err := db.Where("is_deleted = ?", false).Order("id asc").Find(&rows).Error; err != nil {
+		t.Fatalf("query returned error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	if rows[0].APIKey != "sk-alpha123456" || rows[0].KeyName != "Production Key" {
+		t.Fatalf("expected first row to have KeyName 'Production Key', got %q", rows[0].KeyName)
+	}
+	if rows[1].APIKey != "sk-beta654321" || rows[1].KeyName != "Development Key" {
+		t.Fatalf("expected second row to have KeyName 'Development Key', got %q", rows[1].KeyName)
+	}
+}
+
+func TestSyncCPAAPIKeysWithNamesUpdatesKeyNameOnChange(t *testing.T) {
+	db := openTestDatabase(t)
+	firstSync := time.Date(2026, 10, 29, 10, 0, 0, 0, time.UTC)
+	secondSync := firstSync.Add(time.Hour)
+
+	items := []struct{ Key, Name string }{
+		{Key: "sk-alpha123456", Name: "Old Name"},
+	}
+
+	if err := repository.SyncCPAAPIKeysWithNames(db, items, firstSync); err != nil {
+		t.Fatalf("initial sync returned error: %v", err)
+	}
+
+	items[0].Name = "New Name"
+	if err := repository.SyncCPAAPIKeysWithNames(db, items, secondSync); err != nil {
+		t.Fatalf("second sync returned error: %v", err)
+	}
+
+	var row entities.CPAAPIKey
+	if err := db.Where("api_key = ?", "sk-alpha123456").First(&row).Error; err != nil {
+		t.Fatalf("expected row: %v", err)
+	}
+	if row.KeyName != "New Name" {
+		t.Fatalf("expected KeyName to be updated to 'New Name', got %q", row.KeyName)
+	}
+	if row.LastSyncedAt == nil || !row.LastSyncedAt.Equal(secondSync) {
+		t.Fatalf("expected last_synced_at to be updated to %v, got %v", secondSync, row.LastSyncedAt)
+	}
+}
+
+func TestSyncCPAAPIKeysWithNamesPreservesAliasAndKeyName(t *testing.T) {
+	db := openTestDatabase(t)
+	firstSync := time.Date(2026, 10, 29, 10, 0, 0, 0, time.UTC)
+	secondSync := firstSync.Add(time.Hour)
+
+	items := []struct{ Key, Name string }{
+		{Key: "sk-alpha123456", Name: "CPA Key Name"},
+	}
+
+	if err := repository.SyncCPAAPIKeysWithNames(db, items, firstSync); err != nil {
+		t.Fatalf("initial sync returned error: %v", err)
+	}
+	if err := repository.UpdateCPAAPIKeyAlias(db, 1, "User Alias"); err != nil {
+		t.Fatalf("UpdateCPAAPIKeyAlias returned error: %v", err)
+	}
+
+	// Sync again with same name - should preserve both KeyName and KeyAlias
+	if err := repository.SyncCPAAPIKeysWithNames(db, items, secondSync); err != nil {
+		t.Fatalf("second sync returned error: %v", err)
+	}
+
+	var row entities.CPAAPIKey
+	if err := db.Where("api_key = ?", "sk-alpha123456").First(&row).Error; err != nil {
+		t.Fatalf("expected row: %v", err)
+	}
+	if row.KeyName != "CPA Key Name" {
+		t.Fatalf("expected KeyName to be preserved as 'CPA Key Name', got %q", row.KeyName)
+	}
+	if row.KeyAlias != "User Alias" {
+		t.Fatalf("expected KeyAlias to be preserved as 'User Alias', got %q", row.KeyAlias)
+	}
+}
