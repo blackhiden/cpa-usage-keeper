@@ -212,6 +212,60 @@ grep -q "live.*flow" web/src/pages/KeyViewerPage.tsx || grep -q "LiveFlow" web/s
 
 ---
 
+### 6. API Key Name Display Priority
+
+**Status:** Fork-specific display enhancement  
+**Commit baseline:** October 2026
+
+API keys must display with a three-tier priority: **CPA Key Name → User Alias → Masked Key**. This ensures users see meaningful names from CPA's `/v0/management/auth-api-keys` endpoint first, falling back to user-defined aliases, and finally to the masked key format.
+
+- **Database schema:** `cpa_api_keys.key_name` column (migration `20261013_add_cpa_api_key_name`)
+- **Backend entity:** `entities.CPAAPIKey.KeyName` field must be present
+- **Backend sync:** `repository.SyncCPAAPIKeysWithNames()` must write to `key_name` column
+- **Backend display logic:** `helper.CPAAPIKeyDisplayName()` must implement priority: `KeyName` → `KeyAlias` → `MaskedKey`
+- **CPA client:** `client.FetchAuthAPIKeys()` for `/v0/management/auth-api-keys` endpoint
+- **Display locations:**
+  - Ranking leaderboard (`web/src/features/ranking/components/RankingLeaderboardResults.tsx`)
+  - API key settings card (`web/src/components/usage/ApiKeySettingsCard.tsx`)
+  - Key viewer dashboard (all key display contexts)
+  - Session management (where API keys are referenced)
+
+**Documentation:**
+- `docs/SPECIFICATION.md` (UC-9: Local ranking with key names)
+- `docs/ROADMAP.md` (Phase 2.20: Restoration task)
+- `CHANGELOG.md` (Display name priority documentation)
+
+**Verification after merge:**
+```bash
+# Verify entity field exists
+grep -q "KeyName.*string" internal/entities/cpa_api_key.go && echo "✓ Entity field exists" || echo "✗ MISSING"
+
+# Verify migration exists
+test -f internal/repository/migration/20261013_add_cpa_api_key_name.go && echo "✓ Migration exists" || echo "✗ MISSING"
+
+# Verify sync function writes key_name
+grep -q "key_name" internal/repository/cpa_api_key.go && echo "✓ Sync uses key_name column" || echo "✗ MISSING"
+
+# Verify display priority function
+grep -A5 "CPAAPIKeyDisplayName" internal/helper/redact.go | grep -q "KeyName" && echo "✓ Display uses KeyName" || echo "✗ MISSING"
+
+# Verify CPA client endpoint
+grep -q "FetchAuthAPIKeys" internal/cpa/client.go && echo "✓ CPA client method exists" || echo "✗ MISSING"
+grep -q "/v0/management/auth-api-keys" internal/cpa/endpoints.go && echo "✓ Endpoint defined" || echo "✗ MISSING"
+
+# Run tests
+go test ./internal/helper/test/redact_test.go
+make verify
+```
+
+**Test coverage required:**
+- `TestCPAAPIKeyDisplayNamePrefersKeyName` (KeyName → display)
+- `TestCPAAPIKeyDisplayNameFallsBackToAlias` (KeyName empty → KeyAlias → display)
+- `TestCPAAPIKeyDisplayNameFallsBackToMaskedKey` (KeyName and KeyAlias empty → masked key)
+- `TestSyncCPAAPIKeysWithNamesWritesToKeyNameColumn` (sync writes to database)
+
+---
+
 ## Merge Workflow
 
 When merging from upstream:
