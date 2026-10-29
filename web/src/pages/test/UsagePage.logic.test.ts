@@ -735,9 +735,9 @@ describe('UsagePage request event preferences', () => {
     expect(loadRequestEventsPreferences(storage).visibleColumnIds).toEqual(hiddenSpeedColumnIds);
   });
 
-  it('preserves a saved preference that intentionally hides Speed Mode', () => {
+  it('preserves the saved preference hiding the tier column after switching to the outbound value', () => {
     const storage = createMemoryStorage();
-    const hiddenSpeedModeColumnIds = REQUEST_EVENT_COLUMN_IDS.filter((columnId) => columnId !== 'service_tier');
+    const hiddenTierColumnIds = REQUEST_EVENT_COLUMN_IDS.filter((columnId) => columnId !== 'service_tier');
 
     saveRequestEventsPreferences({
       version: 9,
@@ -746,11 +746,11 @@ describe('UsagePage request event preferences', () => {
         source: '__all__',
         result: '__all__',
       },
-      visibleColumnIds: hiddenSpeedModeColumnIds,
+      visibleColumnIds: hiddenTierColumnIds,
       columnOrder: [...REQUEST_EVENT_COLUMN_IDS],
     }, storage);
 
-    expect(loadRequestEventsPreferences(storage).visibleColumnIds).toEqual(hiddenSpeedModeColumnIds);
+    expect(loadRequestEventsPreferences(storage).visibleColumnIds).toEqual(hiddenTierColumnIds);
   });
 
   it('loads defaults from invalid JSON and persists normalized request event preferences', () => {

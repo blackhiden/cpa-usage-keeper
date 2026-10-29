@@ -94,7 +94,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Understand costs**: analyze usage, caching, and estimated costs by model, API Key, and provider.
 - **Investigate requests**: inspect and export request details, and explore success rates, time to first token (TTFT), and total latency.
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
-- **Compare providers**: browse AI providers grouped with request/token totals and success rates, then drill into each provider's paginated key list.
+- **Compare providers** (permanent feature): browse AI providers grouped with request/token totals and success rates, then drill into each provider's paginated key list.
 - **Inspect AI providers**: administrators can review one aggregate row per provider, sort by success rate, and open a paginated key-detail page for that provider.
 - **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
@@ -113,20 +113,9 @@ Compose, Homebrew, or binaries; login protection is enabled by default.
 
 ## Quick Start
 
-> Before using CPA Usage Keeper, enable CPA usage statistics. Set `observability.usage.usage-statistics-enabled` to `true` in v8 configurations; legacy configurations use the top-level `usage-statistics-enabled` setting.
->
-> To use the standalone **Live Flow** menu, enable `cpa-fork-liveflow-enabled: true` in the root CLIProxyAPI configuration **and restart root CLIProxyAPI**. The root only registers `/live-flow/ws` during server construction; a config hot reload cannot add that route. If the root uses `ws-auth: true`, also set Keeper’s `CPA_LIVE_FLOW_API_KEY` to a CPA client API key accepted by that root. The key remains server-side.
->
-> When multiple usage collectors share one CPA instance, ensure they all use subscription mode; otherwise, collection may stop or become incomplete.
->
-> When working inside the CLIProxyAPI workspace (CPA backend + management panel + Keeper checked out together), see [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §5 "Usage Keeper topology" for the canonical CPA + Keeper wiring (`CPA_BASE_URL`, `CPA_MANAGEMENT_KEY`, `usage-statistics-enabled: true`, optional `CPA_PUBLIC_URL`).
-
-Docker Compose is the recommended deployment method. Use the full stack when deploying CPA and Keeper together, or the Keeper-only stack when CPA already exists.
-
-Docker deployment requires Docker and Docker Compose; you do not need Go, Node.js, or a source build. For an existing CPA, have its address and management key ready, and choose a Keeper login password.
-
-| Setup | Recommended path | Architectures |
-| --- | --- | --- |
+> Keeper supports CPA v8.0.12+. Enable usage statistics by setting `observability.usage.usage-statistics-enabled` to `true`.<br>
+> To use the standalone **Live Flow** menu, enable `cpa-fork-liveflow-enabled: true` in the root CLIProxyAPI configuration **and restart root CLIProxyAPI**. The root only registers `/live-flow/ws` during server construction; a config hot reload cannot add that route. If the root uses `ws-auth: true`, also set Keeper's `CPA_LIVE_FLOW_API_KEY` to a CPA client API key accepted by that root. The key remains server-side.<br>
+> When multiple collectors share one CPA instance, all must use subscription mode to avoid interrupted collection or missing data.
 | New CPA + Keeper deployment | [Docker Compose: CPA + Keeper](#cpa--keeper) | `linux/amd64`, `linux/arm64` |
 | Existing CPA deployment | [Docker Compose: Keeper only](#keeper-only) | `linux/amd64`, `linux/arm64` |
 | Existing CPA, Docker CLI preferred | [Docker](#docker-cpa-already-runs-on-the-host) | `linux/amd64`, `linux/arm64` |

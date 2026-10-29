@@ -102,9 +102,11 @@ const (
 	// migrationAddUsageEventTraceMetadata 只保存上游提供的执行与节点元数据，历史行保持 NULL。
 	migrationAddUsageEventTraceMetadata = "20261008_usage_event_trace_metadata"
 	// migrationRecoverExecutionUsageEvents 以短事务回填事件标识并重新排队旧入口误拒绝的执行消息。
-	migrationRecoverExecutionUsageEvents = "20261018_recover_execution_usage_events"
+	migrationRecoverExecutionUsageEvents       = "20261018_recover_execution_usage_events"
 	// migrationRestoreLocalRanking 在 v2 清表后重建 local_ranking_period_stats 表与 CPA API key 头像列。
-	migrationRestoreLocalRanking = "20261022_restore_local_ranking"
+	migrationRestoreLocalRanking               = "20261022_restore_local_ranking"
+	migrationAddUsageEventEffectiveServiceTier = "20261023_usage_event_effective_service_tier"
+	migrationAddPluginAPIKeySources            = "20261028_plugin_api_key_sources"
 )
 
 type schemaMigration struct {
@@ -321,6 +323,8 @@ func orderedMigrations() []databaseMigration {
 		{version: migrationRecoverExecutionUsageEvents, run: recoverExecutionUsageEventsMigration, disableTransaction: true},
 		{version: "20261020_add_auth_session_oidc_identity", run: addAuthSessionOIDCIdentityMigration},
 		{version: migrationRestoreLocalRanking, run: restoreLocalRankingMigration},
+		{version: migrationAddUsageEventEffectiveServiceTier, run: addUsageEventEffectiveServiceTierMigration},
+		{version: migrationAddPluginAPIKeySources, run: addPluginAPIKeySourcesMigration},
 	}
 }
 
