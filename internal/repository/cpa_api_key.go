@@ -35,13 +35,12 @@ func SyncCPAAPIKeysWithNames(db *gorm.DB, items []struct{ Key, Name string }, sy
 	var existingRows []struct {
 		ID         int64
 		APIKey     string
-		KeyName    string
 		DisplayKey string
 		IsDeleted  bool
 	}
 	// 先在独立 reader 上比较完整 key 集合，只有变化才进入 writer 事务。
 	if err := db.Clauses(dbresolver.Read).Model(&entities.CPAAPIKey{}).
-		Select("id, api_key, key_name, display_key, is_deleted").Find(&existingRows).Error; err != nil {
+		Select("id, api_key, display_key, is_deleted").Find(&existingRows).Error; err != nil {
 		return err
 	}
 	type keyUpdate struct {
@@ -63,9 +62,6 @@ func SyncCPAAPIKeysWithNames(db *gorm.DB, items []struct{ Key, Name string }, sy
 			if display := helper.RedactSensitiveValue(item.key); row.DisplayKey != display {
 				fields["display_key"] = display
 			}
-			if row.KeyName != item.name {
-				fields["key_name"] = item.name
-			}
 			if row.IsDeleted {
 				fields["is_deleted"] = false
 			}
@@ -78,7 +74,6 @@ func SyncCPAAPIKeysWithNames(db *gorm.DB, items []struct{ Key, Name string }, sy
 		}
 		toCreate = append(toCreate, entities.CPAAPIKey{
 			APIKey:       item.key,
-			KeyName:      item.name,
 			DisplayKey:   helper.RedactSensitiveValue(item.key),
 			IsDeleted:    false,
 			LastSyncedAt: &syncedAt,
