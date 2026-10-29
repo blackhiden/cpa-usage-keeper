@@ -1080,7 +1080,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     if (topNotice.kind === 'success') return styles.updateCheckToastSuccess;
     return styles.updateCheckToastInfo;
   })() : '';
-  const cpaManagementURL = useMemo(() => getBackToCPALinkURL(status), [status]);
 
   const loadApiKeyOptions = useCallback(async () => {
     discoveredApiKeys.current.clear();
