@@ -30,7 +30,7 @@ import {
   ApiKeySettingsCard,
   SessionSettingsCard,
   CredentialsSection,
-  AiProviderCredentialsSection,
+  ProviderSummarySection,
   CredentialDetailDrawer,
   CredentialProviderFilterBar,
   TimeRangeControl,
@@ -942,6 +942,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [credentialEditSelection, setCredentialEditSelection] = useState<CredentialDetailSelection | null>(null);
   const [credentialDetailOpen, setCredentialDetailOpen] = useState(false);
   const [credentialPriorityRevision, setCredentialPriorityRevision] = useState(0);
+  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const credentialDetailRequestRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const [requestLogResponse, setRequestLogResponse] = useState<UsageEventRequestLogResponse | null>(null);
   const [requestLogError, setRequestLogError] = useState('');
@@ -1797,6 +1798,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     }
     if (activeTab === 'ai-provider') {
       await refreshCredentials();
+      setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -1835,6 +1837,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
     }
     if (activeTab === 'ai-provider') {
       await refreshCredentials();
+      setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }
     if (credentialSectionVisibility.enabled) {
@@ -2419,12 +2422,14 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
             {credentialSectionVisibility.enabled && (
               <>
                 {credentialsData.error && <div className={styles.errorBox}>{credentialsData.error}</div>}
-                <CredentialProviderFilterBar
-                  scope={activeCredentialProviderFilterScope}
-                  typeCounts={credentialTypeCountsForProviderFilter}
-                  value={activeCredentialProviderFilter}
-                  onChange={setActiveCredentialProviderFilter}
-                />
+                {credentialSectionVisibility.showCredentials && (
+                  <CredentialProviderFilterBar
+                    scope={activeCredentialProviderFilterScope}
+                    typeCounts={credentialTypeCountsForProviderFilter}
+                    value={activeCredentialProviderFilter}
+                    onChange={setActiveCredentialProviderFilter}
+                  />
+                )}
                 <div className={styles.credentialsSections}>
                   {credentialSectionVisibility.showCredentials && (
                     <CredentialsSection
@@ -2462,25 +2467,9 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
                     />
                   )}
                   {credentialSectionVisibility.showAiProvider && (
-                    <AiProviderCredentialsSection
-                      rows={credentialsData.aiProviderRows}
-                      total={credentialsData.aiProviderTotal}
-                      page={credentialsData.aiProviderPage}
-                      totalPages={credentialsData.aiProviderTotalPages}
-                      pageSize={credentialsData.aiProviderPageSize}
-                      activeOnly={credentialsData.aiProviderActiveOnly}
-                      sort={credentialsData.aiProviderSort}
-                      loading={credentialsData.loading}
-                      editFallbackRef={credentialEditFallbackRef}
-                      onEdit={(row) => setCredentialEditSelection({ kind: 'ai-provider', row })}
-                      onOpenDetails={(row) => handleCredentialDetailOpen({ kind: 'ai-provider', row })}
-                      statusPendingIdentityIds={credentialsData.credentialStatusPendingIdentityIds}
-                      onToggleStatus={credentialsData.toggleAiProviderStatus}
-                      onSavePriority={credentialsData.saveAiProviderPriority}
-                      onPageChange={credentialsData.setAiProviderPage}
-                      onPageSizeChange={credentialsData.setAiProviderPageSize}
-                      onActiveOnlyChange={credentialsData.setAiProviderActiveOnly}
-                      onSortChange={credentialsData.setAiProviderSort}
+                    <ProviderSummarySection
+                      onAuthRequired={onAuthRequired}
+                      refreshRevision={providerSummaryRefreshRevision}
                     />
                   )}
                 </div>
