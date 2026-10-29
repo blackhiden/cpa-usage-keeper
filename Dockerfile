@@ -1,11 +1,16 @@
-FROM --platform=$BUILDPLATFORM node:24-alpine AS web-builder
+# syntax=docker/dockerfile:1
+
+ARG NODE_IMAGE=node:24.22.1-alpine
+ARG GO_IMAGE=golang:1.26.10-alpine
+
+FROM ${NODE_IMAGE} AS web-builder
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS go-builder
+FROM ${GO_IMAGE} AS go-builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 COPY go.mod go.sum ./

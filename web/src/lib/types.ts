@@ -301,6 +301,7 @@ export interface UsageEvent {
   response_model?: string
   reasoning_effort?: string
   service_tier?: string
+  effective_service_tier?: string
   response_service_tier?: string
   executor_type?: string
   endpoint?: string
@@ -883,6 +884,8 @@ export interface AnalysisResponse {
 }
 
 export interface CpaApiKeyDisplayItem {
+  sourceType: 'native' | 'plugin'
+  accessProvider: string
   id: string
   keyAlias: string
   displayKey: string
@@ -891,7 +894,7 @@ export interface CpaApiKeyDisplayItem {
 }
 
 export interface CpaApiKeySettingsItem extends CpaApiKeyDisplayItem {
-  apiKey: string
+  apiKey?: string
 }
 
 export interface CpaApiKeyOption {
