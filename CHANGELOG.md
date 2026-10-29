@@ -4,9 +4,38 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-10-29
+
+### Merged from Upstream
+
+Synchronized with upstream/main (commit 852a2d12), incorporating 13 commits since merge base 5f8a59e1:
+
+- **fix(ui)**: Remove chart and settings card subtitles (#682)
+- **fix(overview)**: Remove token trends, request health, and token activity subtitles
+- **fix(settings)**: Remove API key settings and session management subtitles
+- **fix(analysis)**: Remove token usage chart, usage distribution, top models, latency diagnostics, model speed, model efficiency, and heatmap subtitles
+
+### Protected Features Verified
+
+All fork-specific features preserved through merge:
+- Provider Model GNN Panel (permanent core feature) ✓
+- API Key Viewer Full Request Logs (FORK-ONLY) ✓
+- Live Flow Visualization ✓
+- Local Ranking Default ✓
+- API Key Name Display (Phase 2.20) ✓
+- AI Provider Table Redesign & Detail Navigation ✓
+
 ### Fixed
 
 - **API Key Name display restoration (Phase 2.20):** After the upstream merge, the API Key Name display feature was partially lost. The database column (`key_name`) and CPA client endpoint (`/v0/management/auth-api-keys`) remained intact, but the entity field, sync logic, and display helper were incomplete. This release restores the complete three-tier display priority: CPA Key Name → User Alias → Masked Key. The sync function now correctly writes CPA-provided key names to the database, the display helper prioritizes `KeyName` before `KeyAlias`, and all queries (including local ranking) properly fetch and use the `key_name` column. Test coverage includes display priority tests and sync verification. See `docs/ROADMAP.md` Phase 2.20 and `docs/MERGE-PRESERVATION.md` §6 for protection contracts.
+
+### Validation
+
+- Backend tests: All packages pass
+- Frontend tests: 1605/1607 tests pass (99.9% pass rate; 2 provider navigation timing issues)
+- TypeScript: Clean typecheck
+- ESLint: Clean
+- Build: Successful (vite production build)
 
 ## [2.0.2] - 2026-10-23
 
