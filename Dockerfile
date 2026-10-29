@@ -1,7 +1,5 @@
-# syntax=docker/dockerfile:1
-
-ARG NODE_IMAGE=node:24.22.1-alpine
-ARG GO_IMAGE=golang:1.26.10-alpine
+ARG NODE_IMAGE=node:24.22.1
+ARG GO_IMAGE=golang:1.26.10
 
 FROM ${NODE_IMAGE} AS web-builder
 WORKDIR /app/web
@@ -12,7 +10,9 @@ RUN npm run build
 
 FROM ${GO_IMAGE} AS go-builder
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    apt update; \
+    apt install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build --mount=type=bind,source=go.mod,target=go.mod --mount=type=bind,source=go.sum,target=go.sum \
     go mod download
@@ -30,7 +30,9 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim
 WORKDIR /
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN set -eux; \
+    apt update; \
+    apt install -y --no-install-recommends \
     ca-certificates \
     tzdata \
     gosu \
