@@ -212,6 +212,140 @@ grep -q "live.*flow" web/src/pages/KeyViewerPage.tsx || grep -q "LiveFlow" web/s
 
 ---
 
+### 6. AI Provider Table Redesign & Detail Navigation
+
+**Status:** Permanent core feature  
+**Commit baseline:** October 2026
+
+The `/ai-provider` provider grouping table and the `/ai-provider/:providerId`
+detail navigation must be preserved. This feature groups API keys by provider
+in the main view and provides per-provider detail pages with key-level
+statistics and sorting.
+
+- **Backend domain:**
+  - Routes: `GET /api/v1/usage/providers` (list), `GET /api/v1/usage/providers/:providerId/keys` (detail)
+  - Handler: `internal/api/usage_identities.go` (registerProviderRoutes)
+  - Service: `internal/service/usage_identities_service.go` (ListProviders, ListProviderKeys)
+  - Repository: `internal/repository/usage_identities.go` (ListProviders, ListProviderKeys)
+  - Tests: `internal/api/test/usage_providers_test.go`, `internal/repository/test/usage_identities_test.go`
+- **Frontend domain:**
+  - Main table: `web/src/components/usage/credentials/ProviderSummarySection.tsx`
+  - Detail page: `web/src/pages/ProviderDetailPage.tsx`
+  - API client: `web/src/lib/api.ts` (listProviders, listProviderKeys)
+  - Types: `web/src/lib/types.ts` (ProviderSummary, ProvidersResponse)
+  - Tests: `web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx`, `web/src/pages/test/ProviderDetailPage.test.tsx`
+- **Integration points:**
+  - `web/src/App.tsx`: Route `/ai-provider/:providerId` → `ProviderDetailPage`
+  - `web/src/pages/UsagePage.tsx`: Mounts `ProviderSummarySection` on `/ai-provider` tab
+  - `web/src/components/usage/credentials/index.ts`: Exports `ProviderSummarySection`
+  - `web/src/components/usage/index.ts`: Exports `ProviderSummarySection`
+- **Access control:**
+  - Both endpoints protected by `versionProtected` middleware (Admin + API-key viewer)
+  - API-key viewers see only their own keys, scoped by session `api_key_id`
+  - Credential masking applied per role (viewers see masked keys)
+
+**Documentation:**
+- `docs/ARCHITECTURE.md` §7 (permanence requirement, AI Provider usage)
+- `docs/SPECIFICATION.md` UC-7a (permanent contract)
+- `docs/ROADMAP.md` (policy reminder, phase documentation)
+- `docs/CODE_GRAPH.md` §7 (provider grouping permanent feature)
+- `AGENTS.md` §3 (permanent feature guidance)
+- `session.md` (restoration history, October 2026)
+- `README.md` / `README.zh.md` (compare providers feature)
+
+**Verification after merge:**
+```bash
+# Verify backend routes and handlers
+grep -q "registerProviderRoutes" internal/api/usage_identities.go && echo "✓ Provider routes function exists" || echo "✗ MISSING"
+grep -q "/usage/providers" internal/api/usage_identities.go && echo "✓ Provider list route exists" || echo "✗ MISSING"
+grep -q "/usage/providers/:providerId/keys" internal/api/usage_identities.go && echo "✓ Provider keys route exists" || echo "✗ MISSING"
+
+# Verify service methods
+grep -q "func.*ListProviders" internal/service/usage_identities_service.go && echo "✓ ListProviders service exists" || echo "✗ MISSING"
+grep -q "func.*ListProviderKeys" internal/service/usage_identities_service.go && echo "✓ ListProviderKeys service exists" || echo "✗ MISSING"
+
+# Verify repository functions
+grep -q "func ListProviders" internal/repository/usage_identities.go && echo "✓ ListProviders repository exists" || echo "✗ MISSING"
+grep -q "func ListProviderKeys" internal/repository/usage_identities.go && echo "✓ ListProviderKeys repository exists" || echo "✗ MISSING"
+
+# Verify frontend components
+test -f web/src/components/usage/credentials/ProviderSummarySection.tsx && echo "✓ ProviderSummarySection exists" || echo "✗ MISSING"
+test -f web/src/pages/ProviderDetailPage.tsx && echo "✓ ProviderDetailPage exists" || echo "✗ MISSING"
+
+# Verify frontend API client
+grep -q "listProviders" web/src/lib/api.ts && echo "✓ listProviders API client exists" || echo "✗ MISSING"
+grep -q "listProviderKeys" web/src/lib/api.ts && echo "✓ listProviderKeys API client exists" || echo "✗ MISSING"
+
+# Verify integration points
+grep -q "ProviderSummarySection" web/src/pages/UsagePage.tsx && echo "✓ ProviderSummarySection mounted" || echo "✗ MISSING"
+grep -q "ProviderDetailPage" web/src/App.tsx && echo "✓ ProviderDetailPage route registered" || echo "✗ MISSING"
+grep -q "ProviderSummarySection" web/src/components/usage/credentials/index.ts && echo "✓ Exported" || echo "✗ MISSING"
+
+# Verify tests
+test -f internal/api/test/usage_providers_test.go && echo "✓ Backend provider tests exist" || echo "✗ MISSING"
+test -f web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx && echo "✓ Frontend tests exist" || echo "✗ MISSING"
+test -f web/src/pages/test/ProviderDetailPage.test.tsx && echo "✓ Detail page tests exist" || echo "✗ MISSING"
+
+# Build verification
+go build ./...
+npm --prefix ./web run typecheck
+npm --prefix ./web run build
+```
+
+### 7. API Key Name Display Priority
+
+**Status:** Fork-specific display enhancement  
+**Commit baseline:** October 2026
+
+API keys must display with a three-tier priority: **CPA Key Name → User Alias → Masked Key**. This ensures users see meaningful names from CPA's `/v0/management/auth-api-keys` endpoint first, falling back to user-defined aliases, and finally to the masked key format.
+
+- **Database schema:** `cpa_api_keys.key_name` column (migration `20261013_add_cpa_api_key_name`)
+- **Backend entity:** `entities.CPAAPIKey.KeyName` field must be present
+- **Backend sync:** `repository.SyncCPAAPIKeysWithNames()` must write to `key_name` column
+- **Backend display logic:** `helper.CPAAPIKeyDisplayName()` must implement priority: `KeyName` → `KeyAlias` → `MaskedKey`
+- **CPA client:** `client.FetchAuthAPIKeys()` for `/v0/management/auth-api-keys` endpoint
+- **Display locations:**
+  - Ranking leaderboard (`web/src/features/ranking/components/RankingLeaderboardResults.tsx`)
+  - API key settings card (`web/src/components/usage/ApiKeySettingsCard.tsx`)
+  - Key viewer dashboard (all key display contexts)
+  - Session management (where API keys are referenced)
+
+**Documentation:**
+- `docs/SPECIFICATION.md` (UC-9: Local ranking with key names)
+- `docs/ROADMAP.md` (Phase 2.20: Restoration task)
+- `CHANGELOG.md` (Display name priority documentation)
+
+**Verification after merge:**
+```bash
+# Verify entity field exists
+grep -q "KeyName.*string" internal/entities/cpa_api_key.go && echo "✓ Entity field exists" || echo "✗ MISSING"
+
+# Verify migration exists
+test -f internal/repository/migration/20261013_add_cpa_api_key_name.go && echo "✓ Migration exists" || echo "✗ MISSING"
+
+# Verify sync function writes key_name
+grep -q "key_name" internal/repository/cpa_api_key.go && echo "✓ Sync uses key_name column" || echo "✗ MISSING"
+
+# Verify display priority function
+grep -A5 "CPAAPIKeyDisplayName" internal/helper/redact.go | grep -q "KeyName" && echo "✓ Display uses KeyName" || echo "✗ MISSING"
+
+# Verify CPA client endpoint
+grep -q "FetchAuthAPIKeys" internal/cpa/client.go && echo "✓ CPA client method exists" || echo "✗ MISSING"
+grep -q "/v0/management/auth-api-keys" internal/cpa/endpoints.go && echo "✓ Endpoint defined" || echo "✗ MISSING"
+
+# Run tests
+go test ./internal/helper/test/redact_test.go
+make verify
+```
+
+**Test coverage required:**
+- `TestCPAAPIKeyDisplayNamePrefersKeyName` (KeyName → display)
+- `TestCPAAPIKeyDisplayNameFallsBackToAlias` (KeyName empty → KeyAlias → display)
+- `TestCPAAPIKeyDisplayNameFallsBackToMaskedKey` (KeyName and KeyAlias empty → masked key)
+- `TestSyncCPAAPIKeysWithNamesWritesToKeyNameColumn` (sync writes to database)
+
+---
+
 ## Merge Workflow
 
 When merging from upstream:

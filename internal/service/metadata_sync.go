@@ -38,7 +38,7 @@ func (s *SyncService) SyncMetadata(ctx context.Context) error {
 		authSyncErr = fmt.Errorf("fetch credentials: %w", credentialsErr)
 	}
 	// 管理 API Keys 第二个串行写入，不与 SQLite provider 写入并发。
-	apiKeySyncErr := syncManagementAPIKeys(s.db, apiKeysResult, apiKeysErr, fetchedAt)
+	apiKeySyncErr := syncManagementAPIKeys(s.db, authAPIKeysResult, authAPIKeysErr, apiKeysResult, apiKeysErr, fetchedAt)
 	// provider snapshot 最后一次进入 scoped replace 单事务，并分开返回 persistence error 与 fetch warning。
 	var providerWarningErr error
 	providerApplied, providerSyncErr := s.credentialMetadata.persistSnapshot(credentialVersion, func() error {
