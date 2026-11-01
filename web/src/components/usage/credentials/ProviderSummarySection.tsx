@@ -68,7 +68,6 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
     <CredentialSectionShell
       title={t('usage_stats.providers_title')}
       subtitle={t('usage_stats.providers_subtitle')}
-      countLabel={t('usage_stats.credentials_count', { count: total })}
       actions={(
         <Select
           value={sort}
