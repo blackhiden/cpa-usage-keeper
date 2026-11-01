@@ -4,6 +4,41 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-11-01
+
+### Merged from Upstream
+
+Synchronized with upstream/main (commit 9db74cfc), incorporating 11 commits since merge base 852a2d12:
+
+- **fix(usage)**: Remove service tier mismatch indicator (#684)
+- **fix(ui)**: Align request count badges and remove redundant title counts (#683)
+- **test(usage)**: Cover accessible service tier details and tooltip content
+- **test(credentials)**: Simplify obsolete count translation mocks
+- Various test cleanups for service tier and credential count displays
+
+### Merge Conflicts Resolved
+
+- **AiProviderCredentialsSection.tsx**: Preserved `title` and `subtitle` optional overrides (required for AI Provider Table Redesign feature - protected per `docs/MERGE-PRESERVATION.md` §6) while removing the redundant `countLabel` prop per upstream cleanup. Preserved `allowManagement` conditional on `titleExtra` (provider detail pages are read-only).
+- **ProviderSummarySection.tsx**: Removed redundant `countLabel` prop to align with upstream cleanup.
+
+### Protected Features Verified
+
+All fork-specific features preserved through merge:
+- Provider Model GNN Panel (permanent core feature) ✓
+- API Key Viewer Full Request Logs (FORK-ONLY) ✓
+- Live Flow Visualization ✓
+- Local Ranking Default ✓
+- API Key Name Display (Phase 2.20) ✓
+- AI Provider Table Redesign & Detail Navigation ✓
+
+### Validation
+
+- Backend build: Clean (`go build ./...`)
+- Backend tests: GNN tests pass
+- Frontend TypeScript: Clean typecheck
+- Frontend build: Successful (vite production build)
+- Protected feature checks: All 7 verification commands pass
+
 ## [2.0.5] - 2026-10-29
 
 ### Merged from Upstream
