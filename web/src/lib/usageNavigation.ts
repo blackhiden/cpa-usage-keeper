@@ -7,6 +7,7 @@ export const USAGE_TAB_OPTIONS = [
   'events',
   'credentials',
   'ai-provider',
+  'models',
   'settings',
 ] as const;
 
@@ -22,6 +23,7 @@ const USAGE_TAB_PATHS: Record<UsageTab, string> = {
   events: '/request-events',
   'credentials': '/credentials',
   'ai-provider': '/ai-provider',
+  models: '/models',
   settings: '/settings',
 };
 

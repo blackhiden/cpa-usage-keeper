@@ -16,6 +16,7 @@ import { IconRefreshCw } from '@/components/ui/icons';
 import { updateCredentialDetailStats } from '@/components/usage/credentials/credentialViewModels';
 import { CREDENTIAL_PAGES_REFRESH_INTERVAL_MS } from '@/components/usage/credentials/useCredentialPages';
 import { PricingSettings, type PricingSettingsHandle } from '@/components/usage/pricing/PricingSettings';
+import { ModelCatalog, type ModelCatalogHandle } from '@/components/usage/models/ModelCatalog';
 import { buildCredentialProviderSearch } from '@/components/usage/credentials/credentialProviderFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -89,6 +90,7 @@ const USAGE_TAB_LABEL_KEYS: Record<UsageTab, string> = {
   events: 'usage_stats.tab_events',
   'credentials': 'usage_stats.tab_credentials',
   'ai-provider': 'usage_stats.tab_ai_provider',
+  models: 'usage_stats.tab_models',
   settings: 'usage_stats.tab_settings',
 };
 const USAGE_TAB_STORAGE_KEY = 'cli-proxy-usage-tab-v2';
@@ -151,7 +153,7 @@ export const getCredentialSectionVisibility = (tab: UsageTab) => ({
   showAiProvider: tab === 'ai-provider',
 });
 
-export const shouldShowRangeControls = (tab: UsageTab) => tab !== 'realtime' && tab !== 'live-flow' && tab !== 'ranking' && tab !== 'settings' && !getCredentialSectionVisibility(tab).enabled;
+export const shouldShowRangeControls = (tab: UsageTab) => tab !== 'realtime' && tab !== 'live-flow' && tab !== 'ranking' && tab !== 'settings' && tab !== 'models' && !getCredentialSectionVisibility(tab).enabled;
 
 export const shouldShowApiKeyFilter = (tab: UsageTab) => tab === 'realtime' || shouldShowRangeControls(tab);
 
@@ -758,6 +760,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   });
   const pricingSettingsRef = useRef<PricingSettingsHandle | null>(null);
   const rankingScope: RankingScope = 'local';
+  const modelCatalogRef = useRef<ModelCatalogHandle | null>(null);
   const [loadedTimeRange] = useState(loadTimeRange);
   const pendingLegacyCustomRangeRef = useRef(loadedTimeRange.pendingLegacyCustomRange);
   const [timeRangeState, setTimeRangeState] = useState<StoredUsageRangeState>(loadedTimeRange.state);
@@ -1809,8 +1812,12 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       await loadAnalysis();
       return;
     }
+    if (activeTab === 'models') {
+      await Promise.all([modelCatalogRef.current?.refresh(), pricingSettingsRef.current?.refresh()]);
+      return;
+    }
     if (activeTab === 'settings') {
-      await Promise.all([loadAuthSessions(), loadApiKeySettings(), pricingSettingsRef.current?.refresh()]);
+      await Promise.all([loadAuthSessions(), loadApiKeySettings()]);
       return;
     }
     await Promise.all([loadUsage(), loadActivity(), loadComparisons()]);
@@ -2476,6 +2483,14 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
               </>
             )}
 
+            {activeTab === 'models' && (
+              <div className={styles.settingsSections}>
+                <ModelCatalog ref={modelCatalogRef} onAuthRequired={onAuthRequired} />
+                <PricingSettings ref={pricingSettingsRef} timezone={status?.timezone} onAuthRequired={onAuthRequired}
+                  onRecalculationSettled={() => { void credentialsData.refreshAfterRecalculation() }} />
+              </div>
+            )}
+
             {activeTab === 'settings' && (
               <div className={styles.settingsSections}>
                 <SessionSettingsCard
@@ -2492,12 +2507,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
                   savingId={apiKeySettingsSavingId}
                   onSaveAlias={handleSaveApiKeyAlias}
                   onNotice={showTopNotice}
-                />
-                <PricingSettings
-                  ref={pricingSettingsRef}
-                  timezone={status?.timezone}
-                  onAuthRequired={onAuthRequired}
-                  onRecalculationSettled={() => { void credentialsData.refreshAfterRecalculation() }}
                 />
               </div>
             )}
@@ -2519,6 +2528,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
         open={credentialDetailOpen}
         selection={currentCredentialDetailSelection}
         timeZone={credentialTimeZone}
+        fallbackFocusRef={credentialEditFallbackRef}
         onResetStats={handleCredentialStatsReset}
         onAuthRequired={onAuthRequired}
         requestLogAccessEnabled={requestLogAccessEnabled}

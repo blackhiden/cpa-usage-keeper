@@ -12,7 +12,7 @@ import { KeyEventsPage } from './pages/KeyEventsPage';
 import { KeyLiveFlowPage } from './pages/KeyLiveFlowPage';
 import { KeyOverviewPage } from './pages/KeyOverviewPage';
 import { KeyRankingPage } from './pages/KeyRankingPage';
-import { LoginPage } from './pages/LoginPage';
+import { LoginBackdrop, LoginPage } from './pages/LoginPage';
 import { UsagePage } from './pages/UsagePage';
 import { ProviderDetailPage } from './pages/ProviderDetailPage';
 import { cpamcEmbedSearch, isCPAMCEmbed, notifyCPAMCEmbedReady } from './embed/cpamcEmbed';
@@ -258,7 +258,8 @@ function App() {
   }
 
   return (
-    <div className="app-frame" data-embed={isEmbeddedInCPAMC ? 'cpamc' : undefined}>
+    <div className="app-frame" data-embed={isEmbeddedInCPAMC ? 'cpamc' : undefined} data-page={authState === 'unauthenticated' ? 'login' : undefined}>
+      {authState === 'unauthenticated' && <LoginBackdrop />}
       <main className="app-main">{page}</main>
       <AppFooter loadVersion={authState === 'authenticated'} />
     </div>
