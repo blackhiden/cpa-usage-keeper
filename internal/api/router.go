@@ -66,11 +66,16 @@ type OptionalProviders struct {
 	CredentialStatus   service.CredentialStatusProvider
 	CredentialPriority service.CredentialPriorityProvider
 	RequestLogs        service.RequestLogProvider
-	Ranking            rankinghttpapi.Provider
-	LocalRanking       rankinghttpapi.LocalProvider
+	// Local ranking provider (fork feature)
+	LocalRanking rankinghttpapi.LocalProvider
+	// Community ranking provider (disabled but preserved)
+	Ranking rankinghttpapi.Provider
+	// Models provider (upstream feature)
+	Models service.ModelsFetcher
+	// Provider Model GNN (permanent fork feature)
+	ProviderModelGraph gnnhttpapi.Provider
 	Status             StatusRouteConfig
 	LiveFlowClient     LiveFlowProvider
-	ProviderModelGraph gnnhttpapi.Provider
 }
 
 // newRouterEngine 为启动外壳和完整业务路由装配相同的可信代理与异常恢复设置。
@@ -122,10 +127,14 @@ func NewRouter(
 	var credentialStatusProvider service.CredentialStatusProvider
 	var credentialPriorityProvider service.CredentialPriorityProvider
 	var requestLogProvider service.RequestLogProvider
-	// Community ranking provider is not wired up - feature disabled but code kept intact.
-	// var rankingProvider rankinghttpapi.Provider
-	var providerModelGraphProvider gnnhttpapi.Provider
+	// Local ranking provider (fork feature)
 	var localRankingProvider rankinghttpapi.LocalProvider
+	// Community ranking is disabled but preserved
+	var _ rankinghttpapi.Provider // rankingProvider - disabled but type preserved
+	// Provider Model GNN (permanent fork feature)
+	var providerModelGraphProvider gnnhttpapi.Provider
+	// Models provider (upstream feature)
+	var modelsProvider service.ModelsFetcher
 	var statusConfig StatusRouteConfig
 	var liveFlowClient LiveFlowProvider
 	if len(optionalProviders) > 0 {
@@ -138,10 +147,14 @@ func NewRouter(
 		credentialStatusProvider = optionalProviders[0].CredentialStatus
 		credentialPriorityProvider = optionalProviders[0].CredentialPriority
 		requestLogProvider = optionalProviders[0].RequestLogs
-		// Community ranking is disabled - not wired up.
-		// rankingProvider = optionalProviders[0].Ranking
-		providerModelGraphProvider = optionalProviders[0].ProviderModelGraph
+		// Local ranking is enabled for both admin and key viewer
 		localRankingProvider = optionalProviders[0].LocalRanking
+		// Community ranking is disabled but code preserved
+		// rankingProvider = optionalProviders[0].Ranking
+		// Provider Model GNN is a permanent fork feature
+		providerModelGraphProvider = optionalProviders[0].ProviderModelGraph
+		// Models fetcher (upstream feature)
+		modelsProvider = optionalProviders[0].Models
 		statusConfig = optionalProviders[0].Status
 		liveFlowClient = optionalProviders[0].LiveFlowClient
 	}
@@ -182,6 +195,7 @@ func NewRouter(
 	registerAuthSessionManagementRoutes(adminProtected, authHandler)
 	registerCPAAPIKeyRoutes(adminProtected, cpaAPIKeyProvider, usageProvider)
 	registerPricingRoutes(adminProtected, pricingProvider)
+	registerModelsRoutes(adminProtected, modelsProvider)
 	registerQuotaRoutes(adminProtected, quotaProvider)
 	// Provider Model GNN is a permanent, self-contained feature domain
 	// (docs/ARCHITECTURE.md §7); routes are registered by the domain itself.
