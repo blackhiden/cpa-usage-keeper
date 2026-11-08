@@ -279,6 +279,57 @@ npm --prefix ./web run test -- --run components/usage/credentials/test/ProviderS
 
 ---
 
+### 7. Ranking Translation Keys
+
+**Status:** Permanent i18n requirement  
+**Commit baseline:** `9dd12e4a` (bugfix/translation-ranking branch)
+
+The ranking feature requires a complete set of translation keys in `web/src/i18n/index.ts` for all three supported locales (`en`, `zh`, `zh-TW`). These keys were removed in upstream commit `3e79ce52` and must be preserved across all future merges.
+
+- **Translation keys:**
+  - `usage_stats.tab_ranking` — Tab label in all three locales
+  - `ranking.*` — Complete namespace with 90+ keys for ranking UI, metrics, periods, profile management, and error states
+- **File:** `web/src/i18n/index.ts`
+- **Test:** `web/src/i18n/test/rankingTranslations.test.ts` — Verifies key presence, parity across locales, and interpolation parameter consistency
+- **Origin:** Ranking UI was removed upstream (`3e79ce52`), restored in fork (`0e56c25d`, `557c002c`), but translations were not included. Full fix created in `9dd12e4a`.
+
+**Documentation:**
+- `docs/BUGFIX.md` BUG-002 (root cause analysis, fix plan)
+- `docs/SPECIFICATION.md` (ranking feature contract)
+- `session.md` (translation restoration decision)
+- This file (`docs/MERGE-PRESERVATION.md` §7)
+
+**Verification after merge:**
+```bash
+# Verify tab_ranking key exists in all locales
+grep -q "tab_ranking: 'Ranking'" web/src/i18n/index.ts && echo "✓ en tab_ranking exists" || echo "✗ MISSING"
+grep -q "tab_ranking: '排行'" web/src/i18n/index.ts && echo "✓ zh tab_ranking exists" || echo "✗ MISSING"
+
+# Verify ranking namespace exists in all locales
+grep -c "ranking: {" web/src/i18n/index.ts | grep -q "3" && echo "✓ ranking namespace exists in 3 locales" || echo "✗ MISSING"
+
+# Verify test file exists
+test -f web/src/i18n/test/rankingTranslations.test.ts && echo "✓ Test file exists" || echo "✗ MISSING"
+
+# Run ranking translation tests
+npm --prefix ./web run test -- --run i18n/test/rankingTranslations.test.ts
+
+# Full verification
+make verify
+```
+
+**Merge conflict resolution:**
+When upstream modifies `web/src/i18n/index.ts`, the merge conflict resolution **must**:
+1. Preserve upstream's additions and changes
+2. Keep `usage_stats.tab_ranking` for all three locales
+3. Keep the complete `ranking: { ... }` namespace for all three locales
+4. Run `npm --prefix ./web run test` to verify key parity and interpolation parameters
+
+**Failure mode:**
+If these keys are omitted, the `/ranking` route will display raw placeholder keys like `ranking.title`, `ranking.metric_short_overall`, etc., instead of translated strings. The test suite will fail with key parity errors.
+
+---
+
 ## Merge Workflow
 
 When merging from upstream:
