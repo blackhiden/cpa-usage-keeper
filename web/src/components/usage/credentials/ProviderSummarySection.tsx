@@ -27,7 +27,7 @@ function successRate(provider: ProviderSummary): number | null {
 export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: ProviderSummarySectionProps) {
   const { t } = useTranslation()
   const [providers, setProviders] = useState<ProviderSummary[]>([])
-  const [total, setTotal] = useState(0)
+  const [_total, setTotal] = useState(0)
   const [sort, setSort] = useState<ProviderSummarySort>('success_rate')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

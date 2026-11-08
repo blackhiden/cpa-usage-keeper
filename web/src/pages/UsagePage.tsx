@@ -946,7 +946,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [credentialEditSelection, setCredentialEditSelection] = useState<CredentialDetailSelection | null>(null);
   const [credentialDetailOpen, setCredentialDetailOpen] = useState(false);
   const [credentialPriorityRevision, setCredentialPriorityRevision] = useState(0);
-  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const credentialDetailRequestRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const [requestLogResponse, setRequestLogResponse] = useState<UsageEventRequestLogResponse | null>(null);
   const [requestLogError, setRequestLogError] = useState('');

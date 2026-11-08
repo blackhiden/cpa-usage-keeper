@@ -1,7 +1,6 @@
 export { AiProviderCredentialsSection } from './AiProviderCredentialsSection'
 export { ProviderSummarySection } from './ProviderSummarySection'
 export { CredentialsSection } from './CredentialsSection'
-export { ProviderSummarySection } from './ProviderSummarySection'
 export { CredentialProviderFilterBar } from './CredentialProviderFilterBar'
 export { CredentialDetailDrawer } from './CredentialDetailDrawer'
 export { useCredentialsTabData } from './useCredentialsTabData'
