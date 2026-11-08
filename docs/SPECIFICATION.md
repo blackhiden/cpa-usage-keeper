@@ -105,7 +105,12 @@ keys that are synchronized from CPA itself.
   Provider identifiers are URL encoded as a single route segment, and detail
   URLs can be loaded directly or refreshed at any nesting depth. API-key
   viewers cannot enter either provider route; the backend remains responsible
-  for authorizing all provider API responses.
+  for authorizing all provider API responses. **UC-7a is permanent:** the
+  provider grouping table (`ProviderSummarySection`), the detail page
+  (`ProviderDetailPage`), and the provider API endpoints
+  (`GET /api/v1/usage/providers`, `GET /api/v1/usage/providers/:providerId/keys`)
+  must not be removed, hidden, or replaced without an explicit, documented
+  architectural decision. See [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) §6.
 - **UC-8 — Per-key sharing.** As an admin, I share an API key with a user so
   they can view their own usage on a read-only page.
 - **UC-9 — Local & community ranking.** As an admin, I view local API key usage

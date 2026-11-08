@@ -454,7 +454,7 @@ Component (React)
 - **i18n:** every user-facing string goes through i18next (`src/i18n`); `en`, `zh`, and `zh-TW` locale files must all be updated together.
 - **Charts:** Chart.js registered only via `src/lib/chartjs.ts`.
 - **Provider Model GNN panel (permanent feature):** `ProviderModelGNNPanel` must stay mounted on the Usage overview tab. Removal or replacement requires an explicit documented architectural decision recorded in `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md` (UC-12), and `session.md`.
-- **Provider grouping:** `components/usage/credentials/ProviderSummarySection.tsx` renders the admin `/ai-provider` aggregate table from `listProviders`; `pages/ProviderDetailPage.tsx` renders `/ai-provider/:providerId` key pages from `listProviderKeys`. Keep provider IDs a single encoded segment, preserve CPAMC embed query context on Detail links, and rely on backend authorization in addition to `App.tsx` role-route normalization.
+- **Provider grouping (permanent feature):** `components/usage/credentials/ProviderSummarySection.tsx` renders the admin `/ai-provider` aggregate table from `listProviders`; `pages/ProviderDetailPage.tsx` renders `/ai-provider/:providerId` key pages from `listProviderKeys`. Keep provider IDs a single encoded segment, preserve CPAMC embed query context on Detail links, and rely on backend authorization in addition to `App.tsx` role-route normalization. Removal or replacement requires an explicit documented architectural decision recorded in `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See `docs/MERGE-PRESERVATION.md` §6.
 
 ---
 
