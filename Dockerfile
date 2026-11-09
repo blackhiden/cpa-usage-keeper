@@ -4,7 +4,8 @@ ARG GO_IMAGE=golang:1.26.10
 FROM ${NODE_IMAGE} AS web-builder
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm \
+        npm ci
 COPY web/ ./
 RUN npm run build
 
@@ -14,7 +15,10 @@ RUN set -eux; \
     apt update; \
     apt install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build --mount=type=bind,source=go.mod,target=go.mod --mount=type=bind,source=go.sum,target=go.sum \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=bind,source=go.mod,target=go.mod \
+    --mount=type=bind,source=go.sum,target=go.sum \
     go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
@@ -23,10 +27,12 @@ COPY web/static.go ./web/static.go
 ARG APP_VERSION=dev
 ARG APP_COMMIT=unknown
 ARG BUILD_DATE=1992-03-22
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build set -eux; \
-    CGO_ENABLED=1 GOOS=linux go build \
-        -ldflags="-s -w -X cpa-usage-keeper/internal/version.Version=${APP_VERSION} -X 'main.Commit=${APP_COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" \
-        -o /out/cpa-usage-keeper ./cmd/server/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+        set -eux; \
+        CGO_ENABLED=1 GOOS=linux go build \
+            -ldflags="-s -w -X cpa-usage-keeper/internal/version.Version=${APP_VERSION} -X 'main.Commit=${APP_COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" \
+            -o /out/cpa-usage-keeper ./cmd/server/main.go
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim
 WORKDIR /

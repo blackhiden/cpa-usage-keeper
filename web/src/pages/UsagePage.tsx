@@ -789,6 +789,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   // which assert the DashboardHeader backToCPA wiring exists.
   const cpaManagementURL = useMemo(() => getBackToCPALinkURL(status), [status]);
   const [versionInfo, setVersionInfo] = useState<VersionResponse | null>(null);
+  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const apiKeyOptionsRequestControllerRef = useRef<AbortController | null>(null);
   const credentialSectionVisibility = getCredentialSectionVisibility(activeTab);
   const activeCustomRange = useMemo(() => getUsageCustomRangeForTab(activeTab, customRange, {
@@ -945,7 +946,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const [credentialEditSelection, setCredentialEditSelection] = useState<CredentialDetailSelection | null>(null);
   const [credentialDetailOpen, setCredentialDetailOpen] = useState(false);
   const [credentialPriorityRevision, setCredentialPriorityRevision] = useState(0);
-  const [providerSummaryRefreshRevision, setProviderSummaryRefreshRevision] = useState(0);
   const credentialDetailRequestRef = useRef<{ id: string; controller: AbortController } | null>(null);
   const [requestLogResponse, setRequestLogResponse] = useState<UsageEventRequestLogResponse | null>(null);
   const [requestLogError, setRequestLogError] = useState('');
@@ -1007,7 +1007,8 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   });
   const credentialsData = useCredentialsTabData({
     enabledCredentials: credentialSectionVisibility.showCredentials && pageVisible,
-    enabledAiProviders: credentialSectionVisibility.showAiProvider && pageVisible,
+    // /ai-provider now loads server-side provider summaries. Identity pages remain needed only for Credentials.
+    enabledAiProviders: false,
     onAuthRequired,
     onNotice: showTopNotice,
     onPrioritySaved: () => setCredentialPriorityRevision((current) => current + 1),
@@ -1015,13 +1016,13 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
   const refreshCredentials = credentialsData.refresh;
   const getUsageTabHref = useCallback((tab: UsageTab) => {
     let search = tab === activeTab ? window.location.search : cpamcEmbedSearch();
-    if (tab === 'credentials' || tab === 'ai-provider') {
-      search = buildCredentialProviderSearch(search, tab === 'credentials' ? credentialsData.credentialProviderFilter : credentialsData.aiProviderProviderFilter);
+    if (tab === 'credentials') {
+      search = buildCredentialProviderSearch(search, credentialsData.credentialProviderFilter);
     } else {
       search = cpamcEmbedSearch();
     }
     return appPath(getUsageTabPath(tab)) + search + (tab === activeTab ? window.location.hash : '');
-  }, [activeTab, credentialsData.credentialProviderFilter, credentialsData.aiProviderProviderFilter]);
+  }, [activeTab, credentialsData.credentialProviderFilter]);
   const activateUsageTab = useCallback((tab: UsageTab) => {
     window.history.replaceState(null, '', getUsageTabHref(tab));
     setActiveTab(tab);
@@ -1800,7 +1801,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       return;
     }
     if (activeTab === 'ai-provider') {
-      await refreshCredentials();
       setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }
@@ -1843,7 +1843,6 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
       return;
     }
     if (activeTab === 'ai-provider') {
-      await refreshCredentials();
       setProviderSummaryRefreshRevision((current) => current + 1);
       return;
     }

@@ -226,6 +226,20 @@ Key invariants:
   path, so direct nested provider URLs load the SPA entry assets correctly.
   Provider routes are accepted only for administrators; API-key viewer path
   normalization redirects them to their scoped dashboard.
+
+  > **Permanence requirement:** the AI Provider table redesign and detail
+  > navigation is a **core, permanent feature**. The `/ai-provider` view must
+  > always render one server-aggregated row per provider (not one row per key),
+  > with success-rate sorting and a Detail link to `/ai-provider/:providerId`.
+  > The detail route must render that provider's paginated key list with
+  > server-side sorting. Do **not** remove, rename, hide, or replace the
+  > provider grouping table (`ProviderSummarySection`), the detail page
+  > (`ProviderDetailPage`), or the provider API endpoints
+  > (`GET /api/v1/usage/providers`, `GET /api/v1/usage/providers/:providerId/keys`)
+  > without an explicit, documented architectural decision approved by the
+  > maintainers and recorded in `docs/ARCHITECTURE.md`,
+  > `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See
+  > [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) §6 for the complete policy.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.
