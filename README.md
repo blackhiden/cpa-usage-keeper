@@ -628,6 +628,8 @@ CPA_PUBLIC_URL=https://cpa.example.com
 
 Production-style `linux/amd64` capacity measurements for sustained ingestion, Dashboard latency, CPU utilization, and Keeper cgroup peak memory are available in the [Capacity Benchmark Report](./internal/benchmark/REPORT.md).
 
+Request Events uses a streaming SSE response with a heartbeat roughly every 15 seconds. Ensure every proxy/CDN in the path forwards batches without buffering and uses a read/idle timeout comfortably above the heartbeat interval (for example, 60 seconds). Keeper sends `X-Accel-Buffering: no`, but proxy or CDN configuration may override it. Verify the first snapshot and subsequent updates arrive without waiting for the connection to close.
+
 ## License
 
 This project is open source under the [MIT License](./LICENSE).
