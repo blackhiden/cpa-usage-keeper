@@ -1,3 +1,38 @@
+### 6. AI Provider Table Redesign & Detail Navigation
+
+**Status:** Permanent core feature  
+**Commit baseline:** Since fork inception
+
+The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation must remain implemented as the `ProviderSummarySection` and detail page. Removal or replacement requires an explicit, documented architectural decision and approval from maintainers. Upstream merges must not revert to the flat key list or remove the grid/flexbox layout.
+
+- **Frontend domain:** `web/src/components/usage/credentials/ProviderSummarySection.tsx`, `web/src/pages/UsagePage.tsx`
+- **SCSS:** `web/src/components/usage/credentials/CredentialSections.module.scss` (must contain `.credentialMetricHeaderGroup` and `.credentialMetricGroup` grid/flexbox rules)
+- **Integration points:**
+  - `web/src/pages/UsagePage.tsx`: must render `ProviderSummarySection` for `/ai-provider`
+  - `web/src/components/usage/credentials/index.ts`: must export `ProviderSummarySection`
+  - `web/src/components/usage/index.ts`: must export `ProviderSummarySection`
+- **Tests:**
+  - `ProviderSummarySection.test.tsx` (unit test)
+  - `/ai-provider` integration test (table layout)
+- **Documentation:**
+  - `docs/ARCHITECTURE.md` (permanence requirement)
+  - `docs/SPECIFICATION.md` (UC-7a permanent contract)
+  - `docs/ROADMAP.md` (policy reminder)
+  - `README.md` / `README.zh.md` (permanent feature note)
+  - `CHANGELOG.md` (feature history and merge records)
+  - `session.md` (restoration and protection decision)
+
+**Verification after merge:**
+```bash
+# Verify SCSS grid/flexbox rules
+grep -q "credentialMetricHeaderGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Header group class exists" || echo "✗ MISSING"
+grep -q "credentialMetricGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Row group class exists" || echo "✗ MISSING"
+# Build verification
+npm --prefix ./web run typecheck
+npm --prefix ./web run lint
+npm --prefix ./web run test
+npm --prefix ./web run build
+```
 # Merge Preservation Policy
 
 This document lists features and architectural decisions that **must not be
