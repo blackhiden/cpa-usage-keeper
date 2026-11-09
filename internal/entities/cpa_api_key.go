@@ -20,8 +20,8 @@ type CPAAPIKey struct {
 	DisplayKey           string
 	KeyName              string
 	KeyAlias             string
-	SourceType           string     `gorm:"not null;default:'native'"`
-	AccessProvider       string     `gorm:"not null;default:''"`
+	SourceType           string `gorm:"not null;default:'native'"`
+	AccessProvider       string `gorm:"not null;default:''"`
 	LocalRankingAvatarID *uint8
 	IsDeleted            bool       `gorm:"index:idx_cpa_api_keys_is_deleted"`
 	LastSyncedAt         *time.Time `gorm:"serializer:storageTime"`

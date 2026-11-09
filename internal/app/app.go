@@ -315,14 +315,14 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				CredentialPriority: credentialPriorityService,
 				RequestLogs:        requestLogService,
 				// Local ranking is enabled (fork feature)
-				LocalRanking:       localRankingService,
+				LocalRanking: localRankingService,
 				// Community ranking is disabled but code preserved
 				// Ranking:            rankingService,
 				// Provider Model GNN is a permanent fork feature
 				ProviderModelGraph: providerModelGraphService,
 				// Models fetcher (upstream feature)
-				Models:             cpaClient,
-				LiveFlowClient:     cpaClient,
+				Models:         cpaClient,
+				LiveFlowClient: cpaClient,
 				Status: api.StatusRouteConfig{
 					CPAPublicURL:               cfg.CPAPublicURL,
 					CPARequestLogAccessEnabled: cfg.CPARequestLogAccessEnabled,

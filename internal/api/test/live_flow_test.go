@@ -144,4 +144,3 @@ func TestLiveFlowRelayAcceptsAPIKeyViewerSession(t *testing.T) {
 		t.Fatalf("unexpected relayed event type=%d payload=%s", messageType, payload)
 	}
 }
-
