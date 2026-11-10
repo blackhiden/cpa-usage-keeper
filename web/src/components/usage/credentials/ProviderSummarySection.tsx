@@ -98,7 +98,8 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
           successRateLabel={t('usage_stats.total_requests')}
           totalTokensLabel={t('usage_stats.success_rate')}
           cacheReadRateLabel={t('usage_stats.total_tokens')}
-          sideLabel={`${t('usage_stats.credentials_last_used')} / ${t('usage_stats.provider_action')}`}
+          lastUsedLabel={t('usage_stats.credentials_last_used')}
+          sideLabel={t('usage_stats.provider_action')}
         />
       )}
       {providers.map((provider) => (
@@ -114,11 +115,11 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
               <MetricPill value={formatCredentialNumber(provider.total_requests)} />
               <MetricPill value={<TonePercent value={successRate(provider)} tone={successRateTone(successRate(provider))} />} />
               <MetricPill value={formatCredentialNumber(provider.total_tokens)} />
+              <MetricPill value={provider.last_used_at ? (formatCredentialTimestamp(provider.last_used_at) ?? provider.last_used_at) : '-'} />
             </>
           )}
           side={(
             <div className={styles.providerSummaryAction}>
-              {provider.last_used_at && <span>{t('usage_stats.credentials_last_used')}: {formatCredentialTimestamp(provider.last_used_at) ?? provider.last_used_at}</span>}
               <button 
                 className={`btn btn-secondary btn-sm ${styles.providerSummaryDetailButton}`}
                 onClick={() => { setSelectedProvider(provider.provider); setKeysDialogOpen(true) }}

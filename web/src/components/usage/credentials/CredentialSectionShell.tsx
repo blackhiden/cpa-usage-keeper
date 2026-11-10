@@ -258,6 +258,7 @@ interface CredentialTableHeaderProps {
   successRateLabel: string
   totalTokensLabel: string
   cacheReadRateLabel: string
+  lastUsedLabel?: string
   sideLabel: string
   rowClassName?: string
 }
@@ -283,7 +284,7 @@ export function CredentialRowShell({ icon, title, subtitle, badges, metrics, met
   )
 }
 
-export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRateLabel, totalTokensLabel, cacheReadRateLabel, sideLabel, rowClassName }: CredentialTableHeaderProps) {
+export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRateLabel, totalTokensLabel, cacheReadRateLabel, lastUsedLabel, sideLabel, rowClassName }: CredentialTableHeaderProps) {
   return (
     <div className={`${styles.credentialTableHeader} ${rowClassName ?? ''}`.trim()}>
       <span className={styles.credentialTableHeaderName}>{nameLabel}</span>
@@ -292,6 +293,7 @@ export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRa
         <span className={styles.credentialMetricHeaderCell}>{successRateLabel}</span>
         <span className={styles.credentialMetricHeaderCell}>{totalTokensLabel}</span>
         <span className={styles.credentialMetricHeaderCell}>{cacheReadRateLabel}</span>
+        {lastUsedLabel && <span className={styles.credentialMetricHeaderCell}>{lastUsedLabel}</span>}
       </div>
       <span className={styles.credentialTableHeaderSide}>{sideLabel}</span>
     </div>
