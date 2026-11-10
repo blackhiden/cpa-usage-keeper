@@ -12,9 +12,12 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 }))
 vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: () => undefined },
-  useTranslation: () => ({ t: (key: string, values?: Record<string, number>) => (
-    key === 'usage_stats.credentials_count' ? String(values?.count ?? 0) : key
-  ) }),
+  useTranslation: () => ({ t: (key: string, values?: Record<string, number | string>) => {
+    if (key === 'usage_stats.credentials_count') return String(values?.count ?? 0)
+    if (key === 'usage_stats.provider_keys_dialog_title') return `Keys for ${values?.provider}`
+    if (key === 'usage_stats.provider_models_dialog_title') return `Models for ${values?.provider}`
+    return key
+  } }),
 }))
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -51,7 +54,7 @@ describe('ProviderSummarySection', () => {
     vi.clearAllMocks()
   })
 
-  it('renders one aggregate provider row, starts sorted by success rate, and links to its encoded detail path', async () => {
+  it('renders one aggregate provider row, starts sorted by success rate, and shows Keys and Models buttons', async () => {
     await act(async () => root.render(<ProviderSummarySection />))
     await act(async () => undefined)
 
@@ -59,8 +62,52 @@ describe('ProviderSummarySection', () => {
     expect(container.textContent).toContain('OpenAI Team')
     expect(container.textContent).toContain('3')
     expect(container.textContent).toContain('95.00%')
-    const detail = container.querySelector<HTMLAnchorElement>('[data-provider-detail-action="true"]')
-    expect(detail?.getAttribute('href')).toBe('/cpa/ai-provider/OpenAI%20Team')
-    expect(detail?.textContent).toContain('usage_stats.provider_detail_action')
+    
+    const keysButton = container.querySelector<HTMLButtonElement>('[data-provider-keys-action="true"]')
+    const modelsButton = container.querySelector<HTMLButtonElement>('[data-provider-models-action="true"]')
+    
+    expect(keysButton).toBeTruthy()
+    expect(modelsButton).toBeTruthy()
+    expect(keysButton?.textContent).toContain('usage_stats.provider_keys_action')
+    expect(modelsButton?.textContent).toContain('usage_stats.provider_models_action')
+  })
+
+  it('opens keys dialog when Keys button is clicked', async () => {
+    await act(async () => root.render(<ProviderSummarySection />))
+    await act(async () => undefined)
+
+    const keysButton = container.querySelector<HTMLButtonElement>('[data-provider-keys-action="true"]')
+    expect(keysButton).toBeTruthy()
+
+    await act(async () => keysButton?.click())
+
+    expect(container.textContent).toContain('Keys for OpenAI Team')
+  })
+
+  it('opens models dialog when Models button is clicked', async () => {
+    await act(async () => root.render(<ProviderSummarySection />))
+    await act(async () => undefined)
+
+    const modelsButton = container.querySelector<HTMLButtonElement>('[data-provider-models-action="true"]')
+    expect(modelsButton).toBeTruthy()
+
+    await act(async () => modelsButton?.click())
+
+    expect(container.textContent).toContain('Models for OpenAI Team')
+  })
+
+  it('closes keys dialog when close handler is called', async () => {
+    await act(async () => root.render(<ProviderSummarySection />))
+    await act(async () => undefined)
+
+    const keysButton = container.querySelector<HTMLButtonElement>('[data-provider-keys-action="true"]')
+    await act(async () => keysButton?.click())
+
+    expect(container.textContent).toContain('Keys for OpenAI Team')
+
+    const closeButton = container.querySelector<HTMLButtonElement>('[aria-label="Close"]')
+    await act(async () => closeButton?.click())
+
+    expect(container.textContent).not.toContain('Keys for OpenAI Team')
   })
 })
