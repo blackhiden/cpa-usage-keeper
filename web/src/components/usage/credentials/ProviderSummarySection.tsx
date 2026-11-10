@@ -98,7 +98,7 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
           successRateLabel={t('usage_stats.total_requests')}
           totalTokensLabel={t('usage_stats.success_rate')}
           cacheReadRateLabel={t('usage_stats.total_tokens')}
-          sideLabel={t('usage_stats.provider_action')}
+          sideLabel={`${t('usage_stats.credentials_last_used')} / ${t('usage_stats.provider_action')}`}
         />
       )}
       {providers.map((provider) => (
