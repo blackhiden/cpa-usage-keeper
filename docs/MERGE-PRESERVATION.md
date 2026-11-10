@@ -1,38 +1,3 @@
-### 6. AI Provider Table Redesign & Detail Navigation
-
-**Status:** Permanent core feature  
-**Commit baseline:** Since fork inception
-
-The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation must remain implemented as the `ProviderSummarySection` and detail page. Removal or replacement requires an explicit, documented architectural decision and approval from maintainers. Upstream merges must not revert to the flat key list or remove the grid/flexbox layout.
-
-- **Frontend domain:** `web/src/components/usage/credentials/ProviderSummarySection.tsx`, `web/src/pages/UsagePage.tsx`
-- **SCSS:** `web/src/components/usage/credentials/CredentialSections.module.scss` (must contain `.credentialMetricHeaderGroup` and `.credentialMetricGroup` grid/flexbox rules)
-- **Integration points:**
-  - `web/src/pages/UsagePage.tsx`: must render `ProviderSummarySection` for `/ai-provider`
-  - `web/src/components/usage/credentials/index.ts`: must export `ProviderSummarySection`
-  - `web/src/components/usage/index.ts`: must export `ProviderSummarySection`
-- **Tests:**
-  - `ProviderSummarySection.test.tsx` (unit test)
-  - `/ai-provider` integration test (table layout)
-- **Documentation:**
-  - `docs/ARCHITECTURE.md` (permanence requirement)
-  - `docs/SPECIFICATION.md` (UC-7a permanent contract)
-  - `docs/ROADMAP.md` (policy reminder)
-  - `README.md` / `README.zh.md` (permanent feature note)
-  - `CHANGELOG.md` (feature history and merge records)
-  - `session.md` (restoration and protection decision)
-
-**Verification after merge:**
-```bash
-# Verify SCSS grid/flexbox rules
-grep -q "credentialMetricHeaderGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Header group class exists" || echo "✗ MISSING"
-grep -q "credentialMetricGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Row group class exists" || echo "✗ MISSING"
-# Build verification
-npm --prefix ./web run typecheck
-npm --prefix ./web run lint
-npm --prefix ./web run test
-npm --prefix ./web run build
-```
 # Merge Preservation Policy
 
 This document lists features and architectural decisions that **must not be
@@ -252,10 +217,7 @@ grep -q "live.*flow" web/src/pages/KeyViewerPage.tsx || grep -q "LiveFlow" web/s
 **Status:** Permanent core feature  
 **Commit baseline:** October 2026
 
-The `/ai-provider` provider grouping table and the `/ai-provider/:providerId`
-detail navigation must be preserved. This feature groups API keys by provider
-in the main view and provides per-provider detail pages with key-level
-statistics and sorting.
+The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation must remain implemented as the `ProviderSummarySection` and detail page. Removal or replacement requires an explicit, documented architectural decision and approval from maintainers. Upstream merges must not revert to the flat key list or remove the grid/flexbox layout.
 
 - **Backend domain:**
   - Routes: `GET /api/v1/usage/providers` (list), `GET /api/v1/usage/providers/:providerId/keys` (detail)
@@ -264,16 +226,23 @@ statistics and sorting.
   - Repository: `internal/repository/usage_identities.go` (ListProviders, ListProviderKeys)
   - Tests: `internal/api/test/usage_providers_test.go`, `internal/repository/test/usage_identities_test.go`
 - **Frontend domain:**
-  - Main table: `web/src/components/usage/credentials/ProviderSummarySection.tsx`
+  - Main table: `web/src/components/usage/credentials/ProviderSummarySection.tsx`, `web/src/pages/UsagePage.tsx`
+  - SCSS:  `web/src/components/usage/credentials/CredentialSections.module.scss` (must contain `.credentialMetricHeaderGroup` and `.credentialMetricGroup` grid/flexbox rules)
   - Detail page: `web/src/pages/ProviderDetailPage.tsx`
   - API client: `web/src/lib/api.ts` (listProviders, listProviderKeys)
   - Types: `web/src/lib/types.ts` (ProviderSummary, ProvidersResponse)
   - Tests: `web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx`, `web/src/pages/test/ProviderDetailPage.test.tsx`
 - **Integration points:**
+  - `web/src/components/usage/index.ts`: must export `ProviderSummarySection`
+  - `web/src/components/usage/credentials/index.ts`: must export `ProviderSummarySection`
+  - `web/src/pages/UsagePage.tsx`: must render `ProviderSummarySection` for `/ai-provider`
   - `web/src/App.tsx`: Route `/ai-provider/:providerId` → `ProviderDetailPage`
   - `web/src/pages/UsagePage.tsx`: Mounts `ProviderSummarySection` on `/ai-provider` tab
   - `web/src/components/usage/credentials/index.ts`: Exports `ProviderSummarySection`
   - `web/src/components/usage/index.ts`: Exports `ProviderSummarySection`
+- **Tests:**
+  - `ProviderSummarySection.test.tsx` (unit test)
+  - `/ai-provider` integration test (table layout)
 - **Access control:**
   - Both endpoints protected by `versionProtected` middleware (Admin + API-key viewer)
   - API-key viewers see only their own keys, scoped by session `api_key_id`
@@ -324,6 +293,16 @@ test -f web/src/pages/test/ProviderDetailPage.test.tsx && echo "✓ Detail page 
 # Build verification
 go build ./...
 npm --prefix ./web run typecheck
+npm --prefix ./web run build
+```
+```bash
+# Verify SCSS grid/flexbox rules
+grep -q "credentialMetricHeaderGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Header group class exists" || echo "✗ MISSING"
+grep -q "credentialMetricGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Row group class exists" || echo "✗ MISSING"
+# Build verification
+npm --prefix ./web run typecheck
+npm --prefix ./web run lint
+npm --prefix ./web run test
 npm --prefix ./web run build
 ```
 
