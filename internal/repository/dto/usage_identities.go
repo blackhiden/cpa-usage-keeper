@@ -54,3 +54,15 @@ type ProviderKeyStats struct {
 	FirstUsedAt     *time.Time `gorm:"column:first_used_at;serializer:storageTime"`
 	LastUsedAt      *time.Time `gorm:"column:last_used_at;serializer:storageTime"`
 }
+
+// ProviderModel 是按 provider 和 model 分组聚合的使用统计。
+type ProviderModel struct {
+	Model           string     `gorm:"column:model"`
+	TotalRequests   int64      `gorm:"column:total_requests"`
+	SuccessCount    int64      `gorm:"column:success_count"`
+	FailureCount    int64      `gorm:"column:failure_count"`
+	InputTokens     int64      `gorm:"column:input_tokens"`
+	CacheReadTokens int64      `gorm:"column:cache_read_tokens"`
+	TotalTokens     int64      `gorm:"column:total_tokens"`
+	LastUsedAt      *time.Time `gorm:"column:last_used_at;serializer:storageTime"`
+}

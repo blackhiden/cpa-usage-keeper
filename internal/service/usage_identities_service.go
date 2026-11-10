@@ -80,6 +80,7 @@ type UsageIdentityDetail struct {
 type ProviderReader interface {
 	ListProviders(context.Context, ListProvidersRequest) ([]ProviderAggregate, error)
 	ListProviderKeys(context.Context, ListProviderKeysRequest) (ListProviderKeysResponse, error)
+	ListProviderModels(context.Context, ListProviderModelsRequest) (ListProviderModelsResponse, error)
 }
 
 type ListProvidersRequest struct {
@@ -112,6 +113,35 @@ type ListProviderKeysRequest struct {
 type ListProviderKeysResponse struct {
 	Provider   string
 	Keys       []entities.UsageIdentity
+	TotalCount int64
+	Page       int
+	PageSize   int
+	TotalPages int
+}
+
+type ListProviderModelsRequest struct {
+	Provider    string
+	Sort        string
+	Page        int
+	PageSize    int
+	CPAAPIKeyID int64
+}
+
+type ProviderModel struct {
+	Model           string
+	TotalRequests   int64
+	SuccessCount    int64
+	FailureCount    int64
+	SuccessRate     float64
+	InputTokens     int64
+	CacheReadTokens int64
+	TotalTokens     int64
+	LastUsedAt      *time.Time
+}
+
+type ListProviderModelsResponse struct {
+	Provider   string
+	Models     []ProviderModel
 	TotalCount int64
 	Page       int
 	PageSize   int
@@ -312,6 +342,40 @@ func (s *usageIdentityService) ListProviderKeys(ctx context.Context, request Lis
 	}, nil
 }
 
+func (s *usageIdentityService) ListProviderModels(ctx context.Context, request ListProviderModelsRequest) (ListProviderModelsResponse, error) {
+	apiGroupKey, err := s.providerAPIGroupKey(ctx, request.CPAAPIKeyID)
+	if err != nil {
+		return ListProviderModelsResponse{}, err
+	}
+	models, total, err := repository.ListProviderModels(ctx, s.db, repository.ListProviderModelsRequest{
+		Provider:    request.Provider,
+		Sort:        request.Sort,
+		Page:        request.Page,
+		PageSize:    request.PageSize,
+		APIGroupKey: apiGroupKey,
+	})
+	if err != nil {
+		return ListProviderModelsResponse{}, err
+	}
+	page := request.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := request.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	return ListProviderModelsResponse{
+		Provider:   request.Provider,
+		Models:     mapProviderModels(models),
+		TotalCount: total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: int((total + int64(pageSize) - 1) / int64(pageSize)),
+	}, nil
+}
+
+
 func (s *usageIdentityService) providerAPIGroupKey(ctx context.Context, cpaAPIKeyID int64) (string, error) {
 	if cpaAPIKeyID <= 0 {
 		return "", nil
@@ -346,3 +410,26 @@ func mapProviderAggregates(providers []repodto.ProviderAggregate) []ProviderAggr
 	}
 	return result
 }
+
+func mapProviderModels(models []repodto.ProviderModel) []ProviderModel {
+	result := make([]ProviderModel, 0, len(models))
+	for _, model := range models {
+		successRate := 0.0
+		if model.TotalRequests > 0 {
+			successRate = float64(model.SuccessCount) / float64(model.TotalRequests)
+		}
+		result = append(result, ProviderModel{
+			Model:           model.Model,
+			TotalRequests:   model.TotalRequests,
+			SuccessCount:    model.SuccessCount,
+			FailureCount:    model.FailureCount,
+			SuccessRate:     successRate,
+			InputTokens:     model.InputTokens,
+			CacheReadTokens: model.CacheReadTokens,
+			TotalTokens:     model.TotalTokens,
+			LastUsedAt:      model.LastUsedAt,
+		})
+	}
+	return result
+}
+
