@@ -216,22 +216,22 @@ export function ProviderModelsDialog({ open, onClose, providerId }: ProviderMode
     <Modal
       open={open}
       onClose={onClose}
-      title={t('usage_stats.provider_models_title', { provider: providerId })}
+      title={t('usage_stats.provider_models_dialog_title', { provider: providerId })}
       width={820}
       className={styles.dialog}
     >
       <div className={styles.content}>
         <div className={styles.controls}>
           <div className={styles.info}>
-            {t('usage_stats.total_models', { count: totalCount })}
+            {t('usage_stats.provider_models_dialog_subtitle', { count: totalCount })}
           </div>
           <button
             type="button"
             onClick={handleViewModeToggle}
             className={styles.viewToggle}
-            aria-label={t('usage_stats.toggle_view')}
+            aria-label={t('usage_stats.provider_models_toggle_view')}
           >
-            {viewMode === 'card' ? t('usage_stats.list_view') : t('usage_stats.card_view')}
+            {viewMode === 'card' ? t('usage_stats.view_list') : t('usage_stats.view_cards')}
           </button>
         </div>
 

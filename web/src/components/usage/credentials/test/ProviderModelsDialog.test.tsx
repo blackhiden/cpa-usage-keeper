@@ -15,10 +15,10 @@ vi.mock('@/lib/api', async () => {
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, unknown>) => {
-      if (key === 'usage_stats.provider_models_title' && params?.provider) {
+      if (key === 'usage_stats.provider_models_dialog_title' && params?.provider) {
         return `Models for ${params.provider}`
       }
-      if (key === 'usage_stats.total_models' && typeof params?.count === 'number') {
+      if (key === 'usage_stats.provider_models_dialog_subtitle' && typeof params?.count === 'number') {
         return `${params.count} models`
       }
       if (key === 'usage_stats.model') return 'Model'
@@ -28,9 +28,9 @@ vi.mock('react-i18next', () => ({
       if (key === 'usage_stats.total_requests') return 'Total Requests'
       if (key === 'usage_stats.total_tokens') return 'Total Tokens'
       if (key === 'usage_stats.last_used') return 'Last used'
-      if (key === 'usage_stats.list_view') return 'List View'
-      if (key === 'usage_stats.card_view') return 'Card View'
-      if (key === 'usage_stats.toggle_view') return 'Toggle view'
+      if (key === 'usage_stats.view_list') return 'List'
+      if (key === 'usage_stats.view_cards') return 'Cards'
+      if (key === 'usage_stats.provider_models_toggle_view') return 'Toggle view mode'
       if (key === 'usage_stats.no_models_found') return 'No models found'
       if (key === 'usage_stats.failed_to_load_models') return 'Failed to load models'
       if (key === 'common.loading') return 'Loading'
