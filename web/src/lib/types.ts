@@ -1117,3 +1117,23 @@ export interface ProviderKeysResponse {
   page_size: number
   total_pages: number
 }
+
+export interface ProviderModel {
+  model: string
+  total_requests: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  input_tokens: number
+  total_tokens: number
+  last_used_at?: string
+}
+
+export interface ProviderModelsResponse {
+  provider: string
+  models: ProviderModel[]
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+}

@@ -1,4 +1,4 @@
-import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type ProviderKeysResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
+import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type ProviderKeysResponse, type ProviderModelsResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
 import type { DeletePricingModelResponse, ModelPricingConfig, PricingErrorResponse, PricingFieldError, PricingModelOptionsResponse, PricingModelsResponse, PricingRecalculationOptions, PricingRecalculationTask, PricingSyncApplyRequest, PricingSyncApplyResponse, PricingSyncFetchResponse, SavePricingModelResponse, StartPricingRecalculationRequest, StartPricingRecalculationResponse } from './types'
 import { isCPAMCEmbed } from '@/embed/cpamcEmbed'
 import { resolveUsageRequestRange } from '@/utils/usage/rangeQuery'
@@ -834,6 +834,39 @@ export async function listProviderKeys(
   const response = await apiFetch(`${apiPath(`/usage/providers/${encodeURIComponent(providerId)}/keys`)}${query ? `?${query}` : ''}`, { signal })
   if (!response.ok) {
     await parseApiError(response, `Failed to load provider keys: ${response.status}`)
+  }
+  return response.json()
+}
+
+export interface ListProviderModelsOptions {
+  sort?: string
+  order?: 'asc' | 'desc'
+  page?: number
+  page_size?: number
+}
+
+export async function listProviderModels(
+  providerId: string,
+  options?: ListProviderModelsOptions,
+  signal?: AbortSignal,
+): Promise<ProviderModelsResponse> {
+  const params = new URLSearchParams()
+  if (options?.sort) {
+    params.set('sort', options.sort)
+  }
+  if (options?.order) {
+    params.set('order', options.order)
+  }
+  if (typeof options?.page === 'number' && Number.isFinite(options.page) && options.page > 0) {
+    params.set('page', String(Math.floor(options.page)))
+  }
+  if (typeof options?.page_size === 'number' && Number.isFinite(options.page_size) && options.page_size > 0) {
+    params.set('page_size', String(Math.floor(options.page_size)))
+  }
+  const query = params.toString()
+  const response = await apiFetch(`${apiPath(`/usage/providers/${encodeURIComponent(providerId)}/models`)}${query ? `?${query}` : ''}`, { signal })
+  if (!response.ok) {
+    await parseApiError(response, `Failed to load provider models: ${response.status}`)
   }
   return response.json()
 }
