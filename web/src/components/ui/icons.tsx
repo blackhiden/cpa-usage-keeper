@@ -662,3 +662,19 @@ export function IconGitBranch({ size = 20, ...props }: IconProps) {
     <circle cx="18" cy="6" r="3" />
   </svg>;
 }
+
+// View mode toggle icons for ProviderDataDialog
+export function IconGrid3x3({ size = 20, ...props }: IconProps) {
+  return <svg {...baseSvgProps} width={size} height={size} {...props}>
+    <rect width="7" height="7" x="3" y="3" rx="1" />
+    <rect width="7" height="7" x="14" y="3" rx="1" />
+    <rect width="7" height="7" x="14" y="14" rx="1" />
+    <rect width="7" height="7" x="3" y="14" rx="1" />
+  </svg>;
+}
+
+export function IconList({ size = 20, ...props }: IconProps) {
+  return <svg {...baseSvgProps} width={size} height={size} {...props}>
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+  </svg>;
+}
