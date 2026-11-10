@@ -23,7 +23,6 @@ const DEFAULT_SORT: UsageIdentityPageSort = 'success_rate'
 
 export function ProviderKeysDialog({ open, onClose, providerId }: ProviderKeysDialogProps) {
   const { t } = useTranslation()
-  const [keys, setKeys] = useState<UsageIdentity[]>([])
   const [rows, setRows] = useState<AiProviderCredentialRow[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -45,27 +44,28 @@ export function ProviderKeysDialog({ open, onClose, providerId }: ProviderKeysDi
       page_size: pageSize,
     }
 
-    setLoading(true)
-    setError('')
-    void listProviderKeys(providerId, options, controller.signal)
-      .then((response) => {
+    const loadKeys = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const response = await listProviderKeys(providerId, options, controller.signal)
         if (controller.signal.aborted) return
-        setKeys(response.keys)
         setRows(buildAiProviderCredentialRows(response.keys))
         setTotal(response.total_count)
         setTotalPages(Math.max(response.total_pages, 1))
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError: unknown) {
         if (controller.signal.aborted) return
         if (loadError instanceof ApiError) {
           setError(loadError.message)
         } else {
           setError(loadError instanceof Error ? loadError.message : 'Failed to load keys')
         }
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) setLoading(false)
-      })
+      }
+    }
+
+    void loadKeys()
 
     return () => controller.abort()
   }, [open, page, pageSize, providerId, sort])
@@ -98,8 +98,7 @@ export function ProviderKeysDialog({ open, onClose, providerId }: ProviderKeysDi
           </p>
           <Button
             type="button"
-            variant="secondary"
-            appearance="ghost"
+            variant="ghost"
             onClick={handleViewModeToggle}
             aria-label={t('usage_stats.provider_keys_toggle_view')}
           >
