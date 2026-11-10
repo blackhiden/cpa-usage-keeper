@@ -1,0 +1,78 @@
+@use 'sass:color';
+@use '../../styles/variables.scss' as *;
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  width: 100%;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--keeper-card-title-weight);
+  font-size: var(--keeper-card-title-size);
+  line-height: var(--keeper-card-title-line-height);
+  color: var(--text-primary);
+}
+
+.viewToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.toggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  svg {
+    display: block;
+  }
+
+  &:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
+  &.active {
+    background: var(--bg-primary);
+    color: var(--primary-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+@media (max-width: $breakpoint-mobile) {
+  .header {
+    gap: $spacing-sm;
+  }
+
+  .viewToggle {
+    flex-shrink: 0;
+  }
+}
