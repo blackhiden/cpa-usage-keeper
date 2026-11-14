@@ -456,6 +456,11 @@ export interface UsageIdentity {
   priority?: number
   disabled: boolean
   note?: string
+  siwc_bind_supported?: boolean | null
+  siwc_bound?: boolean | null
+  use_siwc?: boolean | null
+  siwc_status?: string | null
+  siwc_expires_at?: string | null
   subscription?: UsageSubscriptionInfo
   active_start?: string
   active_until?: string
@@ -1112,6 +1117,26 @@ export interface ProvidersResponse {
 export interface ProviderKeysResponse {
   provider: string
   keys: UsageIdentity[]
+  total_count: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface ProviderModel {
+  model: string
+  total_requests: number
+  success_count: number
+  failure_count: number
+  success_rate: number
+  input_tokens: number
+  total_tokens: number
+  last_used_at?: string
+}
+
+export interface ProviderModelsResponse {
+  provider: string
+  models: ProviderModel[]
   total_count: number
   page: number
   page_size: number

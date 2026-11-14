@@ -25,6 +25,7 @@ interface CredentialCardShellProps {
   metricsTitle?: string
   health: ReactNode
   quota?: ReactNode
+  footerLeft?: ReactNode
   actions?: ReactNode
 }
 
@@ -50,7 +51,7 @@ export function CredentialCardGrid({ children }: { children: ReactNode }) {
   return <div className={styles.credentialCardGrid}>{children}</div>
 }
 
-export function CredentialCardShell({ identityId, icon, title, badges, status, metrics, metricsTitle, health, quota, actions }: CredentialCardShellProps) {
+export function CredentialCardShell({ identityId, icon, title, badges, status, metrics, metricsTitle, health, quota, footerLeft, actions }: CredentialCardShellProps) {
   // 两类身份共用卡片骨架；详情入口与编辑等操作独立，卡片留白不绑定点击。
   return (
     <article className={styles.credentialCard} data-credential-card="true" data-credential-identity={identityId}>
@@ -66,6 +67,7 @@ export function CredentialCardShell({ identityId, icon, title, badges, status, m
       {health}
       {quota && <div className={styles.credentialCardQuota}>{quota}</div>}
       <div className={styles.credentialCardFooter}>
+        {footerLeft}
         <div className={styles.credentialCardActions}>
           {actions}
         </div>
@@ -258,6 +260,7 @@ interface CredentialTableHeaderProps {
   successRateLabel: string
   totalTokensLabel: string
   cacheReadRateLabel: string
+  lastUsedLabel?: string
   sideLabel: string
   rowClassName?: string
 }
@@ -283,7 +286,7 @@ export function CredentialRowShell({ icon, title, subtitle, badges, metrics, met
   )
 }
 
-export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRateLabel, totalTokensLabel, cacheReadRateLabel, sideLabel, rowClassName }: CredentialTableHeaderProps) {
+export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRateLabel, totalTokensLabel, cacheReadRateLabel, lastUsedLabel, sideLabel, rowClassName }: CredentialTableHeaderProps) {
   return (
     <div className={`${styles.credentialTableHeader} ${rowClassName ?? ''}`.trim()}>
       <span className={styles.credentialTableHeaderName}>{nameLabel}</span>
@@ -292,6 +295,7 @@ export function CredentialTableHeader({ nameLabel, totalRequestsLabel, successRa
         <span className={styles.credentialMetricHeaderCell}>{successRateLabel}</span>
         <span className={styles.credentialMetricHeaderCell}>{totalTokensLabel}</span>
         <span className={styles.credentialMetricHeaderCell}>{cacheReadRateLabel}</span>
+        {lastUsedLabel && <span className={styles.credentialMetricHeaderCell}>{lastUsedLabel}</span>}
       </div>
       <span className={styles.credentialTableHeaderSide}>{sideLabel}</span>
     </div>

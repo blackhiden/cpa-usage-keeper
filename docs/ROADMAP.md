@@ -48,6 +48,48 @@
 
 **Goal:** deeper insight and a more polished dashboard experience.
 
+### Active Feature Development
+
+- **2.21 Provider Keys & Models Dialogs with View Modes.** ⬜ (planned)
+  - **Objective:** Enhance `/ai-provider` table with separate "Keys" and "Models" action buttons. Each opens a dialog showing provider-specific data with card and list view toggles.
+  - **User Story:** As an admin, I want to quickly inspect all keys or all models for a provider without navigating away from the providers table, and toggle between card and list presentations based on my preference.
+  - **Scope:**
+    - **Backend:**
+      - New endpoint: `GET /api/v1/usage/providers/:providerId/models` (paginated, with server-side sorting)
+      - Repository: `ListProviderModels(ctx, db, request)` query (aggregate distinct models from `usage_events` where `provider = :providerId`, with role-based scoping for API-key viewers)
+      - Service: `ProviderModelsService.ListModels(providerId, apiGroupKey, sort, page, pageSize)`
+      - Tests: Repository query, service logic, API authorization (admin vs viewer)
+    - **Frontend:**
+      - Rename "Detail" button to "Keys" (update i18n key `provider_detail_action` → `provider_keys_action`)
+      - Add "Models" button next to "Keys"
+      - Create reusable `ProviderDataDialog` component with card/list view toggle
+      - Create `ProviderKeysDialog` (wraps existing key-fetching logic from `ProviderDetailPage`)
+      - Create `ProviderModelsDialog` (fetches and displays provider models)
+      - Card view: grid layout with model/key cards showing name, usage stats, success rate
+      - List view: table layout similar to existing credential tables
+      - ViewMode state (card/list) persisted in component state
+      - Update i18n: add `provider_keys_action`, `provider_models_action`, `provider_keys_dialog_title`, `provider_models_dialog_title`, `view_mode_card`, `view_mode_list` (en, zh, zh-TW)
+      - Tests: Dialog open/close, view toggle, data rendering, role-based display
+    - **Documentation:**
+      - Add feature to `docs/MERGE-PRESERVATION.md` §7 (permanent feature)
+      - Update `docs/ARCHITECTURE.md` (new endpoint and dialog pattern)
+      - Update `docs/SPECIFICATION.md` (UC-7b: Provider keys/models quick inspection)
+      - Update `session.md` with implementation notes
+  - **Dependencies:** None (builds on existing provider table infrastructure)
+  - **Acceptance Criteria:**
+    - [ ] Backend endpoint returns paginated models for a provider
+    - [ ] Admin sees all models; API-key viewer sees only models from their events
+    - [ ] "Keys" button (renamed from "Detail") opens a dialog with key list
+    - [ ] "Models" button opens a dialog with model list
+    - [ ] Both dialogs support card and list view toggle
+    - [ ] Card view renders grid layout with stats
+    - [ ] List view renders table layout
+    - [ ] View mode selection persists during dialog session
+    - [ ] i18n complete for all three locales
+    - [ ] Tests cover dialog interaction, view toggle, and role-based filtering
+    - [ ] Feature documented in `MERGE-PRESERVATION.md`
+  - **Tasks:** See [PHASE_2_21_PLAN.md](PHASE_2_21_PLAN.md) for detailed task breakdown (12 tasks total, 2-3 developer-days).
+
 ### Restoration Tasks (Upstream Merge Recovery)
 
 - **2.20 Restore API Key Name Display (Key Name Alias).** 🟡 (in progress)

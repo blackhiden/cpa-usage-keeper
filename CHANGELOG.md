@@ -2,6 +2,50 @@
 
 All notable changes to this project are documented here.
 
+## [2.0.11] - 2026-11-09
+
+### Merged from Upstream
+
+Synchronized with upstream/main (commit bf5fb1c0), incorporating 20 commits:
+
+- **feat(usage-events)**: Stream latest requests and pause while reading (#696)
+  - New `useRequestEventsFeed` hook replaces manual event state management
+  - SSE-based live updates with reading/restoring states
+  - Automatic pagination and history cursor management
+- **feat(quota)**: Support Antigravity Argon quota groups (#697)
+  - Argon-specific usage stats parsing
+  - Quota normalization for grouped providers
+- **fix(models)**: Retain tab data across navigation (#698)
+  - New `useModelCatalogData` hook for persistent model catalog state
+  - Invalidate pricing snapshots after writes
+- **refactor(models)**: Separate model catalog data management
+- **refactor(usage-events)**: Simplify stream and viewport lifecycles
+- Various credential UI fixes (tooltips, toolbar alignment, health panel layout)
+
+### Fork Features Preserved
+
+All protected features maintained through merge conflicts:
+- **Provider Model GNN** (`internal/gnn/`, `web/src/features/model-gnn/`)
+  - LocalRanking and community Ranking providers
+  - ProviderModelGraph API integration
+- **AI Provider Table Redesign** (§6 in `docs/MERGE-PRESERVATION.md`)
+  - `/ai-provider` grouped provider table and detail navigation
+  - Grid layout CSS and provider summary section
+- **Live Flow** tab and LiveFlowProvider integration
+- **API Key Name Display** priority (KeyName → KeyAlias → MaskedKey)
+
+### Conflict Resolution
+
+- `internal/api/router.go`: Merged `OptionalProviders` struct to include upstream `UsageEventsLive` + `UsageEventsLiveContext` while preserving fork providers (LocalRanking, Ranking, Models, ProviderModelGraph, LiveFlowClient)
+- `web/src/pages/UsagePage.tsx`: Adopted new `useRequestEventsFeed` and `useModelCatalogData` hooks while preserving fork-specific tab logic (live-flow, events refresh, ai-provider refresh, ranking tab for CPAMC embed)
+- `web/src/pages/test/UsagePage.logic.test.ts`: Updated `shouldAutoRefreshUsageTab` test to match new hook signature (removed `eventsPage` parameter, added ranking assertion)
+
+### Technical Details
+
+- Frontend builds successfully (`npm run typecheck`, `npm run lint`, `npm run build` all pass)
+- Git Flow release v2.0.11 completed: release branch merged into main, tagged, and back-merged into dev
+- Upstream reference: bf5fb1c0 (fix(models): retain tab data across navigation)
+
 ## [Unreleased]
 
 ### Added

@@ -68,6 +68,27 @@ type providerKeysResponse struct {
 	TotalPages int                   `json:"total_pages"`
 }
 
+type providerModelsResponse struct {
+	Provider   string                  `json:"provider"`
+	Models     []providerModelResponse `json:"models"`
+	TotalCount int64                   `json:"total_count"`
+	Page       int                     `json:"page"`
+	PageSize   int                     `json:"page_size"`
+	TotalPages int                     `json:"total_pages"`
+}
+
+type providerModelResponse struct {
+	Model           string     `json:"model"`
+	TotalRequests   int64      `json:"total_requests"`
+	SuccessCount    int64      `json:"success_count"`
+	FailureCount    int64      `json:"failure_count"`
+	SuccessRate     float64    `json:"success_rate"`
+	InputTokens     int64      `json:"input_tokens"`
+	CacheReadTokens int64      `json:"cache_read_tokens"`
+	TotalTokens     int64      `json:"total_tokens"`
+	LastUsedAt      *time.Time `json:"last_used_at,omitempty"`
+}
+
 // providerKeyResponse extends the established identity view only for the new
 // provider-key route. Legacy identity responses intentionally never publish a
 // base URL (see TestProviderMetadataSecretStaysOutOfUsageIdentityResponses).
@@ -102,6 +123,11 @@ type usageIdentityResponse struct {
 	Priority                   *int                           `json:"priority,omitempty"`
 	Disabled                   bool                           `json:"disabled"`
 	Note                       *string                        `json:"note,omitempty"`
+	SIWCBindSupported          *bool                          `json:"siwc_bind_supported"`
+	SIWCBound                  *bool                          `json:"siwc_bound"`
+	UseSIWC                    *bool                          `json:"use_siwc"`
+	SIWCStatus                 *string                        `json:"siwc_status"`
+	SIWCExpiresAt              *time.Time                     `json:"siwc_expires_at"`
 	Subscription               *quota.SubscriptionInfo        `json:"subscription,omitempty"`
 	ActiveStart                *time.Time                     `json:"active_start,omitempty"`
 	ActiveUntil                *time.Time                     `json:"active_until,omitempty"`
@@ -403,6 +429,11 @@ func mapUsageIdentityResponseWithHealth(item entities.UsageIdentity, health *ser
 		Priority:                   item.Priority,
 		Disabled:                   disabled,
 		Note:                       item.Note,
+		SIWCBindSupported:          item.SIWCBindSupported,
+		SIWCBound:                  item.SIWCBound,
+		UseSIWC:                    item.UseSIWC,
+		SIWCStatus:                 item.SIWCStatus,
+		SIWCExpiresAt:              item.SIWCExpiresAt,
 		Subscription:               quota.ResolveIdentitySubscription(item),
 		ActiveStart:                item.ActiveStart,
 		ActiveUntil:                item.ActiveUntil,
@@ -597,6 +628,48 @@ func registerProviderRoutes(router gin.IRoutes, usageIdentityProvider service.Us
 		}
 		c.JSON(http.StatusOK, providerKeysResponse{
 			Provider: result.Provider, Keys: keys, TotalCount: result.TotalCount,
+			Page: result.Page, PageSize: result.PageSize, TotalPages: result.TotalPages,
+		})
+	})
+
+	router.GET("/usage/providers/:providerId/models", func(c *gin.Context) {
+		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		if !ok {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider model listing is not configured"})
+			return
+		}
+		providerID := strings.TrimSpace(c.Param("providerId"))
+		if providerID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider id is required"})
+			return
+		}
+		apiKeyID, ok := providerViewerAPIKeyID(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			return
+		}
+		result, err := reader.ListProviderModels(c.Request.Context(), service.ListProviderModelsRequest{
+			Provider: providerID, Sort: strings.TrimSpace(c.Query("sort")),
+			Page: positiveQueryInt(c, "page", 1), PageSize: positiveQueryInt(c, "page_size", 20), CPAAPIKeyID: apiKeyID,
+		})
+		if err != nil {
+			writeInternalError(c, "list provider models failed", err)
+			return
+		}
+		if result.TotalCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "provider not found"})
+			return
+		}
+		models := make([]providerModelResponse, 0, len(result.Models))
+		for _, model := range result.Models {
+			models = append(models, providerModelResponse{
+				Model: model.Model, TotalRequests: model.TotalRequests, SuccessCount: model.SuccessCount,
+				FailureCount: model.FailureCount, SuccessRate: model.SuccessRate, InputTokens: model.InputTokens,
+				CacheReadTokens: model.CacheReadTokens, TotalTokens: model.TotalTokens, LastUsedAt: model.LastUsedAt,
+			})
+		}
+		c.JSON(http.StatusOK, providerModelsResponse{
+			Provider: result.Provider, Models: models, TotalCount: result.TotalCount,
 			Page: result.Page, PageSize: result.PageSize, TotalPages: result.TotalPages,
 		})
 	})

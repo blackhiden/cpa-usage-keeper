@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ProviderBrandIcon } from '@/components/ProviderBrandIcon'
-import { cpamcEmbedSearch } from '@/embed/cpamcEmbed'
 import { Select } from '@/components/ui/Select'
-import { ApiError, appPath, listProviders } from '@/lib/api'
+import { ApiError, listProviders } from '@/lib/api'
 import type { ProviderSummary } from '@/lib/types'
-import { getProviderDetailPath } from '@/lib/usageNavigation'
 import styles from './CredentialSections.module.scss'
 import { formatCredentialTimestamp } from './credentialViewModels'
 import { CredentialRowShell, CredentialSectionShell, CredentialTableHeader, MetricPill, TonePercent, formatCredentialNumber, successRateTone } from './CredentialSectionShell'
+import { ProviderKeysDialog } from './ProviderKeysDialog'
+import { ProviderModelsDialog } from './ProviderModelsDialog'
 
 export type ProviderSummarySort = 'total_requests' | 'success_rate' | 'total_tokens' | 'last_used_at'
 const PROVIDERS_LOAD_FAILED = 'PROVIDERS_LOAD_FAILED'
@@ -31,6 +31,9 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
   const [sort, setSort] = useState<ProviderSummarySort>('success_rate')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [keysDialogOpen, setKeysDialogOpen] = useState(false)
+  const [modelsDialogOpen, setModelsDialogOpen] = useState(false)
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -95,6 +98,7 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
           successRateLabel={t('usage_stats.total_requests')}
           totalTokensLabel={t('usage_stats.success_rate')}
           cacheReadRateLabel={t('usage_stats.total_tokens')}
+          lastUsedLabel={t('usage_stats.credentials_last_used')}
           sideLabel={t('usage_stats.provider_action')}
         />
       )}
@@ -111,19 +115,36 @@ export function ProviderSummarySection({ onAuthRequired, refreshRevision = 0 }: 
               <MetricPill value={formatCredentialNumber(provider.total_requests)} />
               <MetricPill value={<TonePercent value={successRate(provider)} tone={successRateTone(successRate(provider))} />} />
               <MetricPill value={formatCredentialNumber(provider.total_tokens)} />
+              <MetricPill value={provider.last_used_at ? (formatCredentialTimestamp(provider.last_used_at) ?? provider.last_used_at) : '-'} />
             </>
           )}
           side={(
             <div className={styles.providerSummaryAction}>
-              {provider.last_used_at && <span>{t('usage_stats.credentials_last_used')}: {formatCredentialTimestamp(provider.last_used_at) ?? provider.last_used_at}</span>}
-              <a className={`btn btn-secondary btn-sm ${styles.providerSummaryDetailButton}`} href={appPath(getProviderDetailPath(provider.provider)) + cpamcEmbedSearch()} data-provider-detail-action="true">
-                <span>{t('usage_stats.provider_detail_action')}</span>
-              </a>
+              <button 
+                className={`btn btn-secondary btn-sm ${styles.providerSummaryDetailButton}`}
+                onClick={() => { setSelectedProvider(provider.provider); setKeysDialogOpen(true) }}
+                data-provider-keys-action="true"
+              >
+                <span>{t('usage_stats.provider_keys_action')}</span>
+              </button>
+              <button 
+                className={`btn btn-secondary btn-sm ${styles.providerSummaryDetailButton}`}
+                onClick={() => { setSelectedProvider(provider.provider); setModelsDialogOpen(true) }}
+                data-provider-models-action="true"
+              >
+                <span>{t('usage_stats.provider_models_action')}</span>
+              </button>
             </div>
           )}
           rowClassName={styles.aiProviderCredentialRow}
         />
       ))}
+      {selectedProvider && (
+        <>
+          <ProviderKeysDialog open={keysDialogOpen} onClose={() => setKeysDialogOpen(false)} providerId={selectedProvider} />
+          <ProviderModelsDialog open={modelsDialogOpen} onClose={() => setModelsDialogOpen(false)} providerId={selectedProvider} />
+        </>
+      )}
     </CredentialSectionShell>
   )
 }
