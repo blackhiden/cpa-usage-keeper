@@ -37,15 +37,18 @@ export function LiveFlowPanel() {
   ))
   const [historicalModels, setHistoricalModels] = useState<LiveFlowHistoricalModel[]>([])
   const [previousHistoricalModels, setPreviousHistoricalModels] = useState<LiveFlowHistoricalModel[] | null>(null)
-  const [historyState, setHistoryState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [historyStatus, setHistoryStatus] = useState<'ready' | 'error'>('ready')
   const [historyPeriodKey, setHistoryPeriodKey] = useState<string>('')
+  // Set only after a request settles, so the effect never sets state synchronously.
+  const [resolvedPeriod, setResolvedPeriod] = useState<LiveFlowPeriod | null>(null)
+  const historyState: 'loading' | 'ready' | 'error' =
+    resolvedPeriod !== period ? 'loading' : historyStatus === 'error' ? 'error' : 'ready'
 
   // Period history is fetched on demand; the live WebSocket keeps running so a
   // history failure never disables the canvas.
   useEffect(() => {
     const controller = new AbortController()
     let active = true
-    setHistoryState('loading')
 
     const comparison = previousComparablePeriod(period)
     const load = async () => {
@@ -54,11 +57,13 @@ export function LiveFlowPanel() {
         if (!active) return
         setHistoricalModels(response.models)
         setHistoryPeriodKey(response.period_key)
-        setHistoryState('ready')
+        setHistoryStatus('ready')
+        setResolvedPeriod(period)
       } catch {
         if (!active || controller.signal.aborted) return
         setHistoricalModels([])
-        setHistoryState('error')
+        setHistoryStatus('error')
+        setResolvedPeriod(period)
       }
 
       if (!comparison) {
