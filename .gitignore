@@ -51,6 +51,8 @@ session.md
 .agents
 *.md
 !docs/MERGE-PRESERVATION.md
+!docs/PARALLEL-DEVELOPMENT.md
 !SCHEMA.md
 *.sh
+!scripts/parallel-feature-worktrees.sh
 node_modules

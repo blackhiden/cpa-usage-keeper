@@ -146,31 +146,41 @@ grep -q "/api/v1/ranking/leaderboard" internal/api/router.go && echo "✓ Endpoi
 **Commit baseline:** October 2026
 
 Authenticated Live Flow relay and dashboard page showing CLIProxyAPI's
-metadata-only request stream with lifecycle trails (pending/success/failure).
+metadata-only request stream with lifecycle trails (pending/success/failure),
+plus a persistent per-model history for the six selectable calendar periods.
 
 - **Backend relay:** `GET /api/v1/live-flow/ws` (authenticated WebSocket proxy to CPA `/live-flow/ws`)
-- **Frontend page:** `/live-flow` standalone menu page with always-mounted canvas
-- **Features:** Generation-only stream, lifecycle trails (amber pending → green success / red failure), model fidelity
+- **Backend history:** `GET /api/v1/live-flow/models?period=<value>` (admin + API-key viewer, metadata only)
+- **Frontend page:** `/live-flow` standalone menu page and `/key-live-flow` viewer page, both with an always-mounted canvas
+- **Features:** Generation-only stream, lifecycle trails (amber pending → green success / red failure), model fidelity, persistent period history with six periods (today, yesterday, current week, previous week, current month, previous month), per-period model count, request total, and previous-period trend
 - **Files:**
   - `internal/api/live_flow.go` (relay handler)
-  - `web/src/pages/LiveFlowPage.tsx` (standalone page)
-  - `web/src/components/usage/LiveFlowCanvas.tsx` (visualization)
+  - `internal/liveflow/` (period model + history service), `internal/liveflow/httpapi/` (history route)
+  - `internal/repository/liveflow_models.go` (aggregation over `usage_events`)
+  - `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`, `FlowTopology.tsx` (panel and canvas)
+  - `web/src/features/live-flow/` (history types, API client, merge/trend helpers, period select)
+  - `web/src/pages/KeyLiveFlowPage.tsx` (API-key viewer page)
 
 **Documentation:**
-- `docs/ARCHITECTURE.md` §4 (Live Flow relay)
-- `docs/SPECIFICATION.md` UC-2a (inspect Live Flow)
+- `docs/ARCHITECTURE.md` §4 (Live Flow relay) and §7 (Live Flow history domain)
+- `docs/SPECIFICATION.md` UC-2a (inspect Live Flow) and UC-2d (historical model view)
 - `CHANGELOG.md` (Live Flow features)
 - `session.md` (Live Flow implementation notes)
 
 **Verification after merge:**
 ```bash
-# Verify backend relay
+# Verify backend relay and history domain
 test -f internal/api/live_flow.go && echo "✓ Relay handler exists" || echo "✗ MISSING"
 grep -q "/live-flow/ws" internal/api/router.go && echo "✓ Relay route exists" || echo "✗ MISSING"
+test -f internal/liveflow/period.go && echo "✓ Period model exists" || echo "✗ MISSING"
+test -f internal/liveflow/httpapi/routes.go && echo "✓ History route exists" || echo "✗ MISSING"
+test -f internal/repository/liveflow_models.go && echo "✓ Aggregation exists" || echo "✗ MISSING"
 
 # Verify frontend
-test -f web/src/pages/LiveFlowPage.tsx && echo "✓ Page exists" || echo "✗ MISSING"
-test -f web/src/components/usage/LiveFlowCanvas.tsx && echo "✓ Canvas exists" || echo "✗ MISSING"
+test -f web/src/features/usage/LiveFlowPanel.tsx && echo "✓ Panel exists" || echo "✗ MISSING"
+test -f web/src/features/usage/FlowTopology.tsx && echo "✓ Canvas exists" || echo "✗ MISSING"
+test -f web/src/features/live-flow/merge.ts && echo "✓ History domain exists" || echo "✗ MISSING"
+test -f web/src/pages/KeyLiveFlowPage.tsx && echo "✓ Viewer page exists" || echo "✗ MISSING"
 
 # Verify menu entry
 grep -q "/live-flow" web/src/components/layout/Sidebar.tsx || grep -q "live-flow" web/src/components/layout/Header.tsx
