@@ -12,6 +12,7 @@
 .footer,
 .summary,
 .status,
+.historySummary,
 .feedItem {
   display: flex;
   align-items: center;
@@ -20,6 +21,28 @@
 .header {
   justify-content: space-between;
   gap: 20px;
+}
+
+.headerActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.historySummary {
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.historySummary [data-history-trend='up'] {
+  color: var(--success-color);
+}
+
+.historySummary [data-history-trend='down'] {
+  color: var(--error-color);
 }
 
 .eyebrow {
