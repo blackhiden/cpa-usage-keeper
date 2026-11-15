@@ -2,7 +2,9 @@
 
 > **Purpose:** This document provides a comprehensive structural map of the entire codebase—modules, dependencies, data flow, and integration points. Use it as your **primary reference** when exploring the project to minimize file reads and accelerate orientation for AI agents and developers.
 >
-> **Last Updated:** 2026-10-13
+> **Last Updated:** 2026-11-15  
+> **Last Scanned Commit:** `de134fda6689301b55a9c7ed567d8d6e0efb164e` (2026-11-14 14:55:22 +0700)  
+> **Commit Message:** Merge tag 'v2.1.1' into dev
 
 ---
 
@@ -99,15 +101,20 @@ internal/app/app.go (APPLICATION ASSEMBLY)
         │   - All SQL/GORM lives here           │
         │   - Repository pattern per entity     │
         │   - Migrations in migration/          │
+        │   - Uses aggregation domain packages  │
         └───────────────────────────────────────┘
                         │
-                        ▼
-        ┌───────────────────────────────────────┐
-        │      ENTITIES (schema source)         │
-        │         internal/entities/            │
-        │   - GORM models, single source of     │
-        │     schema truth                      │
-        └───────────────────────────────────────┘
+                        ├──────────────────┐
+                        ▼                  ▼
+        ┌──────────────────────┐  ┌────────────────────────┐
+        │ ENTITIES (schema)    │  │ AGGREGATION DOMAINS    │
+        │ internal/entities/   │  │ internal/activity/     │
+        │ - GORM models        │  │ internal/latency/      │
+        │ - Table definitions  │  │ internal/overview/     │
+        └──────────────────────┘  │ - Pure aggregation     │
+                                  │ - Grain/bucket logic   │
+                                  │ - No GORM dependencies │
+                                  └────────────────────────┘
 ```
 
 ### 2.2 Module Dependency Graph (Mermaid)
@@ -125,6 +132,7 @@ graph TD
     B --> J[internal/ranking]
     B --> K[internal/gnn]
     B --> L[web embedded]
+    B --> OIDC[internal/oidc]
     
     C --> F
     C --> H
@@ -135,6 +143,7 @@ graph TD
     F --> E
     F --> M[internal/pricing]
     F --> N[internal/cpa]
+    F --> PM[internal/pricingmetadata]
     
     G --> E
     G --> O[internal/activity]
@@ -143,10 +152,19 @@ graph TD
     
     E --> R[internal/entities]
     E --> S[GORM/SQLite]
+    E --> O
+    E --> P
+    E --> Q
     
     I --> T[Provider APIs]
-    J --> U[Ranking Center]
+    J --> U[Ranking Center optional]
     N --> V[CPA/Redis]
+    OIDC --> W[OIDC Provider]
+    PM --> X[LiteLLM/modelslab]
+    
+    O -.aggregation.-> R
+    P -.aggregation.-> R
+    Q -.aggregation.-> R
     
     L --> C
     
@@ -154,6 +172,9 @@ graph TD
     style E fill:#fff4e1
     style F fill:#ffe1f5
     style C fill:#e1ffe1
+    style O fill:#fffacd
+    style P fill:#fffacd
+    style Q fill:#fffacd
 ```
 
 ### 2.3 Internal Module Responsibilities
@@ -164,18 +185,27 @@ graph TD
 | **internal/app** | Application assembly & lifecycle | `App`, `NewWithOptions()`, `Run()`, `Close()` | All major internal packages |
 | **internal/api** | HTTP router & handlers | Gin router, handler functions | `service`, `auth`, `quota`, `ranking`, `gnn` |
 | **internal/entities** | GORM models (schema source of truth) | `UsageEvent`, `RedisUsageInbox`, `CPAAPIKey`, etc. | Standard library only |
-| **internal/repository** | Data access layer (all SQL/GORM) | Repository structs, query functions | `entities`, `gorm.io/gorm` |
-| **internal/service** | Business logic layer | Service structs, domain operations | `repository`, `pricing`, `cpa` |
-| **internal/poller** | Event ingestion & aggregation | Runners, ingest sources | `repository`, `service` |
+| **internal/repository** | Data access layer (all SQL/GORM) | Repository structs, query functions | `entities`, `activity`, `latency`, `overview`, `gorm.io/gorm` |
+| **internal/service** | Business logic layer | Service structs, domain operations | `repository`, `pricing`, `pricingmetadata`, `cpa` |
+| **internal/poller** | Event ingestion & aggregation | Runners, ingest sources, control messages | `repository`, `service`, `activity`, `latency`, `overview` |
+| **internal/activity** | Activity aggregation domain | Grain bucketing (short/medium/long/daily), retention logic | `entities`, `timeutil` (no GORM) |
+| **internal/latency** | Latency aggregation domain | Hour/day bucket logic, sketch encoding, sample sets | `entities`, `activity`, `timeutil` (no GORM) |
+| **internal/overview** | Overview aggregation domain | Hour/day stats, speed calculation | `entities`, `timeutil` (no GORM) |
 | **internal/quota** | Provider quota management | Quota clients, refresh engine | Provider APIs |
-| **internal/gnn** | Provider-Model GNN feature | Graph construction, HTTP API | `service`, `entities` |
+| **internal/gnn** | Provider-Model GNN feature | Graph construction, HTTP API | `cpa`, `entities` |
 | **internal/ranking** | Local and community ranking | Local API key ranking (default), HTTP API, optional community sync | External ranking center (optional) |
-| **internal/auth** | Session management | Session store, login limiter | `repository` |
+| **internal/auth** | Session management | Session store, login limiter, OIDC session policy | `repository`, `oidc` |
+| **internal/oidc** | OpenID Connect client | Discovery, token verification, claims extraction | OIDC provider |
 | **internal/pricing** | Price catalog & resolution | Catalog, resolver | Configuration |
-| **internal/cpa** | CPA management API client | HTTP client, Redis client | External CPA instance |
+| **internal/pricingmetadata** | External pricing metadata | LiteLLM client, modelslab scraping | External pricing sources |
+| **internal/cpa** | CPA management API client | HTTP client, Redis client, live flow proxy | External CPA instance |
 | **internal/config** | Configuration loading | `Config` struct, env parsing | `godotenv` |
 | **internal/helper** | Shared utilities | Redaction, cost calc, identity helpers | Standard library |
-| **internal/enrichgeo** | IP enrichment (opt-in) | Reverse DNS enrichment | Standard library |
+| **internal/enrichgeo** | IP enrichment (opt-in) | Reverse DNS enrichment, privacy-preserving local classification | Standard library |
+| **internal/backup** | Database backup operations | SQLite backup store | `database/sql` |
+| **internal/updatecheck** | GitHub release checks | Update checker | GitHub API |
+| **internal/releasecheck** | Release channel coordination | Version comparison | `updatecheck` |
+| **internal/benchmark** | Production capacity suite (test-only) | Capacity harness, workload generators | Not part of runtime |
 | **web** | React SPA frontend | Embedded static bundle | Node.js build chain |
 
 ---
@@ -184,23 +214,32 @@ graph TD
 
 ### 3.1 Repository Structure
 
-The repository layer (`internal/repository/`) encapsulates **all SQL and GORM operations**. No SQL escapes this boundary.
+The repository layer (`internal/repository/`) encapsulates **all SQL and GORM operations**. No SQL escapes this boundary. It uses pure aggregation domain packages for business logic.
 
 **Core files:**
 - `usage.go` (93KB) - Main usage event repository with complex queries
-- `usage_identities.go` - Identity aggregation queries  
+- `usage_identities.go` (50KB) - Identity aggregation queries  
 - `redis_usage_inbox.go` - CPA event inbox management
 - `codex_quota_history.go` - Codex quota tracking
 - `cpa_api_key.go` - CPA API key persistence
 - `pricing.go`, `pricing_rules.go` - Pricing catalog
 - `error_events.go` - Error event storage
+- `provider_models.go` - Provider/model metadata
 - `batch.go` - Batch insert utilities
-- `migration/*.go` - 20+ additive schema migrations
+- `migration/*.go` - 30+ additive schema migrations
 
 **Aggregation stores:**
-- `activitystore/` - Activity rollup writes
-- `latencystore/` - Latency rollup writes  
-- `overviewstore/` - Overview hourly/daily rollup writes
+- `activitystore/` - Activity rollup writes (uses `internal/activity`)
+- `latencystore/` - Latency rollup writes (uses `internal/latency`)
+- `overviewstore/` - Overview hourly/daily rollup writes (uses `internal/overview`)
+
+**Aggregation domain separation:**
+The three aggregation domains (`activity`, `latency`, `overview`) are **pure business logic packages** with no GORM dependencies. They:
+- Live in `internal/{activity,latency,overview}/`
+- Accept `[]entities.UsageEvent` and return aggregated rows
+- Handle grain/bucket logic, retention calculations, and sketch encoding
+- Are imported by repository stores but never import repository code
+- Enable testing aggregation logic without database dependencies
 
 ### 3.2 Database Pool Architecture
 
@@ -226,59 +265,91 @@ Application Layer → GORM DB (dbresolver) → SQLite (WAL mode)
 | **UsageService** | `usage.go` | Overview, activity, event lists, cost resolution |
 | **UsageIdentityService** | `usage_identities_service.go` | Identity stats, display names |
 | **RequestLogService** | `request_log.go` | CPA request log proxying |
-| **PricingService** | `pricing_service.go` | Pricing catalog access |
+| **PricingService** | `pricing_service.go` | Pricing catalog access, recalculation orchestration |
 | **CPAAPIKeyService** | `cpa_api_keys_service.go` | API key management |
 | **AuthFilesService** | `auth_files_management.go` | Auth file CRUD |
+| **CredentialsManagementService** | `credentials_management_service.go` | Credential mutation coordination |
 | **CredentialStatusService** | `credential_status.go` | Health calculation |
-| **MetadataSyncService** | `sync.go` (44KB) | Full CPA metadata sync |
+| **CredentialPriorityService** | `credential_priority.go` | Priority management |
+| **SyncService** | `sync.go` (large) | Full CPA metadata sync, usage processing |
+| **ErrorEventService** | `error_events_service.go` | Error event storage and retrieval |
+| **TokenProcessorService** | `tokenprocessor/` | Token counting and normalization |
+| **ProviderMetadataService** | `providermetadata/` | Provider display metadata |
 
-### 4.2 Service → Repository Pattern
+### 4.2 Service Composition Pattern
 
-Services orchestrate repository calls and apply business logic:
+Services use constructor dependency injection and compose repositories:
 
 ```go
-// Service method
-func (s *usageService) GetUsageOverview(ctx, filter) {
-    // 1. Validate & resolve business entities
-    apiGroupKey := s.resolveAPIGroupKey(ctx, filter.APIKeyID)
-    
-    // 2. Call repository with transformed filter
-    overview := repository.BuildUsageOverview(db, repoFilter, pricing)
-    
-    // 3. Map to service DTO
-    return &servicedto.UsageOverviewSnapshot{...}
-}
+// Service assembly in internal/app/app.go
+syncService := service.NewSyncServiceWithOptions(db, service.SyncServiceOptions{
+    BaseURL:               cfg.CPABaseURL,
+    Client:                cpaClient,
+    PricingCatalog:        pricingCatalog,
+    UsageRawRetentionDays: cfg.UsageRawRetentionDays,
+    CredentialMetadata:    credentialMetadata,
+    RecentUsageEvents:     recentUsageCache,
+    UsageAggregationNotifier: usageAggregationRunner,
+    UsageEventsLive:          usageEventsLive,
+    UsageHeaderQuota:         quotaService,
+    PluginAPIKeys:            pluginAPIKeyRunner,
+})
 ```
 
 ---
 
 ## 5. Background Runners & Agents
 
-### 5.1 Ingestion Pipeline
+### 5.1 Ingestion & Processing Pipeline
 
 ```
-CPA → RedisIngestRunner → redis_usage_inboxes → RedisProcessRunner → usage_events → UsageAggregationRunner → rollups
+CPA (Redis/HTTP) → RedisIngestRunner → redis_usage_inboxes 
+                                        → RedisProcessRunner → usage_events 
+                                        → UsageAggregationRunner → rollup tables
+
+CPA (Redis) → RedisErrorIngestRunner → error_events (independent, best-effort)
 ```
 
-**Runners (started in order by app.Run()):**
-1. RedisIngest - Subscribes to CPA events
-2. RedisProcess - Processes inbox → usage_events
-3. UsageAggregation - Aggregates to rollup tables
-4. MetadataSync - Syncs CPA metadata
-5. QuotaAutoRefresh - Provider quota refresh
-6. Ranking - Local API key ranking (default) and optional community ranking
-7. Maintenance - Archive/retention/cleanup
-8. BackupMaintenance - Scheduled backups
+**Runners (started in order by app.Run(), stopped in reverse by app.Close()):**
 
-**Stopped in reverse order by app.Close().**
+1. **RedisIngest** - Subscribes to CPA usage events (Redis pub/sub, list pull, or HTTP pull)
+2. **RedisProcess** - Processes inbox → usage_events (backoff 1s→30s)
+3. **CPAErrors** - Independent error event subscription (best-effort, never blocks usage)
+4. **UsageAggregation** - Serial aggregation runner with fair scheduling
+5. **LocalRanking** - Local API key ranking (always enabled, 5-minute refresh)
+6. **PluginAPIKeys** - Plugin API key synchronization
+7. **MetadataSync** - CPA metadata sync (Auth Files, API Keys, AI Providers, pricing)
+8. **QuotaAutoRefresh** - Provider quota refresh workers (configurable limit)
+9. **Maintenance** - Storage cleanup (retention, archive, vacuum)
+10. **BackupMaintenance** - Scheduled SQLite backups (optional)
 
-### 5.2 Aggregation Checkpoints
+### 5.2 Usage Aggregation Runner (Serial, Fair Scheduler)
 
-Fair scheduler alternates between:
-- **Rollups:** overview_hourly, overview_daily, activity, latency
-- **Identity:** identity_aggregation
+The `UsageAggregationRunner` is the **single writer** for all derived aggregations. It alternates between pipelines using a fair scheduler:
 
-Each checkpoint tracks `last_processed_event_id` in `usage_aggregation_checkpoints` table.
+**Pipelines:**
+1. **Overview Hourly** - `usage_overview_hourly_stats` (uses `internal/overview`)
+2. **Overview Daily** - `usage_overview_daily_stats` (uses `internal/overview`)
+3. **Activity** - `usage_activity_stats` for 4 grains: short/medium/long/daily (uses `internal/activity`)
+4. **Latency** - `usage_latency_stats` for hour/day buckets (uses `internal/latency`)
+5. **Identity** - `usage_identities` aggregation
+
+Each pipeline:
+- Has its own checkpoint in `usage_aggregation_checkpoints` table
+- Tracks `last_processed_event_id` with optimistic concurrency
+- Processes batches of 1000 usage events per transaction
+- Can be paused/resumed independently
+- Notifies after commit to wake next pipeline
+
+### 5.3 Metadata Sync Runner
+
+Periodic + control-message triggered sync of CPA metadata:
+- Auth Files with credential metadata snapshots
+- API Keys with group/name info
+- AI Providers and model catalog
+- Pricing rules from CPA
+
+Control messages from Redis trigger immediate sync without waiting for the interval.
 
 ---
 
@@ -289,202 +360,76 @@ web/
 ├── src/
 │   ├── App.tsx                     # Root component, routing
 │   ├── main.tsx                    # Entry point (React 19, Vite)
+│   ├── StartupGate.tsx             # Startup loading gate
 │   ├── pages/                      # Top-level route pages
-│   │   ├── UsagePage.tsx           # Main admin dashboard
-│   │   ├── ProviderDetailPage.tsx  # Admin provider-key detail route
-│   │   ├── LoginPage.tsx           # Authentication
-│   │   ├── KeyOverviewPage.tsx    # API-key viewer (scoped)
-│   │   ├── KeyAnalysisPage.tsx    # API-key analysis (scoped)
-│   │   └── KeyRankingPage.tsx     # API-key ranking (scoped)
+│   │   ├── UsagePage.tsx           # Main admin dashboard (102KB)
+│   │   ├── ProviderDetailPage.tsx  # Admin provider detail route
+│   │   ├── LoginPage.tsx           # Authentication (OIDC + password)
+│   │   ├── StartupPage.tsx         # Startup/migration screen
+│   │   ├── KeyOverviewPage.tsx     # API-key viewer (scoped)
+│   │   ├── KeyAnalysisPage.tsx     # API-key analysis (scoped)
+│   │   ├── KeyEventsPage.tsx       # API-key request events (scoped)
+│   │   ├── KeyLiveFlowPage.tsx     # API-key live flow (scoped)
+│   │   └── KeyRankingPage.tsx      # API-key ranking (scoped)
 │   ├── components/                 # Reusable UI components
 │   │   ├── ui/                     # Bespoke UI kit (no library)
+│   │   │   ├── Button, Card, Modal, Select, Table, etc.
+│   │   │   ├── LanguageSwitcher    # i18n language picker
+│   │   │   ├── ProviderDataDialog  # Provider raw data inspector
+│   │   │   └── QuestionMarkHelp    # Inline help tooltips
 │   │   ├── dashboard/              # Dashboard shell components
 │   │   └── usage/                  # Usage-specific components
 │   ├── features/                   # Feature-specific domains
-│   │   ├── ranking/                # Local (default) and community ranking
+│   │   ├── ranking/                # Local (always on) + community ranking
 │   │   ├── model-gnn/              # Provider Model GNN (permanent)
-│   │   └── usage/                  # Live Flow WebSocket
+│   │   │   └── ProviderModelGNNPanel.tsx (React Flow + Reagraph)
+│   │   ├── usage/                  # Live Flow WebSocket
+│   │   │   ├── LiveFlowPanel.tsx
+│   │   │   ├── FlowTopology.tsx
+│   │   │   └── nodes/, edges/
+│   │   └── key-viewer/             # API key viewer features
 │   ├── stores/                     # Zustand state management
-│   ├── lib/                        # Core libraries (api, types, chartjs)
+│   │   ├── usageStats.ts           # Usage data store
+│   │   ├── theme.ts                # Theme persistence
+│   │   ├── auth.ts                 # Auth state
+│   │   └── preferences.ts          # User preferences
+│   ├── lib/                        # Core libraries
+│   │   ├── api.ts                  # HTTP client (fetch wrapper)
+│   │   ├── chartjs.ts              # Chart.js registration
+│   │   └── types.ts                # Shared TypeScript types
 │   ├── i18n/                       # i18next (en, zh, zh-TW)
 │   ├── utils/                      # Utility functions
+│   │   ├── usage/                  # Usage data utilities
+│   │   │   ├── overview.ts, timeRange.ts, chartConfig.ts
+│   │   │   ├── health.ts, latency.ts, serviceTier.ts
+│   │   │   └── modelDisplay.ts, requestEndpoint.ts
+│   │   ├── clipboard.ts, constants.ts
+│   │   └── modelSort.ts
 │   ├── hooks/                      # Custom React hooks
-│   └── styles/                     # Global SCSS
+│   │   ├── useMediaQuery.ts
+│   │   ├── useAnchorPosition.ts
+│   │   ├── useScrollBoundaryContainment.ts
+│   │   └── useHeaderRefresh.ts
+│   ├── styles/                     # Global SCSS
+│   │   ├── global.scss             # Entry point
+│   │   ├── variables.scss, themes.scss
+│   │   ├── reset.scss, layout.scss
+│   │   └── components.scss, menu.scss
+│   ├── embed/                      # CPAMC iframe embed mode
+│   │   └── cpamcEmbed.ts
+│   └── assets/                     # Static assets (icons, ranking)
 └── dist/                           # Vite build (embedded into Go binary)
 ```
 
-### Frontend Data Flow
+### Frontend Key Conventions
 
-```
-User Action
-    │
-    ▼
-Component (React)
-    │
-    ├─ Call API (lib/api.ts)
-    │       │
-    │       ▼
-    │   HTTP Request → /api/v1/... (backend)
-    │       │
-    │       ▼
-    │   Response (JSON)
-    │
-    ├─ Update Store (Zustand)
-    │       │
-    │       └─ useUsageStatsStore, useThemeStore, etc.
-    │
-    └─ Re-render with new data
-```
-
----
-
-## 4. Data Flow: Ingestion → Storage → API → Frontend
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        INGESTION SOURCES                            │
-│  - Redis Pub/Sub (subscribe to "usage")                            │
-│  - Redis List Queue (BLPOP from list)                              │
-│  - HTTP Pull (poll /api/usage endpoint)                            │
-└────────────────────────┬────────────────────────────────────────────┘
-                         │ Raw usage events
-                         ▼
-        ┌────────────────────────────────────┐
-        │   RedisIngest Runner               │
-        │   (internal/poller)                │
-        │   - Validates payloads             │
-        │   - Writes to redis_usage_inboxes  │
-        │   - Backoff 1s→30s on failure     │
-        └────────────────┬───────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────┐
-        │   RedisProcess Runner              │
-        │   (internal/poller)                │
-        │   - Reads from redis_usage_inboxes │
-        │   - Token processing (per provider)│
-        │   - Writes to usage_events         │
-        │   - At-least-once semantics        │
-        └────────────────┬───────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────┐
-        │   SQLITE DATABASE                  │
-        │   - usage_events (90-day hot)      │
-        │   - usage_events_archive (cold)    │
-        │   - usage_identities               │
-        │   - usage_activity_stats           │
-        │   - overview hourly/daily          │
-        │   - latency_stats                  │
-        │   - pricing, quota, metadata, etc. │
-        └────────────────┬───────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────┐
-        │   UsageAggregation Runner          │
-        │   (internal/poller)                │
-        │   - Serial runner, per-pipeline    │
-        │     checkpoints                    │
-        │   - Overview hourly/daily rollups  │
-        │   - Activity (short/medium/long)   │
-        │   - Latency stats                  │
-        └────────────────┬───────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────┐
-        │   API LAYER (internal/api)         │
-        │   - GET /api/v1/usage/overview     │
-        │   - GET /api/v1/usage/events       │
-        │   - GET /api/v1/usage/activity     │
-        │   - GET /api/v1/usage/analysis     │
-        │   - GET /api/v1/quota/...          │
-        └────────────────┬───────────────────┘
-                         │ JSON responses
-                         ▼
-        ┌────────────────────────────────────┐
-        │   FRONTEND (web/src)               │
-        │   - API calls (lib/api.ts)         │
-        │   - State management (Zustand)     │
-        │   - Charts (Chart.js)              │
-        │   - Tables, forms, modals          │
-        └────────────────────────────────────┘
-```
-
----
-
-## 5. Background Agents (Runners)
-
-**Started by `internal/app/app.go` in `Run()`, stopped in strict reverse order by `Close()`:**
-
-| Runner | Package | Role |
-|--------|---------|------|
-| **RedisIngest** | `internal/poller` | Subscribe to CPA usage events (Redis pub/sub or list queue), write to `redis_usage_inboxes`, backoff on failure (1s→30s) |
-| **RedisProcess** | `internal/poller` | Read from `redis_usage_inboxes`, token processing, write to `usage_events`, at-least-once |
-| **UsageAggregation** | `internal/poller` | Serial runner with per-pipeline checkpoints (overview hourly/daily, activity, latency stats) |
-| **MetadataSync** | `internal/app` | Sync Auth Files / API Keys / AI Providers / pricing from CPA (interval + control-message triggered) |
-| **QuotaAutoRefresh** | `internal/quota` | Provider quota refresh workers (manual + auto), shared queue |
-| **Ranking** | `internal/ranking` | Local API key ranking (default); optional community ranking client |
-| **Maintenance** | `internal/app` | Retention (90-day hot/cold archive move), log cleanup |
-| **BackupMaintenance** | `internal/app` | Scheduled SQLite backups |
-| **CodexQuotaHistory** | `internal/quota` | Codex quota history scheduler + runner (flush, cleanup) |
-| **UsageHeaderSnapshot** | `internal/quota` | Batch cache writes for usage response header snapshots |
-
-**Failure isolation:** Optional subsystems (ranking, update check, quota, IP enrichment) must never break ingestion. Follow "inert when disabled" and failure-tolerant-cache patterns.
-
----
-
-## 6. Layering Rules (Backend)
-
-1. **Handlers are thin:** parse/validate → call service → map DTO. No business logic in `internal/api`.
-2. **All SQL lives in `internal/repository`** — never above it. Handlers and services never see GORM types.
-3. **Repository pattern per entity family; composition over inheritance.** Services and runners are composed in `internal/app/app.go` via constructor injection.
-4. **`internal/entities` is the schema source of truth.** Schema changes go through additive migrations in `internal/repository/migration`.
-5. **Single writer.** Writes go through the writer pool; reads use the reader pool. Aggregation checkpoint updates stay inside the caller's transaction with the name + expected-cursor optimistic-concurrency check.
-6. **Failure isolation.** Optional subsystems must never break ingestion.
-7. **Redaction.** Never log secrets — route anything key-like through `internal/helper/redact.go`.
-8. **Test placement.** Co-locate `*_test.go` with the code; tests that need isolation live in a `test/` subpackage (e.g. `internal/api/test/`).
-
----
-
-## 7. Frontend Conventions
-
-- **TypeScript strict.** No `any` without justification; `typecheck` must pass.
-- **No UI framework.** Extend the bespoke kit in `src/components/ui`; do not add a component-library dependency without discussion.
-- **Styling:** CSS Modules per component; global layers via SCSS (dart-sass). Theming uses the `data-theme` attribute — components must look correct in light, dark, and auto.
-- **i18n:** every user-facing string goes through i18next (`src/i18n`); `en`, `zh`, and `zh-TW` locale files must all be updated together.
-- **Charts:** Chart.js registered only via `src/lib/chartjs.ts`.
-- **Provider Model GNN panel (permanent feature):** `ProviderModelGNNPanel` must stay mounted on the Usage overview tab. Removal or replacement requires an explicit documented architectural decision recorded in `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md` (UC-12), and `session.md`.
-- **Provider grouping (permanent feature):** `components/usage/credentials/ProviderSummarySection.tsx` renders the admin `/ai-provider` aggregate table from `listProviders`; `pages/ProviderDetailPage.tsx` renders `/ai-provider/:providerId` key pages from `listProviderKeys`. Keep provider IDs a single encoded segment, preserve CPAMC embed query context on Detail links, and rely on backend authorization in addition to `App.tsx` role-route normalization. Removal or replacement requires an explicit documented architectural decision recorded in `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See `docs/MERGE-PRESERVATION.md` §6.
-
----
-
-## 8. Extensibility Points
-
-| Extension | Hook |
-|-----------|------|
-| New quota provider | Add a client under `internal/quota`, register in `registry.go` |
-| New ingest source | Implement the `IngestSource` interface in `internal/poller` |
-| New analytics | Add a store under `internal/repository` + extend the aggregation runner with a new checkpoint name |
-| New API surface | Thin handler in `internal/api` + service in `internal/service` |
-| Storage backends | Repository layer isolates GORM/dialect specifics (single seam for a future multi-DB port) |
-| UI features | Pages under `web/src/pages`, shared widgets in `components/ui`, feature folders like `features/ranking` |
-
----
-
-## 9. Key Files for Agent Onboarding
-
-| File | Purpose |
-|------|---------|
-| `AGENTS.md` | AI agent guidance: project overview, layering rules, verification baseline, security notes |
-| `docs/ARCHITECTURE.md` | Detailed architecture: runtime topology, module layering, data flow, deployment models |
-| `docs/SPECIFICATION.md` | Functional contract: purpose, users, use cases, business rules, security requirements |
-| `docs/CONFIGURATION.md` | All environment variables and CLI flags |
-| `docs/ROADMAP.md` | Phased future work, planned features, maintenance track |
-| `docs/CONTRIBUTING.md` | Development setup, verification baseline, commit conventions, documentation policy |
-| `docs/CODE_GRAPH.md` | **This file** — project map for quick orientation |
-| `session.md` | AI session context: recent decisions, discoveries, pending work |
-| `.env.example` | Configuration template with placeholders |
-| `Makefile` | Common tasks: `make verify`, `make build`, `make test` |
+- **TypeScript strict mode** - No `any` without justification
+- **No UI framework** - Bespoke component kit, no dependencies like MUI/Ant
+- **CSS Modules** - Scoped per-component styles (`.module.scss`)
+- **i18n mandatory** - All user-facing strings through i18next
+- **Theme support** - `data-theme` attribute (light/dark/auto)
+- **Chart.js** - Registered via `lib/chartjs.ts` only
+- **Protected features** - Provider Model GNN panel and AI Provider Table redesign are permanent (see `AGENTS.md` §3 and `docs/MERGE-PRESERVATION.md` §6)
 
 ---
 
@@ -494,6 +439,10 @@ Component (React)
 - `GET /healthz` - Health check
 - `POST /api/v1/auth/login` - Admin password login
 - `POST /api/v1/auth/api-key-login` - API key viewer login
+- `GET /api/v1/auth/oidc/config` - OIDC configuration (when enabled)
+- `GET /api/v1/auth/oidc/authorize` - OIDC authorization redirect
+- `GET /api/v1/auth/oidc/callback` - OIDC callback handler
+- `POST /api/v1/auth/oidc/logout` - OIDC logout
 
 ### 7.2 Admin Endpoints
 - `GET /api/v1/usage/overview` - Usage overview with filters
@@ -503,19 +452,23 @@ Component (React)
 - `GET /api/v1/usage/providers` - Aggregated AI-provider rows with server-side sorting
 - `GET /api/v1/usage/providers/:providerId/keys` - Paginated provider keys with server-side sorting
 - `GET /api/v1/quota/*` - Quota management & history
-- `GET /api/v1/ranking/*` - Community ranking
-- `GET /api/v1/live-flow/ws` - Live flow WebSocket
+- `GET /api/v1/ranking/*` - Local ranking (always available) + optional community ranking
+- `GET /api/v1/live-flow/ws` - Live flow WebSocket (metadata-only stream)
 - `GET /api/v1/gnn/graph` - Provider-model GNN graph
 - `GET /api/v1/providers` - Provider metadata
 - `GET /api/v1/cpa-api-keys` - CPA API keys
 - `GET /api/v1/auth-files` - Auth files
 - `GET /api/v1/pricing/*` - Pricing rules
+- `GET /api/v1/errors/*` - Error events (when CPA error subscription enabled)
 
 ### 7.3 API Key Viewer Endpoints (scoped)
 - `GET /api/v1/key-overview` - Scoped to viewer's API key
 - `GET /api/v1/key-activity` - Scoped activity
+- `GET /api/v1/key-events` - Scoped request events
 - `GET /api/v1/usage/providers` - Event-scoped provider aggregates
 - `GET /api/v1/usage/providers/:providerId/keys` - Event-scoped keys; unavailable providers return 404
+- `GET /api/v1/live-flow/ws` - Live flow (global metadata view with privacy notice)
+- `GET /api/v1/ranking/*` - Local ranking (always available)
 
 ---
 
