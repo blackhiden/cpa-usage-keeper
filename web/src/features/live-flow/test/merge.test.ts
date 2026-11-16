@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mergeLiveFlowModels, type LiveFlowLiveModel } from '../merge'
+import { buildLiveFlowAliasMap, mergeLiveFlowModels, type LiveFlowLiveModel } from '../merge'
 import type { LiveFlowHistoricalModel } from '../types'
 
 const historical = (model: string, requestCount: number, overrides: Partial<LiveFlowHistoricalModel> = {}): LiveFlowHistoricalModel => ({
@@ -69,5 +69,42 @@ describe('mergeLiveFlowModels', () => {
   it('keeps ordering stable for equal request counts', () => {
     const merged = mergeLiveFlowModels([historical('zeta', 1), historical('alpha', 1)], [])
     expect(merged.map((model) => model.id)).toEqual(['alpha', 'zeta'])
+  })
+
+  it('maps a live prefixed model name onto its alias block instead of duplicating', () => {
+    const aliased: LiveFlowHistoricalModel = {
+      ...historical('sonnet', 5),
+      source_models: ['kr/claude-sonnet-4.5', 'us/claude-sonnet-4.5'],
+    }
+    const merged = mergeLiveFlowModels([aliased], [live('kr/claude-sonnet-4.5', { activeRequests: 1, latestStatus: 200 })])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe('sonnet')
+    expect(merged[0].activeRequests).toBe(1)
+    expect(merged[0].requestCount).toBe(5)
+  })
+
+  it('uses the real model name when no alias exists', () => {
+    const merged = mergeLiveFlowModels([historical('gpt-5', 2)], [live('gpt-5', { activeRequests: 1 })])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].id).toBe('gpt-5')
+  })
+
+  it('shows an aliased live-only model under its alias name', () => {
+    const aliased: LiveFlowHistoricalModel = {
+      ...historical('sonnet', 1),
+      source_models: ['kr/claude-sonnet-4.5'],
+    }
+    const merged = mergeLiveFlowModels([aliased], [live('kr/claude-sonnet-4.5', { activeRequests: 2 })])
+    expect(merged[0].name).toBe('sonnet')
+  })
+
+  it('builds the alias map only for models that actually have sources', () => {
+    const aliases = buildLiveFlowAliasMap([
+      { ...historical('sonnet', 1), source_models: ['kr/claude-sonnet-4.5'] },
+      historical('gpt-5', 1),
+    ])
+    expect(aliases.get('kr/claude-sonnet-4.5')).toBe('sonnet')
+    expect(aliases.has('gpt-5')).toBe(false)
   })
 })

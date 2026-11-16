@@ -11,6 +11,8 @@ export type LiveFlowPeriod =
 
 export interface LiveFlowHistoricalModel {
   model: string
+  /** Real model names grouped under this display name, when an alias is used. */
+  source_models?: string[]
   request_count: number
   success_count: number
   failure_count: number

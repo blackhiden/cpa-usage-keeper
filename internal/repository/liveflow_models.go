@@ -41,18 +41,22 @@ func ListLiveFlowModels(ctx context.Context, db *gorm.DB, window dto.LiveFlowMod
 		LastSeenAt   string
 	}
 	var aggregates []aggregateRow
+	// Group by the display name: the alias when present, otherwise the real
+	// model. Different real names that share one alias collapse into a single
+	// block instead of appearing once per prefix.
+	displayName := "COALESCE(NULLIF(TRIM(event.model_alias), ''), event.model)"
 	query := db.WithContext(ctx).Clauses(dbresolver.Read).
 		Table("usage_events AS event").
-		Select("event.model AS model, COUNT(event.id) AS request_count, "+
+		Select(displayName+" AS model, COUNT(event.id) AS request_count, "+
 			"SUM(CASE WHEN event.failed THEN 0 ELSE 1 END) AS success_count, "+
 			"SUM(CASE WHEN event.failed THEN 1 ELSE 0 END) AS failure_count, "+
 			"SUM(event.total_tokens) AS total_tokens, MAX(event.timestamp) AS last_seen_at").
 		Where("event.timestamp >= ? AND event.timestamp < ?", start, end).
 		Where("event.model <> ''").
 		Where("event.generate IS NULL OR event.generate = ?", true).
-		Group("event.model").
+		Group(displayName).
 		Order("request_count DESC").
-		Order("event.model ASC").
+		Order(displayName + " ASC").
 		Limit(liveFlowModelLimit)
 
 	if err := query.Scan(&aggregates).Error; err != nil {
@@ -73,10 +77,47 @@ func ListLiveFlowModels(ctx context.Context, db *gorm.DB, window dto.LiveFlowMod
 		})
 	}
 
+	if err := fillLiveFlowModelSources(ctx, rows, db, start, end, displayName); err != nil {
+		return nil, err
+	}
 	if err := fillLiveFlowModelLatest(ctx, rows, db, start, end); err != nil {
 		return nil, err
 	}
 	return rows, nil
+}
+
+// fillLiveFlowModelSources records which real model names are grouped under each
+// display name so the live stream can be mapped onto the same blocks.
+func fillLiveFlowModelSources(ctx context.Context, rows []dto.LiveFlowModel, db *gorm.DB, start, end, displayName string) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	type sourceRow struct {
+		Model  string
+		Source string
+	}
+	var sources []sourceRow
+	query := db.WithContext(ctx).Clauses(dbresolver.Read).
+		Table("usage_events AS event").
+		Select(displayName + " AS model, event.model AS source").
+		Where("event.timestamp >= ? AND event.timestamp < ?", start, end).
+		Where("event.model <> ''").
+		Where("event.generate IS NULL OR event.generate = ?", true).
+		Group(displayName + ", event.model").
+		Order(displayName + " ASC").
+		Order("event.model ASC")
+	if err := query.Scan(&sources).Error; err != nil {
+		return fmt.Errorf("load live flow model sources: %w", err)
+	}
+
+	byDisplay := make(map[string][]string, len(rows))
+	for _, source := range sources {
+		byDisplay[source.Model] = append(byDisplay[source.Model], source.Source)
+	}
+	for index := range rows {
+		rows[index].SourceModels = byDisplay[rows[index].Model]
+	}
+	return nil
 }
 
 // fillLiveFlowModelLatest attaches the newest event's latency and status to

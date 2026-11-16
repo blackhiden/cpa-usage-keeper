@@ -12,8 +12,12 @@ import (
 )
 
 // Model is one aggregated model row exposed by the Live Flow history API.
+// Model is the display name: the alias when present, otherwise the real model.
+// SourceModels carries the real model names grouped under that display name so
+// the client can map live stream events onto the same block.
 type Model struct {
 	Model         string    `json:"model"`
+	SourceModels  []string  `json:"source_models,omitempty"`
 	RequestCount  int64     `json:"request_count"`
 	SuccessCount  int64     `json:"success_count"`
 	FailureCount  int64     `json:"failure_count"`
@@ -66,6 +70,7 @@ func (s *Service) Models(ctx context.Context, period Period) (ModelsResponse, er
 	for _, row := range rows {
 		models = append(models, Model{
 			Model:         row.Model,
+			SourceModels:  row.SourceModels,
 			RequestCount:  row.RequestCount,
 			SuccessCount:  row.SuccessCount,
 			FailureCount:  row.FailureCount,

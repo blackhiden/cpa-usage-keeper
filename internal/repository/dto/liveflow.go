@@ -11,8 +11,12 @@ type LiveFlowModelWindow struct {
 }
 
 // LiveFlowModel is one aggregated model row for a Live Flow history period.
+// Model holds the display name: the model alias when present, otherwise the
+// real model name. SourceModels lists the real model names grouped under it so
+// live stream events can be mapped onto the same block.
 type LiveFlowModel struct {
 	Model         string
+	SourceModels  []string
 	RequestCount  int64
 	SuccessCount  int64
 	FailureCount  int64
