@@ -64,8 +64,29 @@ dropdown, without changing the realtime CPA relay contract.
   archive table is never queried.
 - Historical "models used" may include models the root no longer routes. This is
   the requested "what did I use" view.
-- Pre-existing failures in `internal/service/test` and the provider-model route
-  tests come from Phase 2.21 work in progress and are unrelated to this phase.
+- An aliased model only folds live traffic onto its alias block when that alias
+  appeared in the selected period's history. A model whose first request arrives
+  live while its alias has no rows in the window shows under its real name until
+  the history refreshes; closing that gap needs the alias on the CPA WebSocket
+  payload.
+
+## Follow-up: alias block naming and canvas overlap
+
+- Model blocks are now named by alias, falling back to the real model name.
+  `ListLiveFlowModels` groups by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so prefixed variants sharing
+  one alias collapse into a single block. Each row reports `source_models`, and
+  `buildLiveFlowAliasMap` folds live events (which carry only the routed model
+  name) onto the matching alias block.
+- The canvas previously placed every block at its ring anchor without accounting
+  for block width and used a fixed 250px radius, so blocks overlapped from about
+  seven models upward. Nodes are now centered on their anchor and the radius
+  grows with the model count (`liveFlowRingRadius`).
+- Blocks with in-flight requests or a pending trail are raised above idle blocks
+  (`liveFlowNodeZIndex`, 10 vs 1, plus the `live-flow-node-active` class) so an
+  active block and its label are never covered by a neighbour.
+- Additional tests: repository alias grouping, alias-aware merge cases, and
+  topology geometry/stacking assertions.
 
 ---
 

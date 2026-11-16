@@ -153,12 +153,14 @@ plus a persistent per-model history for the six selectable calendar periods.
 - **Backend history:** `GET /api/v1/live-flow/models?period=<value>` (admin + API-key viewer, metadata only)
 - **Frontend page:** `/live-flow` standalone menu page and `/key-live-flow` viewer page, both with an always-mounted canvas
 - **Features:** Generation-only stream, lifecycle trails (amber pending → green success / red failure), model fidelity, persistent period history with six periods (today, yesterday, current week, previous week, current month, previous month), per-period model count, request total, and previous-period trend
+- **Model block naming:** blocks are named by model alias, falling back to the real model name when no alias exists. Grouping uses `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so prefixed real names sharing one alias collapse into a single block. History rows report `source_models` so live stream events (which carry only the routed model name) fold onto the same alias block.
+- **Canvas layout:** blocks are centered on a ring whose radius grows with the model count so neighbours never overlap. Blocks with in-flight requests or a pending trail are raised above idle blocks (`zIndex` 10 vs 1, plus the `live-flow-node-active` class) so a busy block and its label are never covered.
 - **Files:**
   - `internal/api/live_flow.go` (relay handler)
   - `internal/liveflow/` (period model + history service), `internal/liveflow/httpapi/` (history route)
-  - `internal/repository/liveflow_models.go` (aggregation over `usage_events`)
-  - `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`, `FlowTopology.tsx` (panel and canvas)
-  - `web/src/features/live-flow/` (history types, API client, merge/trend helpers, period select)
+  - `internal/repository/liveflow_models.go` (alias-grouped aggregation over `usage_events`)
+  - `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`, `FlowTopology.tsx` (panel, canvas, ring layout, active-block z-index)
+  - `web/src/features/live-flow/` (history types, API client, alias-aware merge, trend helpers, period select)
   - `web/src/pages/KeyLiveFlowPage.tsx` (API-key viewer page)
 
 **Documentation:**
@@ -171,7 +173,8 @@ plus a persistent per-model history for the six selectable calendar periods.
 ```bash
 # Verify backend relay and history domain
 test -f internal/api/live_flow.go && echo "✓ Relay handler exists" || echo "✗ MISSING"
-grep -q "/live-flow/ws" internal/api/router.go && echo "✓ Relay route exists" || echo "✗ MISSING"
+grep -q "/live-flow/ws" internal/api/live_flow.go && echo "✓ Relay route exists" || echo "✗ MISSING"
+grep -q "registerLiveFlowRoutes" internal/api/router.go && echo "✓ Relay route registered" || echo "✗ MISSING"
 test -f internal/liveflow/period.go && echo "✓ Period model exists" || echo "✗ MISSING"
 test -f internal/liveflow/httpapi/routes.go && echo "✓ History route exists" || echo "✗ MISSING"
 test -f internal/repository/liveflow_models.go && echo "✓ Aggregation exists" || echo "✗ MISSING"
@@ -182,8 +185,17 @@ test -f web/src/features/usage/FlowTopology.tsx && echo "✓ Canvas exists" || e
 test -f web/src/features/live-flow/merge.ts && echo "✓ History domain exists" || echo "✗ MISSING"
 test -f web/src/pages/KeyLiveFlowPage.tsx && echo "✓ Viewer page exists" || echo "✗ MISSING"
 
-# Verify menu entry
-grep -q "/live-flow" web/src/components/layout/Sidebar.tsx || grep -q "live-flow" web/src/components/layout/Header.tsx
+# Verify alias-based block naming survives
+grep -q "model_alias" internal/repository/liveflow_models.go && echo "✓ Alias grouping present" || echo "✗ MISSING"
+grep -q "buildLiveFlowAliasMap" web/src/features/live-flow/merge.ts && echo "✓ Alias merge present" || echo "✗ MISSING"
+
+# Verify canvas layout guards survive
+grep -q "liveFlowRingRadius" web/src/features/usage/FlowTopology.tsx && echo "✓ Ring layout present" || echo "✗ MISSING"
+grep -q "liveFlowNodeZIndex" web/src/features/usage/FlowTopology.tsx && echo "✓ Active z-index present" || echo "✗ MISSING"
+
+# Verify navigation entry
+grep -q "'live-flow'" web/src/lib/usageNavigation.ts && echo "✓ Tab registered" || echo "✗ MISSING"
+grep -q "live-flow" web/src/App.tsx && echo "✓ Route registered" || echo "✗ MISSING"
 ```
 
 ---

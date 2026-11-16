@@ -27,6 +27,18 @@ All notable changes to this project are documented here.
   - Aggregation is on demand from `usage_events` (generation traffic only,
     reader pool, bounded `LIMIT`). No new table, no background runner, and
     `usage_events_archive` is never queried.
+  - **Model blocks are named by alias.** Blocks group by
+    `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so several prefixed real
+    model names sharing one alias collapse into a single block. When no alias
+    exists the real model name is used. History rows report `source_models`, and
+    `buildLiveFlowAliasMap` folds live stream events onto the matching alias
+    block.
+  - **Canvas overlap and stacking fixed.** Blocks are centered on a ring whose
+    radius grows with the model count (`liveFlowRingRadius`), so neighbouring
+    blocks no longer overlap. Blocks with in-flight requests or a pending trail
+    are raised above idle blocks (`liveFlowNodeZIndex`, 10 vs 1, plus the
+    `live-flow-node-active` class) so a busy block and its label are never
+    covered by a neighbour.
 
 ## [2.0.11] - 2026-11-09
 

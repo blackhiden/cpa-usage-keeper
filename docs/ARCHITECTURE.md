@@ -277,6 +277,12 @@ Key invariants:
   Each history row reports its grouped real names in `source_models`, and the
   client uses that map to fold live stream events (which carry only the routed
   model name) onto the matching alias block.
+- **Live Flow canvas layout.** Blocks are centered on a ring whose radius grows
+  with the model count (`liveFlowRingRadius` in `FlowTopology.tsx`) so
+  neighbouring blocks keep a visible gap instead of overlapping. A block with
+  in-flight requests or a pending trail is raised above idle blocks
+  (`liveFlowNodeZIndex`, 10 vs 1, plus the `live-flow-node-active` class) so a
+  busy block and its label are never covered by an overlapping neighbour.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain
