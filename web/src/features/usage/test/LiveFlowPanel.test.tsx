@@ -111,7 +111,7 @@ describe('LiveFlowPanel', () => {
     await act(async () => socket.onclose?.())
     await act(async () => vi.advanceTimersByTimeAsync(4_000))
     expect(container.textContent).toContain('CLIProxyAPI Live Flow is unavailable')
-    expect(container.querySelector('button')?.textContent).toBe('Retry connection')
+    expect(container.querySelector('[data-live-flow-retry]')?.textContent).toBe('Retry connection')
     expect(TestWebSocket.instances).toHaveLength(1)
   })
 })

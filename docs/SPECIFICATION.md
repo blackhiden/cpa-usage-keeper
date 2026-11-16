@@ -79,6 +79,15 @@ keys that are synchronized from CPA itself.
   to observe real-time metadata for all requests across all API keys. A privacy
   notice explains the global scope. No prompts, bodies, headers, or credentials
   are shown. This provides operational visibility into current CPA activity.
+- **UC-2d — Review Live Flow model history.** As an admin or API key viewer, I
+  select one of six calendar periods (Today, Yesterday, Current Week, Last Week,
+  Current Month, Last Month) in the Live Flow period dropdown and see every
+  model used in that period as a persistent canvas node. The view reports the
+  period's distinct-model count, total requests, and a per-model trend against
+  the immediately preceding period of the same kind. History is aggregated on
+  demand from `usage_events` (generation traffic only, hot retention of 90 local
+  calendar days); no archive table is queried. The selected period survives a
+  page refresh, and a history failure never disables the live canvas.
 
 - **UC-3 — Analyze trends.** As an admin, I open Analysis to see time-series
   trends, cost composition, usage heatmaps, and latency diagnostics per model

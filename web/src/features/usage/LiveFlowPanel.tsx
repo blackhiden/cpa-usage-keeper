@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { liveFlowWebSocketURL } from '@/lib/api'
+import { fetchLiveFlowModels } from '@/features/live-flow/api'
+import { mergeLiveFlowModels } from '@/features/live-flow/merge'
+import { LiveFlowPeriodSelect } from '@/features/live-flow/components/LiveFlowPeriodSelect'
+import { previousComparablePeriod, readStoredLiveFlowPeriod, storeLiveFlowPeriod } from '@/features/live-flow/periods'
+import { computeLiveFlowTrends } from '@/features/live-flow/trend'
+import type { LiveFlowHistoricalModel, LiveFlowPeriod } from '@/features/live-flow/types'
 import { FlowTopology, type Provider } from './FlowTopology'
 import { appendLiveFlowEvent, applyLiveFlowEvent, deriveLiveFlowModels, formatLiveFlowTime, LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS, LIVE_FLOW_PENDING_COLOR, parseLiveFlowEvent, parseLiveFlowRelayError, toLiveFlowTrail, type LiveFlowActiveRequests, type LiveFlowEvent, type LiveFlowRelayError, type LiveFlowTrail } from './liveFlow'
 import styles from './LiveFlowPanel.module.scss'
@@ -26,6 +32,63 @@ export function LiveFlowPanel() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting')
   const [relayError, setRelayError] = useState<LiveFlowRelayError | null>(null)
   const [retryGeneration, setRetryGeneration] = useState(0)
+  const [period, setPeriod] = useState<LiveFlowPeriod>(() => readStoredLiveFlowPeriod(
+    typeof window === 'undefined' ? undefined : window.localStorage,
+  ))
+  const [historicalModels, setHistoricalModels] = useState<LiveFlowHistoricalModel[]>([])
+  const [previousHistoricalModels, setPreviousHistoricalModels] = useState<LiveFlowHistoricalModel[] | null>(null)
+  const [historyStatus, setHistoryStatus] = useState<'ready' | 'error'>('ready')
+  const [historyPeriodKey, setHistoryPeriodKey] = useState<string>('')
+  // Set only after a request settles, so the effect never sets state synchronously.
+  const [resolvedPeriod, setResolvedPeriod] = useState<LiveFlowPeriod | null>(null)
+  const historyState: 'loading' | 'ready' | 'error' =
+    resolvedPeriod !== period ? 'loading' : historyStatus === 'error' ? 'error' : 'ready'
+
+  // Period history is fetched on demand; the live WebSocket keeps running so a
+  // history failure never disables the canvas.
+  useEffect(() => {
+    const controller = new AbortController()
+    let active = true
+
+    const comparison = previousComparablePeriod(period)
+    const load = async () => {
+      try {
+        const response = await fetchLiveFlowModels(period, controller.signal)
+        if (!active) return
+        setHistoricalModels(response.models)
+        setHistoryPeriodKey(response.period_key)
+        setHistoryStatus('ready')
+        setResolvedPeriod(period)
+      } catch {
+        if (!active || controller.signal.aborted) return
+        setHistoricalModels([])
+        setHistoryStatus('error')
+        setResolvedPeriod(period)
+      }
+
+      if (!comparison) {
+        if (active) setPreviousHistoricalModels(null)
+        return
+      }
+      try {
+        const previous = await fetchLiveFlowModels(comparison, controller.signal)
+        if (active) setPreviousHistoricalModels(previous.models)
+      } catch {
+        if (active) setPreviousHistoricalModels(null)
+      }
+    }
+
+    void load()
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [period])
+
+  const handlePeriodChange = (next: LiveFlowPeriod) => {
+    setPeriod(next)
+    storeLiveFlowPeriod(typeof window === 'undefined' ? undefined : window.localStorage, next)
+  }
 
   useEffect(() => {
     let active = true
@@ -101,8 +164,16 @@ export function LiveFlowPanel() {
     ? t(relayErrorMessageKey(relayError.code), { defaultValue: relayError.message })
     : t('usage_stats.live_flow_unavailable_description')
 
-  const models = useMemo(() => deriveLiveFlowModels(events, activeRequests), [events, activeRequests])
-  const providers = useMemo<Provider[]>(() => models.map((model, index) => ({
+  const liveModels = useMemo(() => deriveLiveFlowModels(events, activeRequests), [events, activeRequests])
+  const mergedModels = useMemo(
+    () => mergeLiveFlowModels(historicalModels, liveModels),
+    [historicalModels, liveModels],
+  )
+  const trends = useMemo(
+    () => computeLiveFlowTrends(historicalModels, previousHistoricalModels),
+    [historicalModels, previousHistoricalModels],
+  )
+  const providers = useMemo<Provider[]>(() => mergedModels.map((model, index) => ({
     id: model.id,
     name: model.name,
     requestCount: model.requestCount,
@@ -116,7 +187,7 @@ export function LiveFlowPanel() {
       : model.latestStatus >= 400
         ? 'var(--error-color)'
         : index % 2 === 0 ? 'var(--success-color)' : 'var(--primary-active)',
-  })), [models])
+  })), [mergedModels])
 
   const latestEvent = events.at(-1)
   const activeRequestCount = Object.keys(activeRequests).length
@@ -129,9 +200,12 @@ export function LiveFlowPanel() {
           <h2 id="live-flow-title" className={styles.title}>{t('usage_stats.live_flow_title')}</h2>
           <p className={styles.subtitle}>{t('usage_stats.live_flow_subtitle')}</p>
         </div>
-        <div className={styles.status} data-state={connectionState} aria-live="polite">
-          <span className={styles.statusDot} aria-hidden="true" />
-          {t(connectionLabelKey(connectionState))}
+        <div className={styles.headerActions}>
+          <LiveFlowPeriodSelect period={period} onPeriodChange={handlePeriodChange} />
+          <div className={styles.status} data-state={connectionState} aria-live="polite">
+            <span className={styles.statusDot} aria-hidden="true" />
+            {t(connectionLabelKey(connectionState))}
+          </div>
         </div>
       </header>
 
@@ -141,9 +215,27 @@ export function LiveFlowPanel() {
           <div className={styles.emptyState} role="status">
             <strong>{relayError || connectionState === 'unavailable' ? t('usage_stats.live_flow_unavailable_title') : t('usage_stats.live_flow_waiting_title')}</strong>
             <span>{relayError || connectionState === 'unavailable' ? unavailableMessage : t('usage_stats.live_flow_waiting_description')}</span>
-            {(relayError || connectionState === 'unavailable') && <button type="button" className={styles.retryButton} onClick={retry}>{t('usage_stats.live_flow_retry')}</button>}
+            {(relayError || connectionState === 'unavailable') && <button type="button" data-live-flow-retry className={styles.retryButton} onClick={retry}>{t('usage_stats.live_flow_retry')}</button>}
           </div>
         )}
+      </div>
+
+      <div className={styles.historySummary} data-live-flow-history={historyState} data-history-period={period}>
+        <span data-history-models>{t('usage_stats.live_flow_models_count', { count: trends.totalCurrent > 0 ? mergedModels.length : 0 })}</span>
+        <span data-history-requests>{t('usage_stats.live_flow_period_requests', { count: trends.totalCurrent })}</span>
+        {historyPeriodKey && <span data-history-period-key>{historyPeriodKey}</span>}
+        {trends.deltaPercent === null
+          ? <span data-history-trend="unavailable">{t('usage_stats.live_flow_trend_unavailable')}</span>
+          : trends.deltaPercent === 0
+            ? <span data-history-trend="flat">{t('usage_stats.live_flow_trend_flat')}</span>
+            : <span data-history-trend={trends.deltaPercent > 0 ? 'up' : 'down'}>
+              {t(trends.deltaPercent > 0 ? 'usage_stats.live_flow_trend_up' : 'usage_stats.live_flow_trend_down', {
+                value: `${Math.abs(trends.deltaPercent).toFixed(1)}%`,
+              })}
+            </span>}
+        {historyState === 'loading' && <span role="status">{t('usage_stats.live_flow_history_loading')}</span>}
+        {historyState === 'error' && <span role="alert">{t('usage_stats.live_flow_history_error')}</span>}
+        {historyState === 'ready' && mergedModels.length === 0 && <span>{t('usage_stats.live_flow_history_empty')}</span>}
       </div>
 
       <div className={styles.footer}>

@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Live Flow model history and period filter (Phase 2.22).** The `/live-flow`
+  and `/key-live-flow` canvases now keep model nodes for a selectable period
+  instead of dropping them 25 seconds after the event or on refresh.
+  - New backend domain `internal/liveflow/` (period windows, history service)
+    with `internal/liveflow/httpapi/` and the aggregation query
+    `internal/repository/liveflow_models.go`.
+  - `GET /api/v1/live-flow/models?period=<value>` serves
+    `{period, period_key, start, end, timezone, total_models, models[]}` for
+    admin and API-key viewer sessions. Payload is metadata only.
+  - Six periods: Today, Yesterday, Current Week, Last Week, Current Month,
+    Last Month. Windows are half-open local-calendar bounds; weeks are
+    ISO-style Monday to Sunday.
+  - New frontend domain `web/src/features/live-flow/` (types, API client, merge
+    and trend helpers, period select) integrated into `LiveFlowPanel` through a
+    single merge point.
+  - The view reports the period's distinct-model count, total requests, and a
+    trend against the immediately preceding period, and persists the selected
+    period in `localStorage`.
+  - Aggregation is on demand from `usage_events` (generation traffic only,
+    reader pool, bounded `LIMIT`). No new table, no background runner, and
+    `usage_events_archive` is never queried.
+
 ## [2.0.11] - 2026-11-09
 
 ### Merged from Upstream
