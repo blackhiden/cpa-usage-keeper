@@ -5,6 +5,8 @@
 
 **Policy:** Provider Model GNN Panel is a permanent, protected feature. Any changes require explicit, documented architectural decisions (see ARCHITECTURE.md §7, SPECIFICATION.md UC-12, session.md).
 
+**Policy (Phase 2.22):** Live Flow Model History (`internal/liveflow/` + `web/src/features/live-flow/`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
+
 ---
 
 ## Phase 0 — Documentation & Developer Tooling
@@ -89,6 +91,381 @@
     - [ ] Tests cover dialog interaction, view toggle, and role-based filtering
     - [ ] Feature documented in `MERGE-PRESERVATION.md`
   - **Tasks:** See [PHASE_2_21_PLAN.md](PHASE_2_21_PLAN.md) for detailed task breakdown (12 tasks total, 2-3 developer-days).
+
+- **2.22 Live Flow Model History & Period Filter.** ⬜ (planned)
+  - **Objective:** Keep Live Flow model nodes on the canvas after their 25-second
+    trail expires and after a page refresh, for a user-selected period (Today,
+    Yesterday, Current Week, Last Week, Current Month, Last Month), plus a
+    period dropdown and per-model usage/trend figures.
+  - **User Story:** As an admin, I want the `/live-flow` canvas to retain every
+    model used during the selected period so I can see how many models I have
+    used and how their usage is trending, and prepare credits accordingly.
+  - **Scope:** new self-contained domain (backend `internal/liveflow/`,
+    frontend `web/src/features/live-flow/`), read-only aggregation over
+    `usage_events`, one new endpoint, one integration point in
+    `web/src/features/usage/LiveFlowPanel.tsx`, i18n in en/zh/zh-TW,
+    `docs/MERGE-PRESERVATION.md` protection entry.
+  - **Dependencies:** none (reads existing `usage_events`; no schema change
+    required by the baseline plan).
+  - **Acceptance Criteria:**
+    - [ ] A model node stays visible for the whole selected period and after a
+      browser refresh.
+    - [ ] The period dropdown offers exactly Today, Yesterday, Current Week,
+      Last Week, Current Month, Last Month.
+    - [ ] The panel shows how many distinct models were used in the period.
+    - [ ] Per-model request/failure figures match the aggregated period data.
+    - [ ] Live in-flight state still renders immediately and is never removed
+      by the historical view.
+    - [ ] Admin and API-key viewer access rules match the existing Live Flow
+      relay.
+    - [ ] Tests cover period boundaries, aggregation, authorization, refresh
+      persistence, and i18n parity.
+    - [ ] Feature documented in `docs/MERGE-PRESERVATION.md` and
+      `docs/ARCHITECTURE.md`.
+  - **Execution plan:** see [Phase 2.22 — Live Flow Model History](#phase-222--live-flow-model-history--period-filter-execution-plan).
+
+### Phase 2.22 — Live Flow Model History & Period Filter (Execution Plan)
+
+**Goal:** Make `/live-flow` model blocks persistent for a selected period and
+add the six-period dropdown, without changing the realtime relay contract.
+
+**Status:** ⬜ Planned — not implemented.
+
+**Evidence used for this plan**
+
+- `web/src/features/usage/LiveFlowPanel.tsx` keeps `events` (capped at 80 by
+  `appendLiveFlowEvent`), `activeRequests`, and `trails` in React state only.
+  `deriveLiveFlowModels()` builds nodes from completed events in that buffer,
+  and completed trails are deleted after
+  `LIVE_FLOW_COMPLETED_TRAIL_DURATION_MS` (25 s). A refresh remounts the panel
+  with empty state, which is the reported "canvas resets" behavior.
+- `internal/api/live_flow.go` is a pure relay: `registerLiveFlowRoutes` proxies
+  CPA `/live-flow/ws` to `/api/v1/live-flow/ws` and persists nothing.
+  Registration uses `authHandler.roleMiddleware(auth.RoleAdmin,
+  auth.RoleAPIKeyViewer)` in `internal/api/router.go` (admin + key viewer).
+- Durable per-model history already exists in `usage_events` (`model`,
+  `provider`, `failed`, `timestamp`, `generate`, token columns) with indexes
+  `idx_usage_events_timestamp_id` and `idx_usage_events_model`. Hot retention
+  is 90 local calendar days; `usage_events_archive` is explicitly documented as
+  never queried by APIs (`docs/SPECIFICATION.md` §4, §6).
+- Existing aggregation precedent for "models of a provider":
+  `internal/repository/provider_models.go` (`ListProviderModels` and
+  `providerModelEventAggregateExpressions`) already aggregates
+  `COUNT(event.id)`, `SUM(CASE WHEN event.failed ...)`, tokens, and
+  `MAX(event.timestamp)` grouped by `event.model`.
+- Period vocabulary already exists in ranking: `today`, `yesterday`,
+  `current_month`, `previous_month` in
+  `web/src/features/ranking/components/RankingToolbar.tsx` and the
+  `ranking.period_*` / `ranking.period_trigger_*` i18n keys. Week periods are
+  new.
+- Domain-isolation precedent: `internal/gnn` + `internal/gnn/httpapi` and
+  `web/src/features/model-gnn/`, registered from `internal/api/router.go` and
+  protected in `docs/MERGE-PRESERVATION.md` §1.
+- Docs drift to fix while implementing: `docs/MERGE-PRESERVATION.md` §4 still
+  lists `web/src/pages/LiveFlowPage.tsx` and
+  `web/src/components/usage/LiveFlowCanvas.tsx`, which do not exist. The real
+  files are `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`,
+  `FlowTopology.tsx`, and `web/src/pages/KeyLiveFlowPage.tsx`.
+
+**Confirmed requirements (from the feature request)**
+
+1. Model blocks must remain visible for a selectable period instead of
+   disappearing ~25 s after the event or on refresh.
+2. Periods: Today, Yesterday, Current Week, Last Week, Current Month, Last
+   Month.
+3. A dropdown filter selects the period.
+4. The view communicates how many models were used and per-model trend, so the
+   user can plan credits.
+
+**Technical implementation decisions (baseline scope)**
+
+- **Read model, not event replay.** Historical nodes come from aggregated
+  `usage_events` rows grouped by model for the selected period. The live
+  WebSocket continues to drive in-flight/pending state. No new table, no new
+  background runner, no change to the CPA relay contract.
+- **Aggregation is on demand.** The endpoint aggregates per request with a
+  bounded model count; it must not scan `usage_events_archive`.
+- **Filter must mirror the Live Flow stream contract.** The CPA relay only
+  emits generation traffic, so the historical query must restrict to
+  generation events (`generate` is NULL or true, matching
+  `usageEventGenerateEnabled()` in `internal/repository/usage.go`). Without
+  this the canvas would show models that never appear as live blocks.
+- **Period boundaries are project-local calendar boundaries.** Use
+  `timeutil.NormalizeStorageTime` (`internal/timeutil/storage.go`) and
+  local-midnight arithmetic like `internal/activity/grain.go`, so Today /
+  Yesterday / weeks / months match the dashboard's existing calendar-day
+  semantics. Weeks are ISO-style Monday→Sunday; this must be stated in the API
+  contract and covered by tests.
+- **Domain isolation.** All new code lives in `internal/liveflow/` (pure
+  domain + `internal/liveflow/httpapi/` route registration, following
+  `internal/gnn/httpapi`) and `web/src/features/live-flow/` (panel, types,
+  feature-local API client). `LiveFlowPanel` gets exactly one new integration
+  point. This satisfies the request to keep the feature maintainable across
+  upstream merges.
+- **Access control.** Reuse the same authorization as the relay: admin and
+  API-key viewer. The historical payload is metadata-only (model id, counts,
+  status, latency, last-seen) and contains no prompts, bodies, headers, or
+  credentials — consistent with `docs/SPECIFICATION.md` UC-2a / UC-2c.
+**Task breakdown**
+
+#### FEAT-LF-1.1 — Domain skeleton and period model
+
+- **Layer:** backend domain.
+- **Work:** create `internal/liveflow/` with `Period` (Today, Yesterday,
+  CurrentWeek, PreviousWeek, CurrentMonth, PreviousMonth), a parser that
+  rejects unknown values, and `ResolvePeriodWindow(period, now)` returning
+  half-open `[Start, End)` local-calendar bounds. Mirror the naming used by
+  `ranking.LeaderboardPeriod` for the overlapping four periods.
+- **Acceptance:** table-driven tests prove Monday-start weeks, month
+  boundaries, `AddDate` month arithmetic, and that `End` is exclusive.
+- **Dependencies:** none.
+
+#### FEAT-LF-1.2 — Repository aggregation query
+
+- **Layer:** `internal/repository/liveflow_models.go`.
+- **Work:** `ListLiveFlowModels(ctx, db, window)` returning, per model:
+  `model`, `request_count`, `success_count`, `failure_count`,
+  `total_tokens`, `last_seen_at`, `last_latency_ms`, `last_status`. Filter
+  `timestamp >= ? AND timestamp < ?`, generation-only, non-empty `model`,
+  ordered by `request_count DESC, model ASC` with a hard `LIMIT`.
+  Read from the reader pool (`dbresolver.Read`), matching
+  `provider_models.go`.
+- **Acceptance:** repository tests cover window edges (inclusive start,
+  exclusive end), generation filtering, empty-model exclusion, ordering, and
+  the row limit.
+- **Dependencies:** FEAT-LF-1.1.
+
+#### FEAT-LF-1.3 — Domain service and DTOs
+
+- **Layer:** `internal/liveflow/` service.
+- **Work:** compose the repository into a `Service` exposing
+  `Models(ctx, period)` → `{ period, period_key, start, end, timezone,
+  total_models, models[] }`. `period_key` is a stable string (for example
+  `2026-W46` or `2026-11`) so the UI can label the range.
+- **Acceptance:** service tests assert the response shape, that `total_models`
+  equals `len(models)`, and that an empty period returns an empty list rather
+  than an error.
+- **Dependencies:** FEAT-LF-1.1, FEAT-LF-1.2.
+
+#### FEAT-LF-1.4 — HTTP surface and route registration
+
+- **Layer:** `internal/liveflow/httpapi/`.
+- **Work:** `GET /api/v1/live-flow/models?period=<value>` returning 400 for an
+  unknown period, 503 when the provider is not configured, and a JSON body
+  matching FEAT-LF-1.3. Register from `internal/api/router.go` on a group with
+  `authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer)`, next to
+  `registerLiveFlowRoutes`, and add the provider to `OptionalProviders`.
+- **Acceptance:** API tests cover admin access, API-key viewer access,
+  unauthenticated 401, invalid period 400, and default-period behavior.
+- **Dependencies:** FEAT-LF-1.3.
+
+#### FEAT-LF-1.5 — Frontend feature domain and API client
+
+- **Layer:** `web/src/features/live-flow/`.
+- **Work:** feature-local `types.ts` and `api.ts` (`fetchLiveFlowModels`),
+  period constants and label keys, plus a pure merge helper
+  `mergeLiveFlowModels(historical, liveModels)` that unions historical nodes
+  with live in-flight models and lets live status override historical status.
+- **Acceptance:** unit tests cover union, de-duplication by model id,
+  live-over-historical precedence, stable ordering, and the unresolved-model
+  fallback.
+- **Dependencies:** FEAT-LF-1.4.
+
+
+
+#### FEAT-LF-1.6 — Period dropdown and persistent canvas integration
+
+- **Layer:** `web/src/features/usage/LiveFlowPanel.tsx` (+ feature domain
+  component).
+- **Work:** add the period `Select` (reuse `web/src/components/ui/Select.tsx`,
+  as `RankingToolbar` does), fetch the selected period, persist the selection
+  in `localStorage`, and render the merged model set into `FlowTopology`.
+  Keep the 25-second trail expiry for *trails* while model nodes persist for
+  the period. Handle loading, empty, and error states without unmounting the
+  canvas.
+- **Acceptance:** tests prove a node survives trail expiry, survives a
+  remount/refresh with a populated response, that the dropdown renders the six
+  periods, that the selected period is restored, and that an API failure keeps
+  the live canvas usable.
+- **Dependencies:** FEAT-LF-1.5.
+
+#### FEAT-LF-1.7 — Usage counters and trend display
+
+- **Layer:** frontend feature domain.
+- **Work:** show the period's distinct-model count, total requests, and
+  per-model trend indicator. Trend compares the selected period's request
+  count with the immediately preceding period of the same kind (Today vs
+  Yesterday, Current Week vs Last Week, Current Month vs Last Month) — the only
+  comparison the six fixed periods make unambiguous.
+- **Acceptance:** tests cover the trend computation, the "no baseline" state
+  for the oldest period, and locale formatting.
+- **Dependencies:** FEAT-LF-1.6.
+
+#### FEAT-LF-1.8 — i18n (en / zh / zh-TW)
+
+- **Work:** add `usage_stats.live_flow_period_*`, `live_flow_models_count`,
+  `live_flow_trend_*`, and period-range labels to all three locales in
+  `web/src/i18n/index.ts`.
+- **Acceptance:** existing i18n parity check passes; no raw keys render.
+- **Dependencies:** FEAT-LF-1.6, FEAT-LF-1.7.
+
+#### FEAT-LF-1.9 — Documentation and merge protection
+
+- **Work:** add a Live Flow history section to `docs/MERGE-PRESERVATION.md`
+  (domain, endpoints, files, verification commands); update
+  `docs/ARCHITECTURE.md` (module list + Live Flow subsection),
+  `docs/SPECIFICATION.md` (UC-2d historical model view), `docs/CODE_GRAPH.md`
+  (feature location map), `CHANGELOG.md`, `session.md`, and correct the stale
+  §4 file paths.
+- **Acceptance:** each document names the real paths; the merge-preservation
+  verification block passes.
+- **Dependencies:** FEAT-LF-1.4, FEAT-LF-1.8.
+
+#### FEAT-LF-1.10 — Verification baseline
+
+- **Work:** run `go test ./cmd/... ./internal/...`, then
+  `npm --prefix ./web run test | lint | typecheck | build` (equivalently
+  `make verify`).
+- **Acceptance:** all green; manual check that `/live-flow` and
+  `/key-live-flow` both keep nodes after refresh.
+- **Dependencies:** all previous tasks.
+
+**Testing strategy**
+
+- Go table-driven tests for period windows, repository window edges, and API
+  authorization.
+- Vitest component tests for persistence across trail expiry and remount, plus
+  pure-function tests for the merge and trend helpers.
+- Regression: existing `LiveFlowPanel` tests (trail window, relay diagnostics)
+  and `KeyLiveFlowPage` tests must keep passing.
+
+**Risks and mitigations**
+
+- *Performance:* per-request aggregation over a month of events. Mitigate with
+  the model index, generation filter, bounded `LIMIT`, reader-pool routing, and
+  a short-lived in-process cache if measurements show a problem (see REC-002).
+- *Semantics mismatch with the live stream:* historical "used models" may
+  include models the root no longer routes. Accepted; it is the requested
+  "what did I use" view.
+- *Retention:* periods beyond 90 days are unavailable by design; the API must
+  document that month views older than hot retention are empty.
+- *Authorization drift:* if the relay ever becomes admin-only, the history
+  endpoint must follow. Keep both registered in the same place.
+- *Duplicate nodes:* live and historical sets must merge by model id, never
+  render twice.
+
+**Open questions**
+
+- **OQ-1:** Should API-key viewers see global historical models (matching the
+  global live view) or only their own key's models? Baseline plan assumes
+  global, matching UC-2c.
+- **OQ-2:** Week definition — Monday→Sunday is assumed; confirm if
+  Sunday→Saturday is preferred.
+- **OQ-3:** Is a trend comparison required in the first release, or is a
+  period total sufficient? Baseline plan includes the simple
+  preceding-period comparison.
+
+---
+
+### Feature Recommendations for User Review
+
+> Proposals only. They are **not** part of the confirmed scope and must not be
+> implemented until explicitly accepted.
+
+#### REC-001: Reuse the existing provider-model aggregation instead of a new query
+
+**Category:** Architecture
+**Recommendation:** Serve historical model nodes by extending the existing
+`GET /api/v1/usage/providers/:providerId/models` aggregation rather than
+adding a Live Flow-specific endpoint.
+**Reasoning:** `internal/repository/provider_models.go` already aggregates
+per-model counts from `usage_events`; a second query path duplicates SQL and
+tests.
+**Expected Benefits:** Less code; one aggregation to maintain.
+**Trade-offs:** Couples a fork feature to an upstream endpoint that merges can
+change, weakening the merge isolation the request asks for; the existing
+endpoint is provider-scoped, not period-scoped.
+**Implementation Impact:** `internal/repository/provider_models.go`,
+`internal/api/usage_identities.go`.
+**Priority:** Low — recommended *against* for merge-safety reasons.
+**Status:** Pending User Review
+
+#### REC-002: Pre-aggregate model history in the existing rollup pipeline
+
+**Category:** Performance
+**Recommendation:** If per-request aggregation proves slow, extend
+`UsageAggregationRunner` with a `liveflow_models` checkpoint and a small
+per-period rollup table instead of querying raw events.
+**Reasoning:** The project already uses checkpointed, exactly-once rollups
+(`docs/ARCHITECTURE.md` §4) for overview/activity/latency.
+**Expected Benefits:** Constant-time reads; aggregation cost independent of
+hot retention.
+**Trade-offs:** New entity, migration, runner pipeline, and backfill; larger
+implementation and more merge surface.
+**Implementation Impact:** `internal/entities`,
+`internal/repository/migration`, `internal/poller/usage_aggregation_runner.go`.
+**Priority:** Medium — only if measurements justify it.
+**Status:** Pending User Review
+
+#### REC-003: Persist the last canvas state so the first paint is never empty
+
+**Category:** UX
+**Recommendation:** Cache the last successful period response in
+`localStorage` and render it while the fresh request is in flight.
+**Reasoning:** The complaint includes "canvas is empty and back to start
+canvas"; a stale-but-instant first paint removes that flash.
+**Expected Benefits:** No empty flash on refresh; better perceived performance.
+**Trade-offs:** Stale data can be briefly shown; needs an "as of" caption and
+cache invalidation.
+**Implementation Impact:** `web/src/features/live-flow/`.
+**Priority:** Medium
+**Status:** Pending User Review
+
+
+#### REC-004: Add token/cost columns to the model cards
+
+**Category:** Business Logic
+**Recommendation:** Include total tokens and estimated cost per model for the
+period, reusing the existing pricing snapshot.
+**Reasoning:** The stated goal is preparing credits; token and cost figures
+answer that more directly than request counts.
+**Expected Benefits:** Directly actionable credit planning.
+**Trade-offs:** Pulls pricing resolution into the aggregation path, increasing
+query cost and test surface.
+**Implementation Impact:** `internal/repository/liveflow_models.go`,
+`internal/pricing`.
+**Priority:** Medium
+**Status:** Pending User Review
+
+#### REC-005: Label the historical overlay explicitly
+
+**Category:** UX
+**Recommendation:** Visually distinguish "used in period" nodes from currently
+in-flight nodes (for example a muted outline, a legend, and an "as of"
+timestamp).
+**Reasoning:** Mixing live and historical state on one canvas is ambiguous
+otherwise, and the canvas is the only place both appear.
+**Expected Benefits:** Removes misreading of stale nodes as active traffic.
+**Trade-offs:** Additional styling and i18n strings.
+**Implementation Impact:** `FlowTopology` node data, `LiveFlowPanel`.
+**Priority:** High (clarity), low effort.
+**Status:** Pending User Review
+
+#### REC-006: Refresh the historical layer on a slow interval
+
+**Category:** UX
+**Recommendation:** Poll the period endpoint every 30–60 s while the tab is
+visible instead of fetching once per period change.
+**Reasoning:** Keeps the persistent view current without reconnecting the
+socket.
+**Expected Benefits:** Data stays fresh during long sessions.
+**Trade-offs:** Extra read load; must respect `document.visibilityState` and
+avoid overlapping requests.
+**Implementation Impact:** `web/src/features/live-flow/`.
+**Priority:** Low
+**Status:** Pending User Review
+
+---
 
 ### Restoration Tasks (Upstream Merge Recovery)
 
@@ -333,6 +710,7 @@ Runs alongside every phase; items are pulled as needed rather than ordered.
 ## Task ID Naming Convention
 
 - **Feature phases:** `FEAT-PROV-X.Y` (AI Provider table redesign)
+- **Live Flow history:** `FEAT-LF-X.Y` (Phase 2.22)
 - **General improvements:** `IMP-X.Y`
 - **Bug fixes:** `BUG-X`
 - **Documentation:** `DOC-X`

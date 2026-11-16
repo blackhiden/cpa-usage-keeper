@@ -15,6 +15,7 @@ import (
 	"cpa-usage-keeper/internal/cpa"
 	"cpa-usage-keeper/internal/enrichgeo"
 	"cpa-usage-keeper/internal/gnn"
+	"cpa-usage-keeper/internal/liveflow"
 	"cpa-usage-keeper/internal/logging"
 	"cpa-usage-keeper/internal/oidc"
 	"cpa-usage-keeper/internal/poller"
@@ -229,6 +230,8 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	})
 	cpaAPIKeyService := service.NewCPAAPIKeyService(db)
 	providerModelGraphService := gnn.NewService(cpaClient)
+	// Live Flow model history (fork feature): on-demand aggregation, no runner.
+	liveFlowModelsService := liveflow.NewService(db)
 	// 单条凭证开关成功后立即与 CPA 对齐；runner 自带合并窗口和 nil 保护。
 	credentialMutationLocks := &service.CredentialMutationLocks{}
 	credentialsManagementService := service.NewCredentialsManagementService(cpaClient, metadataSyncRunner, credentialMutationLocks, credentialMetadata)
@@ -324,6 +327,7 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				// Ranking:            rankingService,
 				// Provider Model GNN is a permanent fork feature
 				ProviderModelGraph: providerModelGraphService,
+				LiveFlowModels:     liveFlowModelsService,
 				// Models fetcher (upstream feature)
 				Models:         cpaClient,
 				LiveFlowClient: cpaClient,

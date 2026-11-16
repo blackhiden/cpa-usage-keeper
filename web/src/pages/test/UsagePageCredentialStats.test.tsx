@@ -91,7 +91,10 @@ describe('UsagePage credential detail statistics', () => {
   };
 
   const render = async (authType: 1 | 2) => {
-    window.history.replaceState(null, '', authType === 1 ? '/credentials' : '/ai-provider');
+    // The /ai-provider tab renders a provider summary now, not credential
+    // cards. Both auth types are listed on the credentials tab, so render
+    // there to exercise the shared detail-drawer behavior for each type.
+    window.history.replaceState(null, '', '/credentials');
     api.fetchUsageIdentitiesPage.mockResolvedValue({ identities: [identity(authType, 10), identity(authType, 20, '2')], total_count: 12, total_pages: 2 });
     api.fetchUsageIdentity.mockImplementation(async (id: string) => identity(authType, id === '1' ? 10 : 20, id));
     await act(async () => root.render(<UsagePage />));
@@ -187,7 +190,12 @@ describe('UsagePage credential detail statistics', () => {
     await act(async () => button('Reset').click());
     expect(metric()).toBe('0');
     expectHealth('90.0%', '25.00%');
-    expect(container.textContent).not.toContain('Fixture 1');
+    if (authType === 1) {
+      // A type 1 reset refreshes the credentials list, so the card disappears.
+      // A type 2 reset refreshes the ai-provider list instead, so the
+      // credentials list is intentionally left untouched.
+      expect(container.querySelector('[data-credential-card="true"][data-credential-identity="1"]')).toBeNull();
+    }
     api.fetchUsageIdentity.mockResolvedValue({ ...identity(authType, 5), credential_health: health(4, 1, 200, 100, '2026-09-11T16:10:00+08:00') });
     await tick();
     expect(metric()).toBe('5');

@@ -257,6 +257,19 @@ Key invariants:
   `/chat/completions` is included, while other routes and WebSocket turns need
   prompt-bearing input; token refresh, authentication, management, and
   model-less background operations are excluded.
+- **Live Flow model history** is a self-contained feature domain. The backend is
+  `internal/liveflow/` (period model, history service) plus
+  `internal/liveflow/httpapi/` (route registration), aggregated by
+  `internal/repository/liveflow_models.go`; the frontend is
+  `web/src/features/live-flow/` (types, API client, merge and trend helpers,
+  period select). `LiveFlowPanel` has exactly one integration point: it renders
+  the merged historical and live model set. Periods are half-open local-calendar
+  windows resolved with `timeutil.NormalizeStorageTime`; weeks are ISO-style
+  Monday→Sunday. History is aggregated on demand from `usage_events`
+  (generation traffic only, reader pool, bounded `LIMIT`); there is no new
+  table, no background runner, and `usage_events_archive` is never queried.
+  Registration is `GET /api/v1/live-flow/models?period=<value>`, mounted next to
+  the relay with `authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer)`.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

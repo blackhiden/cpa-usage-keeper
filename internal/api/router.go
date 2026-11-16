@@ -14,6 +14,7 @@ import (
 
 	"cpa-usage-keeper/internal/auth"
 	gnnhttpapi "cpa-usage-keeper/internal/gnn/httpapi"
+	liveflowhttpapi "cpa-usage-keeper/internal/liveflow/httpapi"
 	"cpa-usage-keeper/internal/logging"
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/quota"
@@ -76,8 +77,10 @@ type OptionalProviders struct {
 	Models service.ModelsFetcher
 	// Provider Model GNN (permanent fork feature)
 	ProviderModelGraph gnnhttpapi.Provider
-	Status             StatusRouteConfig
-	LiveFlowClient     LiveFlowProvider
+	// Live Flow model history (fork feature)
+	LiveFlowModels liveflowhttpapi.Provider
+	Status         StatusRouteConfig
+	LiveFlowClient LiveFlowProvider
 }
 
 // newRouterEngine 为启动外壳和完整业务路由装配相同的可信代理与异常恢复设置。
@@ -141,6 +144,7 @@ func NewRouter(
 	var modelsProvider service.ModelsFetcher
 	var statusConfig StatusRouteConfig
 	var liveFlowClient LiveFlowProvider
+	var liveFlowModelsProvider liveflowhttpapi.Provider
 	if len(optionalProviders) > 0 {
 		usageIdentityProvider = optionalProviders[0].UsageIdentity
 		costReadGate = optionalProviders[0].CostReadGate
@@ -163,6 +167,8 @@ func NewRouter(
 		modelsProvider = optionalProviders[0].Models
 		statusConfig = optionalProviders[0].Status
 		liveFlowClient = optionalProviders[0].LiveFlowClient
+		// Live Flow model history shares the relay's authorization
+		liveFlowModelsProvider = optionalProviders[0].LiveFlowModels
 	}
 	authHandler.setCPAAPIKeyProvider(cpaAPIKeyProvider)
 	requestLogDownloadTokens := newRequestLogDownloadTokenStore()
@@ -177,6 +183,8 @@ func NewRouter(
 	liveFlowProtected := apiV1.Group("")
 	liveFlowProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
 	registerLiveFlowRoutes(liveFlowProtected, liveFlowClient)
+	// Live Flow model history shares the relay's authorization (admin + key viewer)
+	liveflowhttpapi.RegisterRoutes(liveFlowProtected, liveFlowModelsProvider)
 
 	providerProtected := apiV1.Group("")
 	providerProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))

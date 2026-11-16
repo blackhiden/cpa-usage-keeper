@@ -1,37 +1,44 @@
+// @vitest-environment happy-dom
+
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProviderKeysDialog } from '../ProviderKeysDialog'
 import type { ProviderKeysResponse, UsageIdentity } from '@/lib/types'
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      if (key === 'usage_stats.provider_keys_dialog_title') return `Keys for ${params?.provider}`
-      if (key === 'usage_stats.provider_keys_dialog_subtitle') return `${params?.count} keys`
-      if (key === 'usage_stats.provider_keys_toggle_view') return 'Toggle view'
-      if (key === 'usage_stats.view_list') return 'List view'
-      if (key === 'usage_stats.view_cards') return 'Card view'
-      if (key === 'common.loading') return 'Loading...'
-      if (key === 'usage_stats.provider_keys_empty') return 'No keys found'
-      if (key === 'usage_stats.credentials_column_name') return 'Name'
-      if (key === 'usage_stats.credentials_metric_requests') return 'Requests'
-      if (key === 'usage_stats.credentials_metric_success') return 'Success'
-      if (key === 'usage_stats.credentials_metric_tokens') return 'Tokens'
-      if (key === 'usage_stats.credentials_metric_cache') return 'Cache'
-      if (key === 'usage_stats.credentials_sort_label') return 'Sort by'
-      if (key === 'usage_stats.credentials_sort_priority') return 'Priority'
-      if (key === 'usage_stats.credentials_sort_total_requests') return 'Total Requests'
-      if (key === 'usage_stats.credentials_sort_success_rate') return 'Success Rate'
-      if (key === 'usage_stats.credentials_sort_total_tokens') return 'Total Tokens'
-      if (key === 'usage_stats.credentials_sort_last_used') return 'Last Used'
-      if (key === 'usage_stats.previous_page') return 'Previous'
-      if (key === 'usage_stats.next_page') return 'Next'
-      if (key === 'usage_stats.rows_per_page') return 'Rows per page'
-      return key
-    },
-  }),
-}))
+vi.mock('react-i18next', () => {
+  // Stable `t` (the real i18next one does not change identity per render) plus
+  // initReactI18next, which src/i18n imports at module load.
+  const t = (key: string, params?: Record<string, unknown>) => {
+    if (key === 'usage_stats.provider_keys_dialog_title') return `Keys for ${params?.provider}`
+    if (key === 'usage_stats.provider_keys_dialog_subtitle') return `${params?.count} keys`
+    if (key === 'usage_stats.provider_keys_toggle_view') return 'Toggle view'
+    if (key === 'usage_stats.view_list') return 'List view'
+    if (key === 'usage_stats.view_cards') return 'Card view'
+    if (key === 'common.loading') return 'Loading...'
+    if (key === 'usage_stats.provider_keys_empty') return 'No keys found'
+    if (key === 'usage_stats.credentials_column_name') return 'Name'
+    if (key === 'usage_stats.credentials_metric_requests') return 'Requests'
+    if (key === 'usage_stats.credentials_metric_success') return 'Success'
+    if (key === 'usage_stats.credentials_metric_tokens') return 'Tokens'
+    if (key === 'usage_stats.credentials_metric_cache') return 'Cache'
+    if (key === 'usage_stats.credentials_sort_label') return 'Sort by'
+    if (key === 'usage_stats.credentials_sort_priority') return 'Priority'
+    if (key === 'usage_stats.credentials_sort_total_requests') return 'Total Requests'
+    if (key === 'usage_stats.credentials_sort_success_rate') return 'Success Rate'
+    if (key === 'usage_stats.credentials_sort_total_tokens') return 'Total Tokens'
+    if (key === 'usage_stats.credentials_sort_last_used') return 'Last Used'
+    if (key === 'usage_stats.previous_page') return 'Previous'
+    if (key === 'usage_stats.next_page') return 'Next'
+    if (key === 'usage_stats.rows_per_page') return 'Rows per page'
+    return key
+  }
+  const translation = { t }
+  return {
+    useTranslation: () => translation,
+    initReactI18next: { type: '3rdParty', init: () => undefined },
+  }
+})
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual('@/lib/api')

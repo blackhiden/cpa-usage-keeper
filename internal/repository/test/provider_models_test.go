@@ -56,7 +56,9 @@ func TestListProviderModelsAdminSeesAllModels(t *testing.T) {
 	if gpt4.Model != "gpt-4" {
 		t.Fatalf("expected first model to be gpt-4 (sorted by total_requests desc), got %s", gpt4.Model)
 	}
-	if gpt4.TotalRequests != 3 || gpt4.SuccessCount != 2 || gpt4.FailureCount != 1 {
+	// gpt-4 has three successful events; the only failed event belongs to
+	// gpt-3.5-turbo and is asserted below.
+	if gpt4.TotalRequests != 3 || gpt4.SuccessCount != 3 || gpt4.FailureCount != 0 {
 		t.Fatalf("gpt-4 stats incorrect: requests=%d success=%d failure=%d", gpt4.TotalRequests, gpt4.SuccessCount, gpt4.FailureCount)
 	}
 	if gpt4.InputTokens != 450 || gpt4.CacheReadTokens != 50 || gpt4.TotalTokens != 650 {

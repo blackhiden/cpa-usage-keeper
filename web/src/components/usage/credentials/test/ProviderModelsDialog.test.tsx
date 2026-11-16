@@ -12,34 +12,37 @@ vi.mock('@/lib/api', async () => {
   return { ...actual, listProviderModels: api.listProviderModels }
 })
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      if (key === 'usage_stats.provider_models_dialog_title' && params?.provider) {
-        return `Models for ${params.provider}`
-      }
-      if (key === 'usage_stats.provider_models_dialog_subtitle' && typeof params?.count === 'number') {
-        return `${params.count} models`
-      }
-      if (key === 'usage_stats.model') return 'Model'
-      if (key === 'usage_stats.requests') return 'Requests'
-      if (key === 'usage_stats.success_rate') return 'Success Rate'
-      if (key === 'usage_stats.tokens') return 'Tokens'
-      if (key === 'usage_stats.total_requests') return 'Total Requests'
-      if (key === 'usage_stats.total_tokens') return 'Total Tokens'
-      if (key === 'usage_stats.last_used') return 'Last used'
-      if (key === 'usage_stats.view_list') return 'List'
-      if (key === 'usage_stats.view_cards') return 'Cards'
-      if (key === 'usage_stats.provider_models_toggle_view') return 'Toggle view mode'
-      if (key === 'usage_stats.no_models_found') return 'No models found'
-      if (key === 'usage_stats.failed_to_load_models') return 'Failed to load models'
-      if (key === 'common.loading') return 'Loading'
-      if (key === 'common.previous') return 'Previous'
-      if (key === 'common.next') return 'Next'
-      return key
-    },
-  }),
-}))
+vi.mock('react-i18next', () => {
+  // The real i18next `t` is stable across renders. Returning a fresh function
+  // per call makes any component that lists `t` in a useCallback dependency
+  // re-fetch on every render, so this mock must be stable too.
+  const t = (key: string, params?: Record<string, unknown>) => {
+    if (key === 'usage_stats.provider_models_dialog_title' && params?.provider) {
+      return `Models for ${params.provider}`
+    }
+    if (key === 'usage_stats.provider_models_dialog_subtitle' && typeof params?.count === 'number') {
+      return `${params.count} models`
+    }
+    if (key === 'usage_stats.model') return 'Model'
+    if (key === 'usage_stats.requests') return 'Requests'
+    if (key === 'usage_stats.success_rate') return 'Success Rate'
+    if (key === 'usage_stats.tokens') return 'Tokens'
+    if (key === 'usage_stats.total_requests') return 'Total Requests'
+    if (key === 'usage_stats.total_tokens') return 'Total Tokens'
+    if (key === 'usage_stats.last_used') return 'Last used'
+    if (key === 'usage_stats.view_list') return 'List'
+    if (key === 'usage_stats.view_cards') return 'Cards'
+    if (key === 'usage_stats.provider_models_toggle_view') return 'Toggle view mode'
+    if (key === 'usage_stats.no_models_found') return 'No models found'
+    if (key === 'usage_stats.failed_to_load_models') return 'Failed to load models'
+    if (key === 'common.loading') return 'Loading'
+    if (key === 'common.previous') return 'Previous'
+    if (key === 'common.next') return 'Next'
+    return key
+  }
+  const translation = { t }
+  return { useTranslation: () => translation }
+})
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -89,6 +92,10 @@ describe('ProviderModelsDialog', () => {
     total_pages: 1,
   }
 
+  // The Modal renders through createPortal into document.body, so assertions
+  // must read the body rather than the React root container.
+  const viewport = () => document.body
+
   it('renders the dialog with models in card view', async () => {
     api.listProviderModels.mockResolvedValueOnce(mockModelsResponse)
 
@@ -99,10 +106,10 @@ describe('ProviderModelsDialog', () => {
     })
     await act(async () => undefined)
 
-    expect(container.textContent).toContain('Models for openai')
-    expect(container.textContent).toContain('2 models')
-    expect(container.textContent).toContain('gpt-4o')
-    expect(container.textContent).toContain('gpt-4o-mini')
+    expect(viewport().textContent).toContain('Models for openai')
+    expect(viewport().textContent).toContain('2 models')
+    expect(viewport().textContent).toContain('gpt-4o')
+    expect(viewport().textContent).toContain('gpt-4o-mini')
   })
 
   it('toggles between card and list view', async () => {
@@ -115,16 +122,16 @@ describe('ProviderModelsDialog', () => {
     })
     await act(async () => undefined)
 
-    const toggleButton = container.querySelector('button[aria-label="Toggle view"]') as HTMLButtonElement
+    const toggleButton = viewport().querySelector('button[aria-label="Toggle view mode"]') as HTMLButtonElement
     expect(toggleButton).toBeTruthy()
-    expect(toggleButton.textContent).toContain('List View')
+    expect(toggleButton.textContent).toContain('List')
 
     await act(async () => {
       toggleButton.click()
     })
 
-    expect(toggleButton.textContent).toContain('Card View')
-    expect(container.querySelector('table')).toBeTruthy()
+    expect(toggleButton.textContent).toContain('Cards')
+    expect(viewport().querySelector('table')).toBeTruthy()
   })
 
   it('displays loading state', async () => {
@@ -138,10 +145,12 @@ describe('ProviderModelsDialog', () => {
       )
     })
 
-    expect(container.textContent).toContain('Loading')
+    expect(viewport().textContent).toContain('Loading')
   })
 
   it('displays error state', async () => {
+    // A non-ApiError rejection is rendered with the localized fallback message,
+    // so the assertion targets the fallback rather than the raw error text.
     api.listProviderModels.mockRejectedValueOnce(new Error('Network error'))
 
     await act(async () => {
@@ -151,7 +160,7 @@ describe('ProviderModelsDialog', () => {
     })
     await act(async () => undefined)
 
-    expect(container.textContent).toContain('Network error')
+    expect(viewport().textContent).toContain('Failed to load models')
   })
 
   it('displays empty state when no models found', async () => {
@@ -169,7 +178,7 @@ describe('ProviderModelsDialog', () => {
     })
     await act(async () => undefined)
 
-    expect(container.textContent).toContain('No models found')
+    expect(viewport().textContent).toContain('No models found')
   })
 
   it('calls API with correct parameters', async () => {

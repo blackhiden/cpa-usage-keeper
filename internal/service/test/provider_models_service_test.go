@@ -32,7 +32,7 @@ func TestListProviderModelsServiceCalculatesSuccessRate(t *testing.T) {
 		t.Fatalf("insert events: %v", err)
 	}
 
-	service := keeperservice.NewUsageIdentityService(db)
+	service := keeperservice.NewUsageIdentityProviderReader(db)
 	result, err := service.ListProviderModels(ctx, keeperservice.ListProviderModelsRequest{
 		Provider:    "OpenAI",
 		CPAAPIKeyID: 0, // Admin
@@ -70,7 +70,7 @@ func TestListProviderModelsServiceScopesViewerByAPIKey(t *testing.T) {
 	now := time.Date(2026, 11, 10, 3, 0, 0, 0, time.UTC)
 
 	// Create CPA API key for viewer
-	apiKey := entities.CPAAPIKey{APIKey: "viewer-key", DisplayKey: "viewer-key", Enabled: true}
+	apiKey := entities.CPAAPIKey{APIKey: "viewer-key", DisplayKey: "viewer-key"}
 	if err := db.Create(&apiKey).Error; err != nil {
 		t.Fatalf("create API key: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestListProviderModelsServiceScopesViewerByAPIKey(t *testing.T) {
 		t.Fatalf("insert events: %v", err)
 	}
 
-	service := keeperservice.NewUsageIdentityService(db)
+	service := keeperservice.NewUsageIdentityProviderReader(db)
 	result, err := service.ListProviderModels(ctx, keeperservice.ListProviderModelsRequest{
 		Provider:    "Claude",
 		CPAAPIKeyID: apiKey.ID,
