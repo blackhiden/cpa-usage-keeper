@@ -563,7 +563,7 @@ func mapUsageCredentialHealthResponse(snapshot *service.UsageCredentialHealthSna
 
 func registerProviderRoutes(router gin.IRoutes, usageIdentityProvider service.UsageIdentityProvider) {
 	router.GET("/usage/providers", func(c *gin.Context) {
-		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		reader, ok := usageIdentityProvider.(service.ProvidersLister)
 		if !ok {
 			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider listing is not configured"})
 			return
@@ -594,7 +594,7 @@ func registerProviderRoutes(router gin.IRoutes, usageIdentityProvider service.Us
 	})
 
 	router.GET("/usage/providers/:providerId/keys", func(c *gin.Context) {
-		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		reader, ok := usageIdentityProvider.(service.ProviderKeysLister)
 		if !ok {
 			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider key listing is not configured"})
 			return
@@ -633,7 +633,7 @@ func registerProviderRoutes(router gin.IRoutes, usageIdentityProvider service.Us
 	})
 
 	router.GET("/usage/providers/:providerId/models", func(c *gin.Context) {
-		reader, ok := usageIdentityProvider.(service.ProviderReader)
+		reader, ok := usageIdentityProvider.(service.ProviderModelsLister)
 		if !ok {
 			c.JSON(http.StatusNotImplemented, gin.H{"error": "provider model listing is not configured"})
 			return

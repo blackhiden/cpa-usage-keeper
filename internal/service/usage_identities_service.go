@@ -83,6 +83,21 @@ type ProviderReader interface {
 	ListProviderModels(context.Context, ListProviderModelsRequest) (ListProviderModelsResponse, error)
 }
 
+// ProvidersLister 只暴露 provider 列表能力，便于路由按需断言。
+type ProvidersLister interface {
+	ListProviders(context.Context, ListProvidersRequest) ([]ProviderAggregate, error)
+}
+
+// ProviderKeysLister 只暴露 provider 凭证列表能力。
+type ProviderKeysLister interface {
+	ListProviderKeys(context.Context, ListProviderKeysRequest) (ListProviderKeysResponse, error)
+}
+
+// ProviderModelsLister 只暴露 provider 模型列表能力。
+type ProviderModelsLister interface {
+	ListProviderModels(context.Context, ListProviderModelsRequest) (ListProviderModelsResponse, error)
+}
+
 type ListProvidersRequest struct {
 	Sort        string
 	CPAAPIKeyID int64
@@ -157,6 +172,18 @@ type usageIdentityService struct {
 
 func NewUsageIdentityService(db *gorm.DB) UsageIdentityProvider {
 	return NewUsageIdentityServiceWithRecentCache(db, nil)
+}
+
+// NewUsageIdentityProviderReader returns the same service widened to the
+// provider query surface. Kept separate so the narrow constructor contract
+// stays unchanged for existing callers.
+func NewUsageIdentityProviderReader(db *gorm.DB) ProviderReader {
+	service := NewUsageIdentityServiceWithOptions(db, nil, UsageIdentityServiceOptions{})
+	reader, ok := service.(ProviderReader)
+	if !ok {
+		panic("usage identity service no longer implements ProviderReader")
+	}
+	return reader
 }
 
 func NewUsageIdentityServiceWithRecentCache(db *gorm.DB, recentUsage *repository.UsageRecentEventCache) UsageIdentityProvider {
