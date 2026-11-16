@@ -47,12 +47,12 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
-session.md
 .agents
 *.md
 !docs/MERGE-PRESERVATION.md
 !docs/PARALLEL-DEVELOPMENT.md
 !SCHEMA.md
+!session.md
 *.sh
 !scripts/parallel-feature-worktrees.sh
 node_modules
