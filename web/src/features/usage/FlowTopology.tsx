@@ -44,6 +44,30 @@ interface FlowTopologyProps {
 // zoom-out steps below the default 1.0 viewport.
 export const liveFlowFitViewOptions = { padding: 0.42, minZoom: 0.35, maxZoom: 0.7 };
 
+// Provider blocks are roughly 190px wide once the name, count and in-flight
+// badge are laid out. The ring radius grows with the model count so
+// neighbouring blocks keep a visible gap instead of overlapping.
+const providerNodeWidth = 190;
+const providerRingBaseRadius = 250;
+const providerRingMinGap = 28;
+
+export function liveFlowRingRadius(nodeCount: number): number {
+  if (nodeCount <= 1) return 0;
+  // Chord length between neighbours must cover one block plus a gap.
+  const chord = providerNodeWidth + providerRingMinGap;
+  const required = chord / (2 * Math.sin(Math.PI / nodeCount));
+  return Math.max(providerRingBaseRadius, Math.ceil(required));
+}
+
+// In-flight blocks are raised above idle ones so a busy block is never hidden
+// behind a neighbour and its label stays readable.
+const providerNodeBaseZIndex = 1;
+const providerNodeActiveZIndex = 10;
+
+export function liveFlowNodeZIndex(isActive: boolean): number {
+  return isActive ? providerNodeActiveZIndex : providerNodeBaseZIndex;
+}
+
 export function FlowTopology({ providers, trails = {} }: FlowTopologyProps) {
   const activeRequests = providers.reduce((total, provider) => total + (provider.activeRequests ?? 0), 0)
   const nodes: Node[] = useMemo(() => {
@@ -56,23 +80,37 @@ export function FlowTopology({ providers, trails = {} }: FlowTopologyProps) {
         count: providers.length,
         activeRequests,
       },
+      zIndex: activeRequests > 0 ? providerNodeActiveZIndex : providerNodeBaseZIndex,
     };
+
+    const radius = liveFlowRingRadius(providers.length);
+    // A block is active while it has in-flight requests or a live trail, so its
+    // label is never covered by a neighbouring block.
+    const activeTrailModels = new Set(
+      Object.values(trails)
+        .filter((trail) => trail.state === 'pending')
+        .map((trail) => trail.modelID),
+    );
 
     const providerNodes: Node[] = providers.map((provider, index) => {
       const total = providers.length;
       const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
-      const radius = 250;
-      const x = Math.cos(angle) * radius;
+      // Center each block on its ring point; otherwise every block hangs to the
+      // right of its anchor and neighbouring labels collide.
+      const x = Math.cos(angle) * radius - providerNodeWidth / 2;
       const y = Math.sin(angle) * radius;
+      const isActive = (provider.activeRequests ?? 0) > 0 || activeTrailModels.has(provider.id);
 
       return {
         id: `provider-${provider.id}`,
         type: 'provider',
         position: { x, y },
+        zIndex: liveFlowNodeZIndex(isActive),
+        className: isActive ? 'live-flow-node-active' : undefined,
         data: {
           name: provider.name,
           color: provider.color,
-          isActive: (provider.activeRequests ?? 0) > 0,
+          isActive,
           requestCount: provider.requestCount,
           failures: provider.failures,
           latestStatus: provider.latestStatus,
@@ -83,7 +121,7 @@ export function FlowTopology({ providers, trails = {} }: FlowTopologyProps) {
     });
 
     return [routerNode, ...providerNodes];
-  }, [providers, activeRequests]);
+  }, [providers, trails, activeRequests]);
 
   const edges: Edge[] = useMemo(() => {
     return providers.map((provider) => {
