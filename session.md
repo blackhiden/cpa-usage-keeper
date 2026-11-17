@@ -1,3 +1,35 @@
+# Session: Upstream Synchronization and Git Flow Release
+
+**Date:** 2026-11-17
+**Status:** Upstream merged and verified; release preparation in progress
+
+## Objective and outcome so far
+
+Fetched `upstream/main` and merged commit
+`5c97bee91678e3cd9e75201a8025bfcaadf77681` into `dev` as merge commit
+`aded7260e4238329d5b5d8548fff22c02df4422b`. The merge brought in session-card
+hover effects/title clarifications and credential status typography updates.
+No merge conflicts occurred. The three-way merge preserved local ranking
+translations and provider table styles alongside upstream changes.
+
+## Protected-feature review and validation
+
+- Verified protected Provider Model GNN, Live Flow history/alias/layout,
+  provider table/detail, API-key viewer request logs, API key display priority,
+  ranking configuration, and their integration points remain present.
+- `make verify` passed: Go tests, 223 frontend test files (1,873 passed,
+  2 skipped), ESLint, TypeScript typecheck, and Vite production build.
+- Upstream reference fetched successfully; clean tree before merge; no local
+  application changes were reset, stashed, or discarded.
+
+## Release
+
+Latest version tag before release workflow: `v2.1.2`; next version derived as
+`v2.1.3`. Release branch creation/finalization and final repository checks are
+pending.
+
+---
+
 # Session: Live Flow Model History and Period Filter (Phase 2.22)
 
 **Date:** 2026-11-16

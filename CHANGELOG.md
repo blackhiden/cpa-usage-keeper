@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Merged from Upstream
+
+- Synchronized `upstream/main` at `5c97bee91678e3cd9e75201a8025bfcaadf77681`
+  (2026-11-15), including session-card hover effects and clarified session
+  titles, plus harmonized credential status typography. The merge preserved
+  fork-specific provider table styles, ranking translations, and other
+  protected features listed in `docs/MERGE-PRESERVATION.md`.
+
 ### Added
 
 - **Live Flow model history and period filter (Phase 2.22).** The `/live-flow`
