@@ -12,6 +12,7 @@ import { KeyEventsPage } from './pages/KeyEventsPage';
 import { KeyLiveFlowPage } from './pages/KeyLiveFlowPage';
 import { KeyOverviewPage } from './pages/KeyOverviewPage';
 import { KeyRankingPage } from './pages/KeyRankingPage';
+import { KeyModelsPage } from './pages/KeyModelsPage';
 import { LoginBackdrop, LoginPage } from './pages/LoginPage';
 import { UsagePage } from './pages/UsagePage';
 import { ProviderDetailPage } from './pages/ProviderDetailPage';
@@ -239,6 +240,10 @@ function App() {
 
       case '/key-live-flow':
         page = <KeyLiveFlowPage {...commonProps} />;
+        break;
+
+      case '/models':
+        page = <KeyModelsPage {...commonProps} />;
         break;
 
       case '/key-realtime':
