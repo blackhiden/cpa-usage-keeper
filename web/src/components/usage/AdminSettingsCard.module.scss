@@ -1,0 +1,44 @@
+.card {
+  min-width: 0;
+}
+
+.description {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.6fr);
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.keyField {
+  min-width: 0;
+}
+
+.keyActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.error,
+.notice {
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+
+.error { color: var(--danger-color); }
+.notice { color: var(--text-secondary); }
+
+@media (max-width: 640px) {
+  .fields { grid-template-columns: minmax(0, 1fr); }
+}
