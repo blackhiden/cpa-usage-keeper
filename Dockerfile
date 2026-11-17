@@ -19,6 +19,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=bind,source=go.mod,target=go.mod \
     --mount=type=bind,source=go.sum,target=go.sum \
+    set -eux; \
     go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
