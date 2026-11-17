@@ -63,6 +63,10 @@ internal/api ────── Gin router, handlers, auth middleware, DTO mappi
         │                          offline subscription resolvers (claude /
         │                          codex / antigravity plan classification)
         ├── internal/ranking ───── local and community ranking (local by default)
+        ├── internal/modeltest ─── bounded regular/streaming CPA model probes;
+        │                          HTTP registration in internal/modeltest/httpapi
+        ├── internal/adminsettings settings service for encrypted Admin Settings
+        │                          key storage and bounded model-test timeouts
         ├── internal/benchmark ─── production capacity suite (test-only tooling)
         ├── internal/pricing ───── price catalog, resolver, snapshot
         ├── internal/cpa ───────── CPA management API client (HTTP + Redis queue client)

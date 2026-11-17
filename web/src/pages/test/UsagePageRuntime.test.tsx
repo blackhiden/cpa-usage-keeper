@@ -39,6 +39,7 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   fetchPricingModels: async () => ({ models: [], config_revision: 0 }),
   fetchPricingModelOptions: async () => ({ models: [] }),
   fetchCurrentPricingRecalculation: async () => null,
+  fetchAdminSettings: async () => ({ api_key_configured: false, request_timeout_seconds: 30 }),
   fetchUsageEventModelFilterOptions: async () => ({ models: [] }),
   fetchUsageEventSourceFilterOptions: async () => ({ sources: [] }),
   openUsageEventsLive: async (_request: unknown, _options: unknown, signal: AbortSignal): Promise<Response> => requestEventsLiveSnapshot({

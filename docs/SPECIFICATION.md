@@ -29,6 +29,10 @@ exploration, cost analysis, quota monitoring, and community ranking.
   Kimi, xAI, Antigravity) attached to Auth Files.
 - Optional, opt-in community ranking against the official center; local API key ranking is available by default.
 - Web UI (admin) and a read-only per-API-key viewer page.
+- Authenticated API-key viewers can open the Models catalog without pricing
+  controls. Each catalog model can run a bounded regular or streaming probe;
+  viewers use only the active session key, while administrators use the
+  separately configured Admin Settings key.
 
 **Out of scope**
 
