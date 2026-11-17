@@ -270,6 +270,19 @@ Key invariants:
   table, no background runner, and `usage_events_archive` is never queried.
   Registration is `GET /api/v1/live-flow/models?period=<value>`, mounted next to
   the relay with `authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer)`.
+- **Live Flow model blocks are named by model alias.** Blocks group by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so several prefixed real
+  model names that share one alias collapse into a single block instead of
+  appearing once per prefix. When no alias exists the real model name is used.
+  Each history row reports its grouped real names in `source_models`, and the
+  client uses that map to fold live stream events (which carry only the routed
+  model name) onto the matching alias block.
+- **Live Flow canvas layout.** Blocks are centered on a ring whose radius grows
+  with the model count (`liveFlowRingRadius` in `FlowTopology.tsx`) so
+  neighbouring blocks keep a visible gap instead of overlapping. A block with
+  in-flight requests or a pending trail is raised above idle blocks
+  (`liveFlowNodeZIndex`, 10 vs 1, plus the `live-flow-node-active` class) so a
+  busy block and its label are never covered by an overlapping neighbour.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

@@ -1,3 +1,36 @@
+# Session: Upstream Synchronization and Git Flow Release
+
+**Date:** 2026-11-17
+**Status:** Upstream merged and verified; release branch `release/2.1.3` active
+
+## Objective and outcome so far
+
+Fetched `upstream/main` and merged commit
+`5c97bee91678e3cd9e75201a8025bfcaadf77681` into `dev` as merge commit
+`aded7260e4238329d5b5d8548fff22c02df4422b`. The merge brought in session-card
+hover effects/title clarifications and credential status typography updates.
+No merge conflicts occurred. The three-way merge preserved local ranking
+translations and provider table styles alongside upstream changes.
+
+## Protected-feature review and validation
+
+- Verified protected Provider Model GNN, Live Flow history/alias/layout,
+  provider table/detail, API-key viewer request logs, API key display priority,
+  ranking configuration, and their integration points remain present.
+- `make verify` passed: Go tests, 223 frontend test files (1,873 passed,
+  2 skipped), ESLint, TypeScript typecheck, and Vite production build.
+- Upstream reference fetched successfully; clean tree before merge; no local
+  application changes were reset, stashed, or discarded.
+
+## Release
+
+Latest version tag before release workflow: `v2.1.2`; next version derived as
+`v2.1.3`. Git Flow created `release/2.1.3` from updated `dev`. The release
+changelog section has been versioned `2.1.3`; release finalization and final
+repository checks are pending.
+
+---
+
 # Session: Live Flow Model History and Period Filter (Phase 2.22)
 
 **Date:** 2026-11-16
@@ -64,8 +97,29 @@ dropdown, without changing the realtime CPA relay contract.
   archive table is never queried.
 - Historical "models used" may include models the root no longer routes. This is
   the requested "what did I use" view.
-- Pre-existing failures in `internal/service/test` and the provider-model route
-  tests come from Phase 2.21 work in progress and are unrelated to this phase.
+- An aliased model only folds live traffic onto its alias block when that alias
+  appeared in the selected period's history. A model whose first request arrives
+  live while its alias has no rows in the window shows under its real name until
+  the history refreshes; closing that gap needs the alias on the CPA WebSocket
+  payload.
+
+## Follow-up: alias block naming and canvas overlap
+
+- Model blocks are now named by alias, falling back to the real model name.
+  `ListLiveFlowModels` groups by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so prefixed variants sharing
+  one alias collapse into a single block. Each row reports `source_models`, and
+  `buildLiveFlowAliasMap` folds live events (which carry only the routed model
+  name) onto the matching alias block.
+- The canvas previously placed every block at its ring anchor without accounting
+  for block width and used a fixed 250px radius, so blocks overlapped from about
+  seven models upward. Nodes are now centered on their anchor and the radius
+  grows with the model count (`liveFlowRingRadius`).
+- Blocks with in-flight requests or a pending trail are raised above idle blocks
+  (`liveFlowNodeZIndex`, 10 vs 1, plus the `live-flow-node-active` class) so an
+  active block and its label are never covered by a neighbour.
+- Additional tests: repository alias grouping, alias-aware merge cases, and
+  topology geometry/stacking assertions.
 
 ---
 

@@ -131,6 +131,7 @@ graph TD
     B --> I[internal/quota]
     B --> J[internal/ranking]
     B --> K[internal/gnn]
+    B --> LF[internal/liveflow]
     B --> L[web embedded]
     B --> OIDC[internal/oidc]
     
@@ -193,7 +194,7 @@ graph TD
 | **internal/overview** | Overview aggregation domain | Hour/day stats, speed calculation | `entities`, `timeutil` (no GORM) |
 | **internal/quota** | Provider quota management | Quota clients, refresh engine | Provider APIs |
 | **internal/gnn** | Provider-Model GNN feature | Graph construction, HTTP API | `cpa`, `entities` |
-| **internal/liveflow** | Live Flow model history | Period windows, on-demand model aggregation service, HTTP API | `repository`, `timeutil` |
+| **internal/liveflow** | Live Flow model history | Period windows, on-demand model aggregation service (alias-grouped), HTTP API | `repository`, `timeutil` |
 | **internal/ranking** | Local and community ranking | Local API key ranking (default), HTTP API, optional community sync | External ranking center (optional) |
 | **internal/auth** | Session management | Session store, login limiter, OIDC session policy | `repository`, `oidc` |
 | **internal/oidc** | OpenID Connect client | Discovery, token verification, claims extraction | OIDC provider |
@@ -386,8 +387,14 @@ web/
 │   │   │   └── ProviderModelGNNPanel.tsx (React Flow + Reagraph)
 │   │   ├── usage/                  # Live Flow WebSocket
 │   │   │   ├── LiveFlowPanel.tsx
-│   │   │   ├── FlowTopology.tsx
+│   │   │   ├── FlowTopology.tsx    # ring layout, active-block z-index
 │   │   │   └── nodes/, edges/
+│   │   ├── live-flow/              # Live Flow period history (fork)
+│   │   │   ├── types.ts, api.ts
+│   │   │   ├── periods.ts          # six periods, localStorage selection
+│   │   │   ├── merge.ts            # alias-aware historical + live union
+│   │   │   ├── trend.ts            # previous-period comparison
+│   │   │   └── components/LiveFlowPeriodSelect.tsx
 │   │   └── key-viewer/             # API key viewer features
 │   ├── stores/                     # Zustand state management
 │   │   ├── usageStats.ts           # Usage data store
@@ -502,6 +509,8 @@ web/
 | Where are migrations? | `internal/repository/migration/*.go` |
 | Where is GNN feature? | Backend: `internal/gnn/`, Frontend: `web/src/features/model-gnn/` |
 | Where is Live Flow history? | Backend: `internal/liveflow/` + `internal/repository/liveflow_models.go`, Frontend: `web/src/features/live-flow/` |
+| Where are Live Flow blocks named? | Alias first, real model fallback: `COALESCE(NULLIF(TRIM(model_alias),''), model)` in `internal/repository/liveflow_models.go`, live events folded via `buildLiveFlowAliasMap` in `web/src/features/live-flow/merge.ts` |
+| Where is Live Flow canvas layout? | `web/src/features/usage/FlowTopology.tsx` (`liveFlowRingRadius`, `liveFlowNodeZIndex`) |
 | Where is ranking? | Backend: `internal/ranking/`, Frontend: `web/src/features/ranking/` |
 
 ### 8.3 Feature Location Map
@@ -512,7 +521,7 @@ web/
 | Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` (local by default) |
 | API Key Viewer | `internal/service/` (scoped queries) | `web/src/features/key-viewer/`, `web/src/pages/Key*.tsx` |
 | Live Flow | `internal/cpa/liveflow.go` (WebSocket proxy) | `web/src/features/usage/` (WebSocket client) |
-| Live Flow History | `internal/liveflow/` + `internal/liveflow/httpapi/` + `internal/repository/liveflow_models.go` | `web/src/features/live-flow/` (types, API client, merge/trend, period select) |
+| Live Flow History | `internal/liveflow/` + `internal/liveflow/httpapi/` + `internal/repository/liveflow_models.go` (alias-grouped) | `web/src/features/live-flow/` (types, API client, merge/trend, period select) |
 | Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
 | Request Logs | `internal/service/request_log.go` (CPA proxy) | API-driven download |
 

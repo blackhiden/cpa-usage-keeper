@@ -82,7 +82,12 @@ keys that are synchronized from CPA itself.
 - **UC-2d — Review Live Flow model history.** As an admin or API key viewer, I
   select one of six calendar periods (Today, Yesterday, Current Week, Last Week,
   Current Month, Last Month) in the Live Flow period dropdown and see every
-  model used in that period as a persistent canvas node. The view reports the
+  model used in that period as a persistent canvas node. Model blocks are named
+  by model alias: when an alias exists it is the block name, otherwise the real
+  model name is used, so prefixed real names sharing one alias collapse into a
+  single block. Blocks never overlap and an active block stays in front, so a
+  block handling traffic and its label are never hidden behind a neighbour. The
+  view reports the
   period's distinct-model count, total requests, and a per-model trend against
   the immediately preceding period of the same kind. History is aggregated on
   demand from `usage_events` (generation traffic only, hot retention of 90 local

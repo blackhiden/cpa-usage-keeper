@@ -2,7 +2,15 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [2.1.3] - 2026-11-17
+
+### Merged from Upstream
+
+- Synchronized `upstream/main` at `5c97bee91678e3cd9e75201a8025bfcaadf77681`
+  (2026-11-15), including session-card hover effects and clarified session
+  titles, plus harmonized credential status typography. The merge preserved
+  fork-specific provider table styles, ranking translations, and other
+  protected features listed in `docs/MERGE-PRESERVATION.md`.
 
 ### Added
 
@@ -27,6 +35,18 @@ All notable changes to this project are documented here.
   - Aggregation is on demand from `usage_events` (generation traffic only,
     reader pool, bounded `LIMIT`). No new table, no background runner, and
     `usage_events_archive` is never queried.
+  - **Model blocks are named by alias.** Blocks group by
+    `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so several prefixed real
+    model names sharing one alias collapse into a single block. When no alias
+    exists the real model name is used. History rows report `source_models`, and
+    `buildLiveFlowAliasMap` folds live stream events onto the matching alias
+    block.
+  - **Canvas overlap and stacking fixed.** Blocks are centered on a ring whose
+    radius grows with the model count (`liveFlowRingRadius`), so neighbouring
+    blocks no longer overlap. Blocks with in-flight requests or a pending trail
+    are raised above idle blocks (`liveFlowNodeZIndex`, 10 vs 1, plus the
+    `live-flow-node-active` class) so a busy block and its label are never
+    covered by a neighbour.
 
 ## [2.0.11] - 2026-11-09
 

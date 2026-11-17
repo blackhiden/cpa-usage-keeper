@@ -28,17 +28,38 @@ function toTimestamp(value: string): number {
 }
 
 /**
+ * Builds a map from a real model name to its display (alias) name. The live
+ * stream only carries the routed model name, so this is what lets a live event
+ * land on the same block as the aggregated history row.
+ */
+export function buildLiveFlowAliasMap(historical: readonly LiveFlowHistoricalModel[]): Map<string, string> {
+  const aliases = new Map<string, string>()
+  for (const row of historical) {
+    const display = row.model?.trim()
+    if (!display || !row.source_models?.length) continue
+    for (const source of row.source_models) {
+      const key = source?.trim()
+      if (key && key !== display) aliases.set(key, display)
+    }
+  }
+  return aliases
+}
+
+/**
  * Unions historical period nodes with live in-flight nodes.
  *
- * Live status always overrides historical status, historical counts are kept as
- * the period baseline, and live-only models appear immediately. Ordering is
- * stable: live/in-flight first, then request count descending, then model id.
+ * Live model ids are first resolved through the alias map so prefixed real
+ * model names do not create duplicate blocks. Live status always overrides
+ * historical status, historical counts are kept as the period baseline, and
+ * live-only models appear immediately. Ordering is stable: in-flight first,
+ * then request count descending, then model id.
  */
 export function mergeLiveFlowModels(
   historical: readonly LiveFlowHistoricalModel[],
   liveModels: readonly LiveFlowLiveModel[],
 ): LiveFlowMergedModel[] {
   const merged = new Map<string, LiveFlowMergedModel>()
+  const aliasMap = buildLiveFlowAliasMap(historical)
 
   for (const row of historical) {
     const id = row.model?.trim() || UNRESOLVED_MODEL_ID
@@ -58,7 +79,9 @@ export function mergeLiveFlowModels(
   }
 
   for (const live of liveModels) {
-    const id = live.id?.trim() || UNRESOLVED_MODEL_ID
+    const rawID = live.id?.trim() || UNRESOLVED_MODEL_ID
+    // Prefer the alias so a prefixed real name reuses the historical block.
+    const id = aliasMap.get(rawID) ?? rawID
     const current = merged.get(id)
     if (!current) {
       merged.set(id, {

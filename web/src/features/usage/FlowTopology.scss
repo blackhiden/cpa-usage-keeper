@@ -55,6 +55,17 @@
     pointer-events: none;
   }
 
+  // Belt-and-braces with the node zIndex: an active block must paint above its
+  // neighbours so its label is never covered by an overlapping block.
+  .react-flow__node.live-flow-node-active {
+    z-index: 10 !important;
+  }
+
+  .topology-provider-node.active .provider-content {
+    position: relative;
+    z-index: 1;
+  }
+
   .live-flow-trail-pending {
     animation: live-flow-trail-dash 780ms linear infinite;
   }

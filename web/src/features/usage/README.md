@@ -75,3 +75,16 @@ not scoped to one client API key.
   React Flow zoom-out steps below the default viewport.
 - The diagram uses the existing `@xyflow/react` topology components with nodes
   derived from observed model names.
+- **Model blocks are named by alias.** When `model_alias` is present it is the
+  block name; otherwise the real model name is used. Because several prefixed
+  real names can share one alias, the history endpoint groups by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)` so those variants collapse
+  into a single block. History rows also report `source_models`, and
+  `buildLiveFlowAliasMap` folds live stream events (which carry only the routed
+  model name) onto the matching alias block.
+- **Blocks never overlap and active blocks stay on top.** Nodes are centered on
+  a ring whose radius grows with the model count
+  (`liveFlowRingRadius`), so neighbouring blocks keep a visible gap. A block
+  with in-flight requests or a pending trail is raised above idle blocks
+  (`liveFlowNodeZIndex` returns 10 vs 1, plus the `live-flow-node-active`
+  class), so a busy block and its label are never covered by a neighbour.
