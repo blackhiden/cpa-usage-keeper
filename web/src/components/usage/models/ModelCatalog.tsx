@@ -9,6 +9,7 @@ import { loadModelProviderFilter, modelProviderFromFilter, persistModelProviderF
 import type { ModelCatalogData } from './useModelCatalogData'
 import filterStyles from '../credentials/CredentialSections.module.scss'
 import styles from './ModelCatalog.module.scss'
+import { ModelTestControls } from '@/features/model-test/ModelTestControls'
 
 export interface ModelCatalogHandle { refresh: () => Promise<void> }
 
@@ -89,6 +90,7 @@ export const ModelCatalog = forwardRef<ModelCatalogHandle, { catalog: ModelCatal
               title={t('usage_stats.models_copy', { model: model.id })} onClick={() => void copy(model.id)}><IconCopy size={16} /></button>
           </div>
           <h3 title={model.id}>{model.id}</h3>
+          <ModelTestControls model={model.id} />
         </article>)}
       </div> : !error || loaded ? <div className={styles.empty}>
         <IconSearch size={26} />

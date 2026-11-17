@@ -22,6 +22,19 @@ export interface AdminSettingsResponse {
 export interface UpdateAdminSettingsRequest {
   api_key?: string
   request_timeout_seconds?: number
+export type ModelTestMode = 'regular' | 'streaming'
+
+export interface ModelTestRequest {
+  model: string
+  mode: ModelTestMode
+}
+
+export interface ModelTestResult {
+  success: boolean
+  mode: ModelTestMode
+  status_code?: number
+  error_code?: string
+  reason?: string
 }
 
 export type AuthManagedSessionKind = 'admin' | 'api_key'
