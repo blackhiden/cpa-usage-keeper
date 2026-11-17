@@ -14,6 +14,16 @@ export interface AuthSessionResponse {
   api_key?: AuthSessionAPIKeySummary
 }
 
+export interface AdminSettingsResponse {
+  api_key_configured: boolean
+  request_timeout_seconds: number
+}
+
+export interface UpdateAdminSettingsRequest {
+  api_key?: string
+  request_timeout_seconds?: number
+}
+
 export type AuthManagedSessionKind = 'admin' | 'api_key'
 export type AuthManagedSessionSource = 'standard' | 'embed' | 'oidc'
 

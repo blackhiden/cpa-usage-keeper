@@ -1,4 +1,4 @@
-import { type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type ProviderKeysResponse, type ProviderModelsResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
+import { type AdminSettingsResponse, type UpdateAdminSettingsRequest, type AnalysisLatencyDiagnostics, type AnalysisResponse, type CredentialsManagementResponse, type AuthManagedSessionsResponse, type AuthSessionResponse, type CodexQuotaHistoryResponse, type CpaApiKeyDisplayItem, type CpaApiKeyOptionsResponse, type CpaApiKeySettingsResponse, type CpaApiKeysResponse, type ErrorEventsResponse, type OverviewRealtimeBlock, type OverviewRealtimeWindow, type PricingSyncSource, type ProviderKeysResponse, type ProviderModelsResponse, type ProvidersResponse, type QuotaAutoRefreshSettings, type StatusResponse, type UpdateCheckResponse, type UsageActivityRequest, type UsageActivityResponse, type UsageEventModelFilterOptionsResponse, type UsageEventRequestLogResponse, type UsageEventSourceFilterOptionsResponse, type UsageRangeRequest, type UsageIdentitiesPageResponse, type UsageIdentitiesResponse, type UsageEventsResponse, type UsageIdentity, type UsageIdentityAuthType, type UsageOverviewComparisons, type UsageOverviewResponse, type UsageQuotaCacheResponse, type UsageQuotaInspectionStatusResponse, type UsageQuotaRefreshResponse, type UsageQuotaRefreshTaskResponse, type UsageQuotaResetCreditsResponse, type UsageQuotaResetResponse, type UsageSourceFilterOption, type VersionResponse } from './types'
 import type { DeletePricingModelResponse, ModelPricingConfig, PricingErrorResponse, PricingFieldError, PricingModelOptionsResponse, PricingModelsResponse, PricingRecalculationOptions, PricingRecalculationTask, PricingSyncApplyRequest, PricingSyncApplyResponse, PricingSyncFetchResponse, SavePricingModelResponse, StartPricingRecalculationRequest, StartPricingRecalculationResponse } from './types'
 import { isCPAMCEmbed } from '@/embed/cpamcEmbed'
 import { resolveUsageRequestRange } from '@/utils/usage/rangeQuery'
@@ -1171,6 +1171,22 @@ export async function updateQuotaAutoRefreshSettings(settings: QuotaAutoRefreshS
   if (!response.ok) {
     await parseApiError(response, `Failed to update quota auto refresh settings: ${response.status}`)
   }
+  return response.json()
+}
+
+export async function fetchAdminSettings(signal?: AbortSignal): Promise<AdminSettingsResponse> {
+  const response = await apiFetch(apiPath('/admin-settings'), { signal, cache: 'no-store' })
+  if (!response.ok) await parseApiError(response, `Failed to load Admin Settings: ${response.status}`)
+  return response.json()
+}
+
+export async function updateAdminSettings(settings: UpdateAdminSettingsRequest): Promise<AdminSettingsResponse> {
+  const response = await apiFetch(apiPath('/admin-settings'), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!response.ok) await parseApiError(response, `Failed to save Admin Settings: ${response.status}`)
   return response.json()
 }
 

@@ -20,6 +20,7 @@ import { CREDENTIAL_PAGES_REFRESH_INTERVAL_MS } from '@/components/usage/credent
 import { PricingSettings, type PricingSettingsHandle } from '@/components/usage/pricing/PricingSettings';
 import { ModelCatalog, type ModelCatalogHandle } from '@/components/usage/models/ModelCatalog';
 import { useModelCatalogData } from '@/components/usage/models/useModelCatalogData';
+import { AdminSettingsCard } from '@/components/usage/AdminSettingsCard';
 import { buildCredentialProviderSearch } from '@/components/usage/credentials/credentialProviderFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -2323,6 +2324,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
                   onSaveAlias={handleSaveApiKeyAlias}
                   onNotice={showTopNotice}
                 />
+                <AdminSettingsCard />
               </div>
             )}
           </div>
