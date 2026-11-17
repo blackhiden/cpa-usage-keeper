@@ -112,6 +112,23 @@ const resources = {
         latency_load_failed: 'Unable to load API Key latency diagnostics',
         costs_busy: 'Cost statistics are being updated. Please refresh shortly.'
       },
+      admin_settings: {
+        title: 'Admin Settings',
+        description: 'Configure the API key and timeout used for administrator model tests.',
+        loading: 'Loading Admin Settings',
+        load_failed: 'Could not load Admin Settings.',
+        save_failed: 'Could not save Admin Settings. Please try again.',
+        invalid_settings: 'Use a timeout from 1 to 120 seconds.',
+        saved: 'Admin Settings saved.',
+        api_key: 'Admin API Key',
+        key_saved_placeholder: 'Saved key is hidden; enter a replacement to update it.',
+        key_empty_placeholder: 'Enter the API key used for model tests.',
+        key_configured: 'A test key is configured.',
+        clear_key: 'Clear key',
+        request_timeout: 'Request Timeout (seconds)',
+        timeout_hint: 'Choose between 1 and 120 seconds. Default: 30 seconds.',
+        save: 'Save Admin Settings'
+      },
       key_viewer: {
         tab_events: 'Request Events',
         events_title: 'Your Request Events',
@@ -1291,6 +1308,23 @@ const resources = {
         load_failed: '无法加载 API Key 分析',
         latency_load_failed: '无法加载 API Key 延迟诊断',
         costs_busy: '费用统计正在更新，请稍后刷新。'
+      },
+      admin_settings: {
+        title: '管理员设置',
+        description: '配置管理员模型测试使用的 API Key 和超时时间。',
+        loading: '正在加载管理员设置',
+        load_failed: '无法加载管理员设置。',
+        save_failed: '无法保存管理员设置，请重试。',
+        invalid_settings: '超时时间必须为 1 至 120 秒。',
+        saved: '管理员设置已保存。',
+        api_key: '管理员 API Key',
+        key_saved_placeholder: '已保存的密钥不会显示；输入新密钥即可替换。',
+        key_empty_placeholder: '输入用于模型测试的 API Key。',
+        key_configured: '已配置测试密钥。',
+        clear_key: '清除密钥',
+        request_timeout: '请求超时（秒）',
+        timeout_hint: '可设置 1 至 120 秒，默认 30 秒。',
+        save: '保存管理员设置'
       },
       key_viewer: {
         tab_events: '请求事件',
@@ -2472,6 +2506,23 @@ const resources = {
         load_failed: '無法載入 API Key 分析',
         latency_load_failed: '無法載入 API Key 延遲診斷',
         costs_busy: '費用統計正在更新，請稍後重新整理。'
+      },
+      admin_settings: {
+        title: '管理員設定',
+        description: '設定管理員模型測試使用的 API Key 與逾時時間。',
+        loading: '正在載入管理員設定',
+        load_failed: '無法載入管理員設定。',
+        save_failed: '無法儲存管理員設定，請重試。',
+        invalid_settings: '逾時時間必須為 1 至 120 秒。',
+        saved: '管理員設定已儲存。',
+        api_key: '管理員 API Key',
+        key_saved_placeholder: '已儲存的金鑰不會顯示；輸入新金鑰即可替換。',
+        key_empty_placeholder: '輸入用於模型測試的 API Key。',
+        key_configured: '已設定測試金鑰。',
+        clear_key: '清除金鑰',
+        request_timeout: '請求逾時（秒）',
+        timeout_hint: '可設定 1 至 120 秒，預設 30 秒。',
+        save: '儲存管理員設定'
       },
       key_viewer: {
         tab_events: '請求事件',
