@@ -2301,7 +2301,7 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
 
             {activeTab === 'models' && (
               <div className={styles.settingsSections}>
-                <ModelCatalog ref={modelCatalogRef} catalog={modelCatalog} />
+                <ModelCatalog ref={modelCatalogRef} catalog={modelCatalog} enableTesting />
                 <PricingSettings ref={pricingSettingsRef} pricing={modelPricing} timezone={status?.timezone} onAuthRequired={onAuthRequired}
                   onRecalculationSettled={() => { void credentialsData.refreshAfterRecalculation() }} />
               </div>

@@ -26,7 +26,7 @@ export function KeyModelsPage({ apiKey, onNavigate, onAuthRequired }: KeyModelsP
       onNavigate={onNavigate}
       onAuthRequired={onAuthRequired}
     >
-      <ModelCatalog ref={catalogRef} catalog={catalog} />
+      <ModelCatalog ref={catalogRef} catalog={catalog} enableTesting />
     </KeyViewerShell>
   );
 }

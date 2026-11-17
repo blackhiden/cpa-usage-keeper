@@ -1,0 +1,24 @@
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.success,
+.failure {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.success { color: var(--success-color, #2f7b55); }
+.failure { color: var(--danger-color); }
+
+.reason {
+  flex: 1 1 100%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
