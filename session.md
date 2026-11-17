@@ -1,7 +1,7 @@
 # Session: Upstream Synchronization and Git Flow Release
 
 **Date:** 2026-11-17
-**Status:** Upstream merged and verified; release branch `release/2.1.3` active
+**Status:** Completed and verified
 
 ## Objective and outcome so far
 
@@ -26,8 +26,9 @@ translations and provider table styles alongside upstream changes.
 
 Latest version tag before release workflow: `v2.1.2`; next version derived as
 `v2.1.3`. Git Flow created `release/2.1.3` from updated `dev`. The release
-changelog section has been versioned `2.1.3`; release finalization and final
-repository checks are pending.
+changelog section was versioned `2.1.3`. Git Flow finished the release into
+`main`, created tag `v2.1.3`, back-merged it into `dev`, and deleted the
+release branch. No push was requested or performed. `make verify` passed.
 
 ---
 
