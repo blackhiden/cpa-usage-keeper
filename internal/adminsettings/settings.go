@@ -123,6 +123,14 @@ func (s *Service) AdminTestCredential(ctx context.Context) (string, error) {
 	return s.decrypt(*setting.Value)
 }
 
+func (s *Service) RequestTimeout(ctx context.Context) (time.Duration, error) {
+	settings, err := s.Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(settings.RequestTimeoutSeconds) * time.Second, nil
+}
+
 func (s *Service) upsert(ctx context.Context, key string, value *string, valueType string) error {
 	now := time.Now()
 	_, err := repository.UpsertAppSetting(ctx, s.db, entities.AppSetting{SettingKey: key, Value: value, ValueType: valueType, CreatedAt: now, UpdatedAt: now})

@@ -96,6 +96,14 @@ All protected features maintained through merge conflicts:
 
 ### Added
 
+- **Phase 2.23 model testing and viewer Models access.** API-key viewers can
+  browse the catalog without pricing settings and test models with their active
+  session key. Administrators can configure an encrypted test key and a
+  1–120-second timeout in Admin Settings. Regular and streaming probes use a
+  fixed bounded request and return only success or safe bounded failure data.
+
+### Added
+
 - **AI Provider Table Redesign & Detail Navigation — restored and protected as permanent core feature.** The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation are now fully restored and protected from removal or replacement by upstream merges. The merge adaptation had reverted the fork's wiring so `/ai-provider` rendered the flat key list (`AiProviderCredentialsSection`) instead of the grouped provider table (`ProviderSummarySection`); this is now corrected. Added as §6 in `docs/MERGE-PRESERVATION.md` with verification commands. Updated `docs/ARCHITECTURE.md` (permanence requirement), `docs/SPECIFICATION.md` (UC-7a permanent contract), `docs/CODE_GRAPH.md` (protected feature note), `docs/ROADMAP.md` (phase marked complete + policy reminder), `README.md` / `README.zh.md` (permanent feature note), and `session.md` (restoration and protection decision).
 
 ### Fixed

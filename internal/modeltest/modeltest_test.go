@@ -2,6 +2,7 @@ package modeltest
 
 import (
 	"context"
+	"cpa-usage-keeper/internal/cpa"
 	"errors"
 	"strings"
 	"testing"
@@ -17,8 +18,8 @@ type clientStub struct {
 	timeout    time.Duration
 }
 
-func (s *clientStub) TestModel(_ context.Context, credential, model string, mode Mode, timeout time.Duration) (int, error) {
-	s.credential, s.model, s.mode, s.timeout = credential, model, mode, timeout
+func (s *clientStub) TestModel(_ context.Context, credential, model string, mode cpa.ModelTestMode, timeout time.Duration) (int, error) {
+	s.credential, s.model, s.mode, s.timeout = credential, model, Mode(mode), timeout
 	return s.status, s.err
 }
 

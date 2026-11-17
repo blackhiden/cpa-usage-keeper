@@ -12,10 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"cpa-usage-keeper/internal/adminsettings"
+	adminsettingshttpapi "cpa-usage-keeper/internal/adminsettings/httpapi"
 	"cpa-usage-keeper/internal/auth"
 	gnnhttpapi "cpa-usage-keeper/internal/gnn/httpapi"
 	liveflowhttpapi "cpa-usage-keeper/internal/liveflow/httpapi"
 	"cpa-usage-keeper/internal/logging"
+	"cpa-usage-keeper/internal/modeltest"
+	modeltesthttpapi "cpa-usage-keeper/internal/modeltest/httpapi"
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/quota"
 	rankinghttpapi "cpa-usage-keeper/internal/ranking/httpapi"
@@ -74,7 +78,9 @@ type OptionalProviders struct {
 	// Community ranking provider (disabled but preserved)
 	Ranking rankinghttpapi.Provider
 	// Models provider (upstream feature)
-	Models service.ModelsFetcher
+	Models        service.ModelsFetcher
+	ModelTest     *modeltest.Service
+	AdminSettings *adminsettings.Service
 	// Provider Model GNN (permanent fork feature)
 	ProviderModelGraph gnnhttpapi.Provider
 	// Live Flow model history (fork feature)
@@ -142,6 +148,8 @@ func NewRouter(
 	var providerModelGraphProvider gnnhttpapi.Provider
 	// Models provider (upstream feature)
 	var modelsProvider service.ModelsFetcher
+	var modelTestProvider *modeltest.Service
+	var adminSettingsProvider *adminsettings.Service
 	var statusConfig StatusRouteConfig
 	var liveFlowClient LiveFlowProvider
 	var liveFlowModelsProvider liveflowhttpapi.Provider
@@ -165,6 +173,8 @@ func NewRouter(
 		providerModelGraphProvider = optionalProviders[0].ProviderModelGraph
 		// Models fetcher (upstream feature)
 		modelsProvider = optionalProviders[0].Models
+		modelTestProvider = optionalProviders[0].ModelTest
+		adminSettingsProvider = optionalProviders[0].AdminSettings
 		statusConfig = optionalProviders[0].Status
 		liveFlowClient = optionalProviders[0].LiveFlowClient
 		// Live Flow model history shares the relay's authorization
@@ -178,6 +188,18 @@ func NewRouter(
 	versionProtected := apiV1.Group("")
 	versionProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
 	registerVersionRoutes(versionProtected)
+
+	catalogProtected := apiV1.Group("")
+	catalogProtected.Use(authHandler.roleMiddleware(auth.RoleAdmin, auth.RoleAPIKeyViewer))
+	catalogProtected.Use(authHandler.activeAPIKeyViewerIfPresentMiddleware())
+	registerModelsRoutes(catalogProtected, modelsProvider)
+	modeltesthttpapi.RegisterAuthenticatedRoutes(catalogProtected, modelTestProvider, func(c *gin.Context) (string, bool) {
+		_, viewerKey, ok := activeAPIKeyViewerContext(c)
+		if !ok {
+			return "", false
+		}
+		return viewerKey.APIKey, true
+	})
 
 	// Live Flow is available to both admin and API key viewers (global metadata-only view)
 	liveFlowProtected := apiV1.Group("")
@@ -210,7 +232,7 @@ func NewRouter(
 	registerAuthSessionManagementRoutes(adminProtected, authHandler)
 	registerCPAAPIKeyRoutes(adminProtected, cpaAPIKeyProvider, usageProvider)
 	registerPricingRoutes(adminProtected, pricingProvider)
-	registerModelsRoutes(adminProtected, modelsProvider)
+	adminsettingshttpapi.RegisterRoutes(adminProtected, adminSettingsProvider)
 	registerQuotaRoutes(adminProtected, quotaProvider)
 	// Provider Model GNN is a permanent, self-contained feature domain
 	// (docs/ARCHITECTURE.md §7); routes are registered by the domain itself.
@@ -223,7 +245,6 @@ func NewRouter(
 	if localRankingProvider != nil {
 		rankinghttpapi.RegisterLocalRoutes(adminProtected, localRankingProvider)
 	}
-
 	keyViewerProtected := apiV1.Group("")
 	keyViewerProtected.Use(authHandler.apiKeyViewerMiddleware())
 	keyViewerProtected.Use(authHandler.activeAPIKeyViewerMiddleware())

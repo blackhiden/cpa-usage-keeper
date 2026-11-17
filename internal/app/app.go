@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
+	"cpa-usage-keeper/internal/adminsettings"
 	"cpa-usage-keeper/internal/api"
 	"cpa-usage-keeper/internal/auth"
 	"cpa-usage-keeper/internal/config"
@@ -17,6 +19,7 @@ import (
 	"cpa-usage-keeper/internal/gnn"
 	"cpa-usage-keeper/internal/liveflow"
 	"cpa-usage-keeper/internal/logging"
+	"cpa-usage-keeper/internal/modeltest"
 	"cpa-usage-keeper/internal/oidc"
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/pricing"
@@ -229,6 +232,13 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 		OnDisplayNameChanged: quotaService.UpdateUsageIdentityDisplayNameSnapshot,
 	})
 	cpaAPIKeyService := service.NewCPAAPIKeyService(db)
+	adminSettingsService := adminsettings.NewService(db, cfg.CPAManagementKey)
+	adminSettingsValues, err := adminSettingsService.Get(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("load admin model test settings: %w", err)
+	}
+	modelTestService := modeltest.NewService(cpaClient, adminSettingsService, time.Duration(adminSettingsValues.RequestTimeoutSeconds)*time.Second)
+	modelTestService.SetTimeoutSource(adminSettingsService)
 	providerModelGraphService := gnn.NewService(cpaClient)
 	// Live Flow model history (fork feature): on-demand aggregation, no runner.
 	liveFlowModelsService := liveflow.NewService(db)
@@ -330,6 +340,8 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				LiveFlowModels:     liveFlowModelsService,
 				// Models fetcher (upstream feature)
 				Models:         cpaClient,
+				ModelTest:      modelTestService,
+				AdminSettings:  adminSettingsService,
 				LiveFlowClient: cpaClient,
 				Status: api.StatusRouteConfig{
 					CPAPublicURL:               cfg.CPAPublicURL,

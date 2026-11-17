@@ -23,7 +23,6 @@ export interface UpdateAdminSettingsRequest {
   api_key?: string
   request_timeout_seconds?: number
 }
-
 export type ModelTestMode = 'regular' | 'streaming'
 
 export interface ModelTestRequest {

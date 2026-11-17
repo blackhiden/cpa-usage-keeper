@@ -124,9 +124,8 @@
       `docs/ARCHITECTURE.md`.
   - **Execution plan:** see [Phase 2.22 — Live Flow Model History](#phase-222--live-flow-model-history--period-filter-execution-plan).
 
-- **2.23 Model Test & API-key Viewer Models Access.** ⬜ (planned)
-  - **Status:** Planned; no model-test or Admin Settings implementation is
-    present in the inspected application code.
+- **2.23 Model Test & API-key Viewer Models Access.** ✅ (integrated into `main`)
+  - **Status:** Implemented and merged; validation recorded in `session.md`.
   - **Confirmed requirements:** API-key viewers may navigate to `/models` and
     see the Models catalog only, not Model Pricing Settings; each model row
     offers a test action and a mode selector for streaming or single-response

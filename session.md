@@ -1,5 +1,24 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.23 Model Test & API-key Viewer Models Access
+
+**Date:** 2026-11-17
+**Status:** Implemented in integration worktree; not merged into `main`
+
+- Created five feature worktrees and a separate integration worktree from
+  `main` commit `30e24ff0`; existing Phase 2.21 worktrees were left untouched.
+- Added bounded regular/streaming CPA probes, encrypted Admin Settings key
+  storage, viewer Models navigation, model-test controls, and en/zh/zh-TW
+  translations.
+- Viewer credential selection is server-side and session-bound. The admin key
+  is encrypted with a key derived from `CPA_MANAGEMENT_KEY`, never returned,
+  and blank input clears it. Timeout is persisted independently at 1–120
+  seconds with a 30-second default.
+- Focused Go/API tests, frontend typecheck, lint, build, i18n tests, viewer
+  navigation tests, and Admin Settings component tests pass. The full Go
+  baseline remains blocked by the integration checkout lacking embedded
+  `web/dist` during the test command; the frontend build recreates that output.
+
 **Date:** 2026-11-17
 **Status:** Completed and verified
 
