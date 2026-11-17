@@ -23,6 +23,24 @@ below requires:
 
 ## Protected Features
 
+### 7. Model Test & API-key Viewer Models Access
+
+The authenticated `/models` catalog and per-model test controls must remain
+available to API-key viewers without exposing pricing settings. The server
+selects credentials by role: the active viewer key for viewers and the
+encrypted Admin Settings key for administrators. Probes use the configured CPA
+base URL, a fixed bounded prompt, a maximum output budget, and a 1–120 second
+timeout.
+
+- Backend: `internal/modeltest/`, `internal/modeltest/httpapi/`,
+  `internal/adminsettings/`, `internal/cpa/client.go`
+- Frontend: `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`,
+  `web/src/components/usage/AdminSettingsCard.tsx`, and `ModelCatalog.tsx`
+- Routes: authenticated `GET /api/v1/models`, `POST /api/v1/model-test`, and
+  admin-only `GET/PUT /api/v1/admin-settings`
+- Security: raw credentials are never returned; viewer requests cannot choose a
+  credential, host, path, or header.
+
 ### 1. Provider Model GNN Panel
 
 **Status:** Permanent core feature  

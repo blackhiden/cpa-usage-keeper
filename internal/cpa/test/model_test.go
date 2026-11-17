@@ -33,9 +33,9 @@ func TestTestModelRegularRequestUsesViewerCredentialAndBoundedProbe(t *testing.T
 	}))
 	defer server.Close()
 	client := cpa.NewClient(server.URL, "management-secret", time.Second, false)
-	result, err := client.TestModel(context.Background(), "viewer-secret", "gpt-test", cpa.ModelTestModeRegular, time.Second)
-	if err != nil || result.StatusCode != http.StatusOK {
-		t.Fatalf("result=%+v err=%v", result, err)
+	status, err := client.TestModel(context.Background(), "viewer-secret", "gpt-test", cpa.ModelTestModeRegular, time.Second)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("status=%d err=%v", status, err)
 	}
 }
 

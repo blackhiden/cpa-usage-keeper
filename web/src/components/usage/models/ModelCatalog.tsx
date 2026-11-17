@@ -13,7 +13,7 @@ import { ModelTestControls } from '@/features/model-test/ModelTestControls'
 
 export interface ModelCatalogHandle { refresh: () => Promise<void> }
 
-export const ModelCatalog = forwardRef<ModelCatalogHandle, { catalog: ModelCatalogData }>(function ModelCatalog({ catalog }, ref) {
+export const ModelCatalog = forwardRef<ModelCatalogHandle, { catalog: ModelCatalogData; enableTesting?: boolean }>(function ModelCatalog({ catalog, enableTesting = false }, ref) {
   const { t } = useTranslation()
   const { models, loading, loaded, error, refresh } = catalog
   const [provider, setProvider] = useState(loadModelProviderFilter)
@@ -90,7 +90,7 @@ export const ModelCatalog = forwardRef<ModelCatalogHandle, { catalog: ModelCatal
               title={t('usage_stats.models_copy', { model: model.id })} onClick={() => void copy(model.id)}><IconCopy size={16} /></button>
           </div>
           <h3 title={model.id}>{model.id}</h3>
-          <ModelTestControls model={model.id} />
+          {enableTesting && <ModelTestControls model={model.id} />}
         </article>)}
       </div> : !error || loaded ? <div className={styles.empty}>
         <IconSearch size={26} />

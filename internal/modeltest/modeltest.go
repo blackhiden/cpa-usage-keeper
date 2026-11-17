@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"cpa-usage-keeper/internal/cpa"
 )
 
 const (
@@ -16,8 +18,8 @@ const (
 type Mode string
 
 const (
-	ModeRegular   Mode = "regular"
-	ModeStreaming Mode = "streaming"
+	ModeRegular   Mode = Mode(cpa.ModelTestModeRegular)
+	ModeStreaming Mode = Mode(cpa.ModelTestModeStreaming)
 )
 
 var (
@@ -41,17 +43,22 @@ type Result struct {
 }
 
 type Client interface {
-	TestModel(context.Context, string, string, Mode, time.Duration) (int, error)
+	TestModel(context.Context, string, string, cpa.ModelTestMode, time.Duration) (int, error)
 }
 
 type CredentialSource interface {
 	AdminTestCredential(context.Context) (string, error)
 }
 
+type TimeoutSource interface {
+	RequestTimeout(context.Context) (time.Duration, error)
+}
+
 type Service struct {
-	client   Client
-	settings CredentialSource
-	timeout  time.Duration
+	client        Client
+	settings      CredentialSource
+	timeoutSource TimeoutSource
+	timeout       time.Duration
 }
 
 func NewService(client Client, settings CredentialSource, timeout time.Duration) *Service {
@@ -59,6 +66,12 @@ func NewService(client Client, settings CredentialSource, timeout time.Duration)
 		timeout = DefaultTimeout
 	}
 	return &Service{client: client, settings: settings, timeout: timeout}
+}
+
+func (s *Service) SetTimeoutSource(source TimeoutSource) {
+	if s != nil {
+		s.timeoutSource = source
+	}
 }
 
 func ValidateRequest(request Request) error {
@@ -85,7 +98,16 @@ func (s *Service) Test(ctx context.Context, request Request, viewerCredential st
 		result.ErrorCode, result.Reason = "invalid_request", err.Error()
 		return result
 	}
-	if err := ValidateTimeout(s.timeout); err != nil {
+	timeout := s.timeout
+	if s.timeoutSource != nil {
+		resolved, err := s.timeoutSource.RequestTimeout(ctx)
+		if err != nil {
+			result.ErrorCode, result.Reason = "settings_unavailable", "admin model test settings are unavailable"
+			return result
+		}
+		timeout = resolved
+	}
+	if err := ValidateTimeout(timeout); err != nil {
 		result.ErrorCode, result.Reason = "invalid_timeout", err.Error()
 		return result
 	}
@@ -107,7 +129,7 @@ func (s *Service) Test(ctx context.Context, request Request, viewerCredential st
 			return result
 		}
 	}
-	statusCode, err := s.client.TestModel(ctx, credential, strings.TrimSpace(request.Model), request.Mode, s.timeout)
+	statusCode, err := s.client.TestModel(ctx, credential, strings.TrimSpace(request.Model), cpa.ModelTestMode(request.Mode), timeout)
 	result.StatusCode = statusCode
 	if err != nil {
 		result.ErrorCode, result.Reason = "test_failed", safeReason(err)

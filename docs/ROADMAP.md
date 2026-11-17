@@ -124,6 +124,44 @@
       `docs/ARCHITECTURE.md`.
   - **Execution plan:** see [Phase 2.22 — Live Flow Model History](#phase-222--live-flow-model-history--period-filter-execution-plan).
 
+- **2.23 Model Test & API-key Viewer Models Access.** ✅ (implemented)
+  - **Status:** Implemented in the Phase 2.23 integration worktree; pending
+    explicit merge approval into `main`.
+  - **Confirmed requirements:** API-key viewers may navigate to `/models` and
+    see the Models catalog only, not Model Pricing Settings; each model row
+    offers a test action and a mode selector for streaming or single-response
+    requests; show a small Success or Failed result, with failure reason; viewer
+    tests use that viewer's CPA API key; administrator tests use a key configured
+    in a new `/settings` → **Admin Settings** section, and missing admin key
+    displays “Please provide Admin API Key In Setting”; Admin Settings includes
+    API Key and Request Timeout fields.
+  - **Implementation direction:** Isolate the feature in a dedicated backend
+    domain (`internal/modeltest/` with its HTTP registration under
+    `internal/modeltest/httpapi/`) and frontend feature domain
+    (`web/src/features/model-test/`); limit integration points to router/app
+    wiring, the existing model catalog, the viewer route/page allowlist, and
+    settings-page composition. Keep the existing pricing UI and pricing API
+    admin-only. Reuse the current CPA endpoint/base URL and bounded HTTP request
+    pattern rather than invoking an external host supplied by the browser.
+  - **Dependencies:** use the verified active-viewer-key middleware context for
+    OQ-1; resolve OQ-2 (secure persistence/return semantics for the admin key),
+    OQ-3 (test prompt and expected response criteria), and OQ-4 (timeout bounds)
+    before finalizing request and settings contracts. Tasks can proceed on UI
+    shell, route authorization tests, feature domain skeleton, and documentation
+    in parallel after these boundaries are agreed; execution tasks below are
+    ordered where contracts are prerequisites.
+  - **Acceptance criteria:** viewer route and navigation expose only the Models
+    catalog; pricing settings remain absent and inaccessible; the viewer test
+    executes using only the authenticated viewer's own credential; the admin
+    test uses the configured admin test key and gives the requested message if
+    missing; both test modes are selectable and display success/failure; failure
+    details are bounded and safe to display; settings include the key and
+    request-timeout controls; all user-facing strings are translated in en,
+    zh, and zh-TW; authorization, credential non-disclosure, timeout, and
+    request-mode behaviors have automated coverage.
+  - **Execution plan:** see [Phase 2.23 — Model Test & API-key Viewer Models
+    Access](#phase-223--model-test--api-key-viewer-models-access-execution-plan).
+
 ### Phase 2.22 — Live Flow Model History & Period Filter (Execution Plan)
 
 **Goal:** Make `/live-flow` model blocks persistent for a selected period and
@@ -367,6 +405,293 @@ add the six-period dropdown, without changing the realtime relay contract.
 
 ---
 
+### Phase 2.23 — Model Test & API-key Viewer Models Access (Execution Plan)
+
+**Goal:** Let authenticated API-key viewers browse `/models` without seeing
+pricing controls, test catalog models with their own key, and let administrators
+test with a separately configured key and timeout.
+
+**Status:** ⬜ Planned — no feature code has been implemented.
+
+**Evidence and existing boundaries**
+
+- `/models` maps to the `models` tab in `web/src/lib/usageNavigation.ts` and is
+  rendered by `web/src/pages/UsagePage.tsx`. `ModelCatalog` and
+  `useModelCatalogData` live in `web/src/components/usage/models/`; the current
+  tab also loads `useModelPricingData` and renders `PricingSettings`, so a viewer
+  must not be allowed to reuse the full page without a restricted composition.
+- `web/src/App.tsx` routes API-key viewers through an explicit route allowlist
+  (`web/src/features/key-viewer/navigation.ts`) to dedicated pages and does not
+  currently route them through `UsagePage`. The new `/models` viewer route must
+  be explicitly added, with its model-only page composition and navigation.
+- Backend `GET /api/v1/models` is registered on `adminProtected` in
+  `internal/api/router.go`; `registerModelsRoutes` in `internal/api/models.go`
+  calls `service.ModelsFetcher.FetchModels`. `internal/cpa/client.go`
+  `FetchModels` uses a configured CPA management API key to retrieve the catalog
+  then issues the catalog request using the first configured management API
+  key. This is not a user-key model test and must not be mistaken for one.
+- Auth middleware in `internal/api/auth.go` binds resolved role/session context
+  and supports `activeAPIKeyViewerMiddleware`; viewer-owned key access must be
+  resolved server-side, not accepted as an arbitrary credential from request
+  data. Admin-only endpoints already use `adminMiddleware`.
+- `app_settings` is represented by `internal/entities/app_setting.go` and
+  accessed through `internal/repository/app_settings.go`. `config.Config.RequestTimeout`
+  is the existing application-wide CPA timeout; user-editable Admin Settings
+  timeout is a new scoped setting, not an environment-variable change.
+- No chat-completion or model-test endpoint was found in `internal/cpa/` or
+  `internal/api/`. The feature needs an explicit test request path and response
+  handling, while retaining the configured CPA base URL. CPA's management key
+  must never be confused with the user/admin test API key.
+
+**Confirmed scope and behavior**
+
+1. An API-key viewer can open `/models` and see only the Models catalog and
+   model-test controls; they cannot see or call Model Pricing Settings.
+2. Each model has a test control and a selector for streaming or regular
+   (single-response) mode. A completed test displays Success or Failed; failure
+   includes a compact reason box.
+3. API-key viewer tests use that session's own CPA API key. Admin tests use the
+   admin-configured test key; if it is missing, show the exact requested message:
+   “Please provide Admin API Key In Setting”.
+4. `/settings` gains an Admin Settings section with an API Key field and Request
+   Timeout field.
+5. Do not change the existing pricing experience or grant viewer access to its
+   APIs. Do not return credentials in settings responses, errors, logs, or test
+   responses.
+
+**Task breakdown**
+
+#### FEAT-MTEST-1 — Resolve API and credential contracts
+
+- **Layer:** feature contract / security boundary.
+- **Work:** use the session-bound viewer credential decision recorded under
+  OQ-1; settle OQ-2 through OQ-4 before implementing test requests: decide
+  whether the admin test key is persisted and how it is protected; define
+  the request prompt/input, token/output bound, streaming completion criterion,
+  and what counts as a successful response. Define a stable API error/result
+  shape without returning an unbounded upstream body.
+- **Acceptance:** a reviewed contract documents request/response fields,
+  credential source, status mapping, streaming termination, response limits,
+  timeout range/default, and secret redaction. No raw key is sent back to the
+  browser after save or test.
+- **Dependencies:** decisions OQ-2, OQ-3, OQ-4; OQ-1 is resolved as the
+  session-bound active viewer key.
+- **Tests:** contract cases include valid single-response/streaming success,
+  upstream HTTP failure, malformed response, cancelled request, timeout, and
+  oversized error/output handling.
+- **Risk:** existing `CPAAPIKeyProvider` settings endpoints intentionally return
+  raw values only to admin browser code; do not reuse them for key-viewer
+  testing or place test keys in a generic response DTO.
+
+#### FEAT-MTEST-2 — Create isolated backend test domain and CPA client operation
+
+- **Layer:** backend domain and CPA integration.
+- **Files:** new `internal/modeltest/` and
+  `internal/modeltest/httpapi/`; extend `internal/cpa/client.go` only as needed;
+  wire through `internal/app/app.go` and `internal/api/router.go`.
+- **Work:** define the model-test request/response types, validate model ID and
+  mode, issue requests only to the configured CPA base URL, attach the selected
+  server-resolved key as a bearer credential, and apply the Admin Settings
+  timeout. Support streaming without buffering an unlimited response; report
+  completion only after a valid terminal result. Keep the handler thin and the
+  business/integration behavior inside the feature domain.
+- **Acceptance:** requests cannot select a host, path, header, or credential;
+  supported modes use the contract from FEAT-MTEST-1; response size and duration
+  are bounded; upstream error bodies are summarized safely; secrets are not
+  logged or serialized.
+- **Dependencies:** FEAT-MTEST-1.
+- **Tests:** CPA client tests verify endpoint, authorization header, request
+  payload, streaming and regular responses, timeout, cancellation, status errors,
+  and bounded body reads; service/domain tests verify validation and status
+  mapping.
+
+#### FEAT-MTEST-3 — Add authorized model-test and catalog HTTP routes
+
+- **Layer:** backend HTTP API and auth integration.
+- **Files:** `internal/modeltest/httpapi/`, `internal/api/router.go`,
+  `internal/api/auth.go` integration only if existing middleware context cannot
+  supply a verified active viewer credential; add API tests under
+  `internal/api/test/`.
+- **Work:** expose a test operation for Admin and API-key viewer sessions using
+  the existing authenticated `/api/v1` routing conventions. Make the existing
+  model-catalog read available to authenticated API-key viewers without also
+  exposing pricing routes; keep its metadata-only response and non-cacheable
+  behavior. Admin resolves the
+  configured admin test key and returns a stable configuration-required result
+  when unset. Viewer requests resolve the credential belonging to the validated
+  session; ignore/reject any caller-provided key. Preserve 401/403 behavior and
+  do not add access to pricing endpoints.
+- **Acceptance:** authenticated viewers can load the model catalog while
+  pricing routes remain admin-only; admin and viewer can test under their own
+  credential source;
+  a viewer cannot test as another key by altering body/header/path; anonymous
+  access is rejected when auth is enabled; missing admin key produces an
+  explicit stable error code that the UI maps to the specified message.
+- **Dependencies:** FEAT-MTEST-1, FEAT-MTEST-2.
+- **Tests:** route authorization matrix for catalog access (admin/viewer),
+  pricing denial (viewer), admin, own viewer, forged key,
+  unauthenticated, wrong role, inactive/revoked viewer key, missing admin key,
+  timeout, and upstream errors. Assert response bodies never contain raw keys
+  or unbounded upstream payloads.
+
+#### FEAT-MTEST-4 — Implement Admin Settings persistence and API
+
+- **Layer:** settings service/repository/API.
+- **Files:** `internal/entities/app_setting.go`,
+  `internal/repository/app_settings.go`, service package, `internal/api/router.go`
+  and settings handler; only add migration if the accepted storage decision
+  needs schema changes (the generic `app_settings` table already exists).
+- **Work:** persist the admin test API key and timeout as explicitly named
+  settings; validate timeout bounds and required formats; provide admin-only
+  read/write operations with secret-safe read semantics (presence/masked state,
+  never the stored value). Keep this distinct from environment-level
+  `RequestTimeout` and existing per-user CPA API-key settings.
+- **Acceptance:** persisted timeout/key survive restart; settings are admin-only;
+  saving a blank key follows an explicitly documented clear/retain contract;
+  reads never disclose the stored key; validation failures do not alter saved
+  settings; database backups retain the setting under the repository's existing
+  protected-backup model.
+- **Dependencies:** FEAT-MTEST-1 (especially OQ-2).
+- **Tests:** repository persistence/round-trip, service validation and secret
+  projection, API role checks, blank-key semantics, restart-compatible storage,
+  and migration tests only if schema changes are approved.
+
+#### FEAT-MTEST-5 — Add Admin Settings UI
+
+- **Layer:** frontend `/settings` composition.
+- **Files:** settings section composed by `web/src/pages/UsagePage.tsx` and
+  relevant existing settings components; API client/types in
+  `web/src/lib/api.ts` and `web/src/lib/types.ts`; component tests.
+- **Work:** add a clearly named Admin Settings section with API Key input and
+  Request Timeout control; mask saved-key state, provide save/loading/validation
+  feedback, and ensure viewer shells never render or fetch this section.
+- **Acceptance:** an administrator can save and update both values; reload shows
+  whether a key exists but does not reveal it; invalid timeout is explained;
+  saving does not leak the key in DOM attributes, notices, URLs, console, or
+  network responses; existing Settings behavior remains unchanged.
+- **Dependencies:** FEAT-MTEST-4.
+- **Tests:** form rendering, secret-masked reload, save/update/clear according
+  to OQ-2, timeout validation, API error states, and role composition.
+
+#### FEAT-MTEST-6 — Add viewer `/models` route and catalog-only page
+
+- **Layer:** frontend navigation and page composition.
+- **Files:** `web/src/App.tsx`,
+  `web/src/features/key-viewer/navigation.ts`,
+  `web/src/features/key-viewer/KeyViewerShell.tsx`, viewer page under
+  `web/src/pages/`, plus `web/src/lib/usageNavigation.ts` only if route
+  resolution requires it.
+- **Work:** whitelist `/models` for viewer role and add a viewer-safe page that
+  renders the existing `ModelCatalog` without mounting `PricingSettings`,
+  `useModelPricingData`, or pricing fetches. Reuse the shared catalog/API client
+  where role authorization permits; keep admin `/models` composition intact.
+- **Acceptance:** direct navigation and in-app navigation to `/models` work for
+  viewers; unknown paths still normalize to viewer home; viewer page has no
+  pricing section or pricing API calls; admin still sees the existing pricing
+  controls; refresh and base-path deployments route correctly.
+- **Dependencies:** no dependency on test execution; may proceed alongside
+  backend implementation after the authorization boundary is agreed.
+- **Tests:** route normalization and role-target tests, viewer shell navigation,
+  catalog-only rendering, no pricing fetch/render regression, and admin page
+  regression.
+
+#### FEAT-MTEST-7 — Add per-model test controls and result states
+
+- **Layer:** frontend model-test feature and catalog integration.
+- **Files:** `web/src/features/model-test/` (API, types, test controls/result
+  component), `web/src/components/usage/models/ModelCatalog.tsx` and styles,
+  frontend API client only if shared API conventions require it.
+- **Work:** add streaming/regular mode selector and a per-model Test action.
+  Prevent duplicate concurrent tests for the same model, cancel requests when
+  appropriate, and display compact Success/Failed status plus bounded failure
+  reason. Map missing-admin-key response to the exact requested message. Do not
+  show raw credentials or full unbounded upstream bodies.
+- **Acceptance:** mode selection controls the backend mode; outcome is associated
+  with the tested model; loading and cancellation are understandable; failures
+  expose a useful bounded reason; long/hostile reason text cannot break layout;
+  both viewer and admin use their respective backend-selected credentials.
+- **Dependencies:** FEAT-MTEST-2, FEAT-MTEST-3, FEAT-MTEST-6.
+- **Tests:** API client contract, mode selection, model association, loading,
+  success, upstream failure, missing admin key, timeout, cancellation, duplicate
+  action behavior, and bounded error display.
+
+#### FEAT-MTEST-8 — Add translations and accessible responsive styling
+
+- **Layer:** frontend localization/accessibility.
+- **Files:** `web/src/i18n/index.ts`, model catalog/feature CSS Modules and
+  relevant locale tests.
+- **Work:** translate test modes, action labels, success/failure, failure reason,
+  request timeout, Admin Settings, key presence/input, and exact missing-key
+  message in en, zh, and zh-TW. Use accessible names/status semantics and ensure
+  controls and result box work at narrow widths and in light/dark/auto themes.
+- **Acceptance:** parity tests find all keys in all three locales; screen-reader
+  status is announced; keyboard users can operate selector/action; no raw i18n
+  key is rendered; theme and responsive tests or review criteria pass.
+- **Dependencies:** FEAT-MTEST-5, FEAT-MTEST-7.
+
+#### FEAT-MTEST-9 — Document and protect the feature domain
+
+- **Layer:** project documentation and merge protection.
+- **Files:** `docs/MERGE-PRESERVATION.md`, `docs/ARCHITECTURE.md`,
+  `docs/SPECIFICATION.md`, `docs/CODE_GRAPH.md`, `docs/ROADMAP.md`,
+  `README.md` / `README.zh.md` where appropriate, `CHANGELOG.md`, and
+  `session.md`.
+- **Work:** add the dedicated model-test domain and its approved integration
+  points to merge-preservation policy; document API role/key boundaries,
+  settings persistence, streaming behavior, timeout/error limits, user-visible
+  viewer Models-only access, and any approved data/migration decisions. Keep
+  documentation synchronized with the delivered implementation.
+- **Acceptance:** preservation checks identify domain paths, route registration,
+  viewer route, test controls, Admin Settings, translations, and test commands;
+  all documentation describes implemented behavior rather than planned
+  assumptions; README accurately reflects any user-visible capability.
+- **Dependencies:** FEAT-MTEST-1 through FEAT-MTEST-8, implementation decisions.
+
+#### FEAT-MTEST-10 — Integrate and verify the complete feature
+
+- **Layer:** end-to-end regression and release readiness.
+- **Work:** run the focused Go and frontend suites, then the project verification
+  baseline `make verify`; inspect route permission boundaries, i18n parity,
+  migration compatibility if applicable, redaction, and merge-preservation
+  checklist. Update task status only from observed implementation evidence.
+- **Acceptance:** Go tests, Vitest, ESLint, TypeScript typecheck, and Vite build
+  pass via `make verify`; manual or automated browser checks confirm viewer
+  Models-only navigation and both modes, admin configured-key flow, failure
+  reason display, and no pricing exposure; no changes to unrelated protected
+  features.
+- **Dependencies:** FEAT-MTEST-1 through FEAT-MTEST-9.
+- **Risks:** external CPA behavior may differ on streamed error formats or
+  mid-stream termination; contract tests with representative CPA responses
+  should supplement mocks before release.
+
+**Open questions requiring resolution**
+
+- **Resolved implementation decision — Viewer credential source:** the viewer
+  session contains a CPA key identity, and `activeAPIKeyViewerMiddleware`
+  resolves the active key into request context;
+  `activeAPIKeyViewerContext` confirms that its ID matches the authenticated
+  session. Use only this context for viewer tests (enable the middleware on the
+  test route); never accept a caller-provided credential. This satisfies the
+  requested "user's API key" while preserving session ownership. Any alternate
+  viewer-entered-key flow would be a scope change requiring separate approval
+  and threat review.
+- **OQ-2 — Admin key persistence and clearing:** should the key be stored in the
+  existing `app_settings` store or supplied ephemerally per test? If persisted,
+  approve the at-rest protection, backup implications, replacement and clear
+  behavior, and whether it is ever allowed to be read back (recommended: never
+  return it; show only configured/unconfigured status). Persistence in the
+  current SQLite database places it in the protected backup set.
+- **OQ-3 — Test request content and success:** what prompt/input should be sent
+  to the model, and does any valid completed response count as success? Define
+  maximum output/token budget and how partial/empty streaming responses are
+  classified. No prompt or token limit was specified.
+- **OQ-4 — Timeout range/default:** the request asks for a timeout control but
+  supplies no unit, default, minimum, or maximum. Set these in the API contract
+  and document them before implementation; the existing global
+  `config.Config.RequestTimeout` is not automatically the Admin Settings value.
+
+---
+
 ### Feature Recommendations for User Review
 
 > Proposals only. They are **not** part of the confirmed scope and must not be
@@ -463,6 +788,66 @@ socket.
 avoid overlapping requests.
 **Implementation Impact:** `web/src/features/live-flow/`.
 **Priority:** Low
+**Status:** Pending User Review
+
+#### REC-007: Encrypt or avoid persistent admin test-key storage
+
+**Category:** Security / Data Protection
+**Recommendation:** Prefer a runtime-only administrator key if persistence is
+not essential. If it must survive restarts, establish an explicit encryption
+key-management design before storing it in SQLite; never rely on UI masking as
+protection for the value in `app_settings` or backups.
+**Reasoning:** `app_settings` is ordinary SQLite data, and database backups
+contain application data. The admin test key grants direct access to the CPA
+model API, so plaintext persistence expands the impact of database or backup
+disclosure.
+**Expected Benefits:** Reduces credential exposure and makes backup/security
+expectations explicit.
+**Trade-offs:** Runtime-only storage loses the key on restart; encryption
+requires a separately managed key, rotation/recovery procedure, and deployment
+documentation.
+**Implementation Impact:** FEAT-MTEST-4 settings persistence, configuration/key
+management decisions, backup documentation, security tests.
+**Priority:** High
+**Status:** Pending User Review
+
+#### REC-008: Use a fixed, non-mutating low-output probe request
+
+**Category:** Reliability / Cost Control
+**Recommendation:** Have the server send a fixed, minimal test prompt and a
+small explicit output-token limit, rather than accepting arbitrary prompt text
+or output settings from the browser.
+**Reasoning:** The feature only needs to determine whether a model can answer;
+arbitrary input can increase cost, expose sensitive content, or turn the action
+into a general-purpose proxy. The request body/limit still requires OQ-3
+agreement and CPA compatibility verification.
+**Expected Benefits:** Predictable cost, reduced data exposure, simpler
+validation and safer streamed-response bounds.
+**Trade-offs:** A fixed probe may not exercise user-specific capabilities or
+provider-specific structured input; a very small output budget may reject some
+models.
+**Implementation Impact:** FEAT-MTEST-1 request contract, FEAT-MTEST-2 CPA
+client, service and integration tests.
+**Priority:** High
+**Status:** Pending User Review
+
+#### REC-009: Make timeout bounds server-enforced and independent from global CPA timeout
+
+**Category:** Security / Operations
+**Recommendation:** Define documented minimum/maximum timeout values, validate
+them server-side, and use a per-test context deadline. Do not let the browser
+raise the cap or reinterpret the existing global `RequestTimeout` implicitly.
+**Reasoning:** User-editable timeouts affect resource occupancy for streamed
+requests. A fixed server-side range prevents unbounded connection/resource use
+and keeps a test’s configured behavior distinct from ingestion and metadata
+operations.
+**Expected Benefits:** Predictable resource limits and fewer accidental
+long-lived requests.
+**Trade-offs:** A strict maximum may interrupt unusually slow providers; the
+range and default need an operationally realistic choice.
+**Implementation Impact:** FEAT-MTEST-1 contract, FEAT-MTEST-2 request context,
+FEAT-MTEST-4 validation, settings UI and timeout tests.
+**Priority:** High
 **Status:** Pending User Review
 
 ---

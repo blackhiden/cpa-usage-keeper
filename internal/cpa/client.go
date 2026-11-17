@@ -531,27 +531,23 @@ const (
 	ModelTestModeStreaming ModelTestMode = "streaming"
 )
 
-type ModelTestResult struct {
-	StatusCode int
-}
-
-func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode ModelTestMode, timeout time.Duration) (ModelTestResult, error) {
+func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode ModelTestMode, timeout time.Duration) (int, error) {
 	if c == nil || c.baseURL == "" {
-		return ModelTestResult{}, fmt.Errorf("cpa base url is required")
+		return 0, fmt.Errorf("cpa base url is required")
 	}
 	apiKey = strings.TrimSpace(apiKey)
 	model = strings.TrimSpace(model)
 	if apiKey == "" {
-		return ModelTestResult{}, fmt.Errorf("model test api key is required")
+		return 0, fmt.Errorf("model test api key is required")
 	}
 	if model == "" || len(model) > 512 || strings.ContainsAny(model, "\r\n") {
-		return ModelTestResult{}, fmt.Errorf("model is invalid")
+		return 0, fmt.Errorf("model is invalid")
 	}
 	if mode != ModelTestModeRegular && mode != ModelTestModeStreaming {
-		return ModelTestResult{}, fmt.Errorf("model test mode is invalid")
+		return 0, fmt.Errorf("model test mode is invalid")
 	}
 	if timeout <= 0 {
-		return ModelTestResult{}, fmt.Errorf("model test timeout must be positive")
+		return 0, fmt.Errorf("model test timeout must be positive")
 	}
 	requestContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -574,11 +570,11 @@ func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode Model
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return ModelTestResult{}, fmt.Errorf("encode model test request: %w", err)
+		return 0, fmt.Errorf("encode model test request: %w", err)
 	}
 	req, err := http.NewRequestWithContext(requestContext, http.MethodPost, c.baseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return ModelTestResult{}, fmt.Errorf("build model test request: %w", err)
+		return 0, fmt.Errorf("build model test request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -588,21 +584,20 @@ func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode Model
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return ModelTestResult{}, fmt.Errorf("model test request: %w", err)
+		return 0, fmt.Errorf("model test request: %w", err)
 	}
 	defer resp.Body.Close()
-	result := ModelTestResult{StatusCode: resp.StatusCode}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		_, readErr := io.CopyN(io.Discard, resp.Body, modelTestMaxResponseBytes+1)
 		if readErr != nil && !errors.Is(readErr, io.EOF) {
-			return result, fmt.Errorf("read model test error response: %w", readErr)
+			return resp.StatusCode, fmt.Errorf("read model test error response: %w", readErr)
 		}
-		return result, fmt.Errorf("model test upstream returned status %d", resp.StatusCode)
+		return resp.StatusCode, fmt.Errorf("model test upstream returned status %d", resp.StatusCode)
 	}
 	if mode == ModelTestModeStreaming {
-		return result, readModelTestStream(resp.Body)
+		return resp.StatusCode, readModelTestStream(resp.Body)
 	}
-	return result, readModelTestResponse(resp.Body)
+	return resp.StatusCode, readModelTestResponse(resp.Body)
 }
 
 func readModelTestResponse(body io.Reader) error {

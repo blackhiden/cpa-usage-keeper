@@ -520,6 +520,7 @@ web/
 | Provider Model GNN | `internal/gnn/` + `internal/gnn/httpapi/` | `web/src/features/model-gnn/ProviderModelGNNPanel.tsx` |
 | Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` (local by default) |
 | API Key Viewer | `internal/service/` (scoped queries) | `web/src/features/key-viewer/`, `web/src/pages/Key*.tsx` |
+| Model Test & Viewer Models | `internal/modeltest/`, `internal/adminsettings/`, `internal/modeltest/httpapi/` | `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`, `web/src/components/usage/AdminSettingsCard.tsx` |
 | Live Flow | `internal/cpa/liveflow.go` (WebSocket proxy) | `web/src/features/usage/` (WebSocket client) |
 | Live Flow History | `internal/liveflow/` + `internal/liveflow/httpapi/` + `internal/repository/liveflow_models.go` (alias-grouped) | `web/src/features/live-flow/` (types, API client, merge/trend, period select) |
 | Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
