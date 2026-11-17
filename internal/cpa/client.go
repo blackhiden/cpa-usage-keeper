@@ -1,6 +1,7 @@
 package cpa
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -516,6 +517,156 @@ func (c *Client) FetchModels(ctx context.Context) (*response.ModelsResult, error
 		return result, err
 	}
 	return result, nil
+}
+
+const (
+	modelTestMaxResponseBytes = 64 * 1024
+	modelTestPrompt           = "Reply with a short health check."
+)
+
+type ModelTestMode string
+
+const (
+	ModelTestModeRegular   ModelTestMode = "regular"
+	ModelTestModeStreaming ModelTestMode = "streaming"
+)
+
+type ModelTestResult struct {
+	StatusCode int
+}
+
+func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode ModelTestMode, timeout time.Duration) (ModelTestResult, error) {
+	if c == nil || c.baseURL == "" {
+		return ModelTestResult{}, fmt.Errorf("cpa base url is required")
+	}
+	apiKey = strings.TrimSpace(apiKey)
+	model = strings.TrimSpace(model)
+	if apiKey == "" {
+		return ModelTestResult{}, fmt.Errorf("model test api key is required")
+	}
+	if model == "" || len(model) > 512 || strings.ContainsAny(model, "\r\n") {
+		return ModelTestResult{}, fmt.Errorf("model is invalid")
+	}
+	if mode != ModelTestModeRegular && mode != ModelTestModeStreaming {
+		return ModelTestResult{}, fmt.Errorf("model test mode is invalid")
+	}
+	if timeout <= 0 {
+		return ModelTestResult{}, fmt.Errorf("model test timeout must be positive")
+	}
+	requestContext, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	payload := struct {
+		Model    string `json:"model"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+		MaxTokens int  `json:"max_tokens"`
+		Stream    bool `json:"stream"`
+	}{
+		Model: model,
+		Messages: []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		}{{Role: "user", Content: modelTestPrompt}},
+		MaxTokens: 16,
+		Stream:    mode == ModelTestModeStreaming,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return ModelTestResult{}, fmt.Errorf("encode model test request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(requestContext, http.MethodPost, c.baseURL+"/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return ModelTestResult{}, fmt.Errorf("build model test request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	client := c.httpClient
+	if mode == ModelTestModeStreaming && c.streamHTTPClient != nil {
+		client = c.streamHTTPClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ModelTestResult{}, fmt.Errorf("model test request: %w", err)
+	}
+	defer resp.Body.Close()
+	result := ModelTestResult{StatusCode: resp.StatusCode}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		_, readErr := io.CopyN(io.Discard, resp.Body, modelTestMaxResponseBytes+1)
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			return result, fmt.Errorf("read model test error response: %w", readErr)
+		}
+		return result, fmt.Errorf("model test upstream returned status %d", resp.StatusCode)
+	}
+	if mode == ModelTestModeStreaming {
+		return result, readModelTestStream(resp.Body)
+	}
+	return result, readModelTestResponse(resp.Body)
+}
+
+func readModelTestResponse(body io.Reader) error {
+	data, err := io.ReadAll(io.LimitReader(body, modelTestMaxResponseBytes+1))
+	if err != nil {
+		return fmt.Errorf("read model test response: %w", err)
+	}
+	if len(data) > modelTestMaxResponseBytes {
+		return fmt.Errorf("model test response exceeded limit")
+	}
+	var payload struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+			Text string `json:"text"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("model test response was malformed")
+	}
+	if len(payload.Choices) == 0 || (strings.TrimSpace(payload.Choices[0].Message.Content) == "" && strings.TrimSpace(payload.Choices[0].Text) == "") {
+		return fmt.Errorf("model test response was empty")
+	}
+	return nil
+}
+
+func readModelTestStream(body io.Reader) error {
+	scanner := bufio.NewScanner(io.LimitReader(body, modelTestMaxResponseBytes+1))
+	scanner.Buffer(make([]byte, 1024), modelTestMaxResponseBytes+1)
+	seenContent := false
+	seenDone := false
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			seenDone = true
+			break
+		}
+		var payload struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+				FinishReason *string `json:"finish_reason"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal([]byte(data), &payload); err != nil {
+			return fmt.Errorf("model test stream was malformed")
+		}
+		if len(payload.Choices) > 0 && (strings.TrimSpace(payload.Choices[0].Delta.Content) != "" || payload.Choices[0].FinishReason != nil) {
+			seenContent = true
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read model test stream: %w", err)
+	}
+	if !seenDone || !seenContent {
+		return fmt.Errorf("model test stream did not complete")
+	}
+	return nil
 }
 
 func (c *Client) FetchCredentials(ctx context.Context) (*response.CredentialsResult, error) {
