@@ -14,14 +14,28 @@ export interface AuthSessionResponse {
   api_key?: AuthSessionAPIKeySummary
 }
 
+export interface TelegramAdminSettings {
+  bot_token_configured: boolean
+  chat_id: string
+  message_thread_id?: number
+}
+
+export interface UpdateTelegramAdminSettings {
+  bot_token?: string
+  chat_id?: string
+  message_thread_id?: number
+}
+
 export interface AdminSettingsResponse {
   api_key_configured: boolean
   request_timeout_seconds: number
+  telegram: TelegramAdminSettings
 }
 
 export interface UpdateAdminSettingsRequest {
   api_key?: string
   request_timeout_seconds?: number
+  telegram?: UpdateTelegramAdminSettings
 }
 export type ModelTestMode = 'regular' | 'streaming'
 
@@ -36,6 +50,18 @@ export interface ModelTestResult {
   status_code?: number
   error_code?: string
   reason?: string
+}
+
+export interface ModelTestNotifyRequest {
+  model: string
+  mode: ModelTestMode
+  status_code?: number
+  error_code?: string
+  reason?: string
+}
+
+export interface ModelTestNotifyResponse {
+  sent: boolean
 }
 
 export type AuthManagedSessionKind = 'admin' | 'api_key'
