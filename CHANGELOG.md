@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **Model ranking on `/ranking` (Phase 2.25).** `/ranking` now shows a second
+  leaderboard that ranks models over six periods (Today, Yesterday, Current
+  Week, Previous Week, Current Month, Previous Month; default Today) with seven
+  quantitative metrics (default total tokens). Models served through different
+  providers under one alias collapse into one row that lists the contributing
+  providers.
+  - New self-contained backend domain `internal/modelranking/` plus
+    `internal/modelranking/httpapi/` registering admin-only
+    `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>`
+    (`400 invalid_model_ranking_selection`, `503 model_ranking_unavailable`,
+    `Cache-Control: no-store`). Aggregation lives in
+    `internal/repository/model_ranking.go`, reads through the reader pool,
+    groups by `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, bounds
+    candidates at 1,000, and never queries `usage_events_archive`.
+  - Periods use the project `TZ`; the API-key ranking retains its existing
+    calendar and behavior unchanged. There is no schema change and no runner.
+  - Frontend `web/src/features/model-ranking/` renders one
+    `ModelRankingSection` card after `RankingPage` in `UsagePage.tsx`, with its
+    own period and metric selectors, independent polling, and loading, empty,
+    stale, and error states.
+  - Translations in en, zh, and zh-TW; the feature is recorded as protected in
+    `docs/MERGE-PRESERVATION.md` §9.
 - **Model test failure Telegram notifications (Phase 2.24).** A failed model
   probe can now be reported to the administrator through a Telegram bot.
   - New backend domain `internal/telegram/` (request/message contract, bounded

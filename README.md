@@ -93,6 +93,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Keep your history**: persist CPA usage in SQLite with scheduled backups.
 - **Understand costs**: analyze usage, caching, and estimated costs by model, API Key, and provider.
 - **Investigate requests**: inspect and export request details, and explore success rates, time to first token (TTFT), and total latency.
+- **Rank models**: the `/ranking` page pairs the API Key leaderboard with a **Model Ranking** card. It ranks models over Today, Yesterday, Current week, Last week, Current month, and Last month, and folds the same model served through different providers under its alias while listing the contributing providers.
 - **Track quotas**: monitor credential health and remaining quotas, refresh quotas, edit priorities, and explore Codex quota history.
 - **Compare providers**: browse AI providers grouped with request/token totals and success rates, then drill into each provider's paginated key list. ⚠️ **Permanent feature** — the provider grouping table and detail navigation are protected from removal or replacement by upstream merges (see [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) §6).
 - **Inspect AI providers**: administrators can review one aggregate row per provider, sort by success rate, and open a paginated key-detail page for that provider.
