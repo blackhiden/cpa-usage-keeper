@@ -26,11 +26,20 @@
   from `CPA_MANAGEMENT_KEY` and returns only `telegram.bot_token_configured`.
   Settings are validated before any write so a rejected request cannot leave
   partial state.
-- Verification: `go test ./internal/telegram/... ./internal/adminsettings/...
-  ./internal/api/... ./internal/app/... ./internal/modeltest/...`, the two
-  focused Vitest suites, i18n parity tests, ESLint, and typecheck pass; the
-  integration checkout builds `web/dist` to satisfy the `go:embed` and then
-  runs the backend baseline.
+- Verification on `feature/phase-2-24-integration`:
+  - `go test ./cmd/... ./internal/...` → exit 0.
+  - `npm --prefix ./web run test` → 226 files, 1,884 passed, 2 skipped.
+  - `npm --prefix ./web run lint`, `typecheck`, and `build` → clean; `web/dist`
+    is rebuilt so the `go:embed` compiles inside the checkout.
+  - `npm ci` was not re-run: the checkout reuses the trunk checkout's locked
+    `web/node_modules` through a git-ignored symlink, and `package-lock.json`
+    is unchanged.
+  - Live Telegram delivery against a real bot was not exercised here (no bot
+    token available); that remains the manual acceptance step from FEAT-TG-9.
+- Pre-existing baseline failure fixed while verifying: the
+  `internal/liveflow` today-period test inserted an event dated 2026-11-16 and
+  queried the "today" window, so it failed on the base `dev` commit too. It now
+  anchors the event to the current local time (test-only change).
 
 
 ## Session: Phase 2.23 Model Test & API-key Viewer Models Access
