@@ -369,9 +369,10 @@ Key invariants:
   chip shows provider/model/dim counters sourced from the GNN response meta
   block. Node and edge features support future advanced analytics
   (embeddings, structural learning, prediction).
-- **Model Ranking on `/ranking`** is a self-contained feature domain. The
-  backend is `internal/modelranking/` (six half-open local-calendar periods
-  resolved with `timeutil.NormalizeStorageTime`, alias-grouped aggregation, seven
+- **Model Ranking on `/ranking` (Phase 2.25)** is a self-contained feature
+  domain. The backend is `internal/modelranking/` (six half-open local-calendar
+  periods resolved with `timeutil.NormalizeStorageTime`, alias-grouped
+  aggregation, seven
   quantitative metrics, deterministic ordering, and a 30-second in-memory read
   cache) plus `internal/modelranking/httpapi/` registering admin-only
   `GET /api/v1/model-ranking/leaderboards`. The SQL lives in
