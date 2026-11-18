@@ -1,5 +1,38 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.24 Model Test Failure Telegram Notification
+
+**Date:** 2026-11-18
+**Status:** Implemented in the integration worktree; not merged into `dev`
+
+- Created three parallel feature worktrees and one integration worktree from
+  `dev` commit `4dd457b1`: `feature/phase-2-24-telegram-domain`,
+  `feature/phase-2-24-admin-settings`, `feature/phase-2-24-frontend`, and
+  `feature/phase-2-24-integration` (the integration branch merges the other
+  three locally for verification only).
+- Delivered FEAT-TG-1…FEAT-TG-9: `internal/telegram/` (contract, bounded and
+  redacted rendering, Bot API client, limiter), encrypted Telegram settings in
+  `internal/adminsettings/`, `POST /api/v1/model-test/notify` on the shared
+  catalog group, the Admin Settings Telegram UI, the failure **Notify admin**
+  action, en/zh/zh-TW translations, and the protected-feature entry.
+- Decisions taken from the approved recommendations: OQ-5 explicit action
+  (REC-010 automatic send deferred), OQ-6 administrator label `Administrator`,
+  OQ-7 cooldown 60 s per reporter+model plus 10/hour per reporter, OQ-8 bounded
+  reason only (no upstream body capture), OQ-9 optional `message_thread_id`,
+  OQ-10 no send-test endpoint (REC-011 deferred). REC-012/013/014 deferred.
+- The reporter is always server-derived (`activeAPIKeyViewerContext` +
+  `helper.CPAAPIKeyDisplayName`); the request body has no reporter field.
+- Admin Settings encrypts the bot token with the existing AES-GCM key derived
+  from `CPA_MANAGEMENT_KEY` and returns only `telegram.bot_token_configured`.
+  Settings are validated before any write so a rejected request cannot leave
+  partial state.
+- Verification: `go test ./internal/telegram/... ./internal/adminsettings/...
+  ./internal/api/... ./internal/app/... ./internal/modeltest/...`, the two
+  focused Vitest suites, i18n parity tests, ESLint, and typecheck pass; the
+  integration checkout builds `web/dist` to satisfy the `go:embed` and then
+  runs the backend baseline.
+
+
 ## Session: Phase 2.23 Model Test & API-key Viewer Models Access
 
 **Date:** 2026-11-17

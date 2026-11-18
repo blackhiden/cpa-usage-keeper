@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Model test failure Telegram notifications (Phase 2.24).** A failed model
+  probe can now be reported to the administrator through a Telegram bot.
+  - New backend domain `internal/telegram/` (request/message contract, bounded
+    and redacted reason rendering, Bot API sender with a fixed 10-second timeout
+    and token-free errors, per-reporter-per-model cooldown plus hourly cap) with
+    `internal/telegram/httpapi/` registering `POST /api/v1/model-test/notify` on
+    the shared catalog group (admin + API-key viewer).
+  - The reporter is resolved server-side: viewers report as their API Key Name
+    via `helper.CPAAPIKeyDisplayName`, administrators as `Administrator`.
+  - `internal/adminsettings/` now stores `admin.telegram.bot_token`
+    (AES-GCM encrypted, never returned), `admin.telegram.chat_id`, and an
+    optional `admin.telegram.message_thread_id`; `GET /admin-settings` exposes
+    only `telegram.bot_token_configured`, `chat_id`, and `message_thread_id`.
+  - `/settings` → Admin Settings gains a Telegram section (token, chat id,
+    optional topic id with client-side validation and clear actions), and a
+    failed model test shows a **Notify admin** action with distinct
+    unconfigured/rate-limited states.
+  - Translations in en, zh, and zh-TW; the feature is recorded as protected in
+    `docs/MERGE-PRESERVATION.md`.
+
 ## [2.1.3] - 2026-11-17
 
 ### Merged from Upstream

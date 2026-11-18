@@ -41,6 +41,52 @@ timeout.
 - Security: raw credentials are never returned; viewer requests cannot choose a
   credential, host, path, or header.
 
+### 8. Model Test Failure Telegram Notifications
+
+**Status:** Permanent (Phase 2.24)  
+**Domain:** `internal/telegram/` + `internal/telegram/httpapi/`
+
+A user whose model test failed can notify the administrator through a configured
+Telegram bot. The message reports the reporter as the **API Key Name** (never
+the key value), the tested model, and a bounded failure reason. Telegram is
+configured in `/settings` → **Admin Settings** with an encrypted Bot Token, a
+Chat ID, and an optional Topic ID (`message_thread_id`).
+
+- **Backend:** `internal/telegram/` (contract, rendering, Bot API client,
+  limiter), `internal/telegram/httpapi/` (route registration),
+  `internal/adminsettings/` (`admin.telegram.bot_token`,
+  `admin.telegram.chat_id`, `admin.telegram.message_thread_id` settings)
+- **Frontend:** `web/src/features/model-test/` (notify action),
+  `web/src/components/usage/AdminSettingsCard.tsx` (Telegram section)
+- **Routes:** `POST /api/v1/model-test/notify` (admin + API-key viewer),
+  extended `GET/PUT /api/v1/admin-settings` (admin only)
+- **Wiring:** `internal/app/app.go` (`telegram.NewService` +
+  `telegramSettingsSource` adapter), `internal/api/router.go`
+  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes`)
+- **Security invariants:**
+  - The bot token is encrypted at rest with the existing AES-GCM key derived
+    from `CPA_MANAGEMENT_KEY`; no endpoint returns it. `GET /admin-settings`
+    exposes only `telegram.bot_token_configured`.
+  - The reporter is resolved server-side from `activeAPIKeyViewerContext` +
+    `helper.CPAAPIKeyDisplayName`; administrators report as `Administrator`.
+    The request body has no reporter field.
+  - The reason is re-bounded to 240 characters, control characters are stripped,
+    and key-like substrings are redacted before delivery.
+  - Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly
+    cap; `429` carries `notify_rate_limited` and `Retry-After`.
+  - Error responses use stable codes (`telegram_not_configured`,
+    `telegram_send_failed`, `notify_rate_limited`, `invalid_notify_request`)
+    and never echo the token, the chat id, or the Bot API response body.
+
+Verification:
+
+```bash
+go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...
+npm --prefix ./web run test -- src/features/model-test src/components/usage/test/AdminSettingsCard.test.tsx
+npm --prefix ./web run typecheck
+make verify
+```
+
 ### 1. Provider Model GNN Panel
 
 **Status:** Permanent core feature  
