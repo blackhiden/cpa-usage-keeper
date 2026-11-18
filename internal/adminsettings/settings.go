@@ -35,7 +35,7 @@ const (
 	jsonValueType          = "json"
 	defaultTimeoutSeconds  = int64(30)
 	minTimeoutSeconds      = int64(1)
-	maxTimeoutSeconds      = int64(120)
+	maxTimeoutSeconds      = int64(600)
 	minBotTokenLength      = 20
 	maxBotTokenLength      = 200
 	maxChatIDLength        = 64

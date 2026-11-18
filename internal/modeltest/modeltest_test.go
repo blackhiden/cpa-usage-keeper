@@ -32,6 +32,12 @@ func (s settingsStub) AdminTestCredential(context.Context) (string, error) {
 	return s.credential, s.err
 }
 
+type fixedTimeoutSource time.Duration
+
+func (s fixedTimeoutSource) RequestTimeout(context.Context) (time.Duration, error) {
+	return time.Duration(s), nil
+}
+
 func TestServiceUsesViewerCredential(t *testing.T) {
 	client := &clientStub{status: 200}
 	service := NewService(client, settingsStub{credential: "admin-secret"}, 5*time.Second)
@@ -56,6 +62,28 @@ func TestServiceBoundsFailureReason(t *testing.T) {
 	result := service.Test(context.Background(), Request{Model: "gpt-test", Mode: ModeRegular}, "", false)
 	if result.Success || result.ErrorCode != "test_failed" || len(result.Reason) > 240 {
 		t.Fatalf("unexpected result=%+v", result)
+	}
+}
+
+func TestServiceUsesConfiguredMaximumTimeout(t *testing.T) {
+	client := &clientStub{status: 200}
+	service := NewService(client, settingsStub{credential: "admin-secret"}, DefaultTimeout)
+	service.SetTimeoutSource(fixedTimeoutSource(600 * time.Second))
+	result := service.Test(context.Background(), Request{Model: "gpt-test", Mode: ModeRegular}, "", false)
+	if !result.Success || client.timeout != 600*time.Second {
+		t.Fatalf("unexpected result=%+v client=%+v", result, client)
+	}
+}
+
+func TestValidateTimeoutBoundaries(t *testing.T) {
+	if err := ValidateTimeout(600 * time.Second); err != nil {
+		t.Fatalf("expected 600s to be valid, got %v", err)
+	}
+	if err := ValidateTimeout(601 * time.Second); !errors.Is(err, ErrInvalidTimeout) {
+		t.Fatalf("expected 601s to be invalid, got %v", err)
+	}
+	if err := ValidateTimeout(0); !errors.Is(err, ErrInvalidTimeout) {
+		t.Fatalf("expected 0s to be invalid, got %v", err)
 	}
 }
 

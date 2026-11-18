@@ -63,6 +63,22 @@ describe('AdminSettingsCard', () => {
     expect(api.updateAdminSettings).toHaveBeenCalledWith({ request_timeout_seconds: 30, api_key: 'new-test-key' })
   })
 
+  it('allows a Request Timeout up to 600 seconds and rejects 601', async () => {
+    await act(async () => root.render(<AdminSettingsCard />))
+    const timeoutInput = container.querySelector<HTMLInputElement>('input[type="number"]')!
+    expect(timeoutInput.max).toBe('600')
+    const saveButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Save Admin Settings')
+    const setValue = (value: string) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(timeoutInput, value)
+      timeoutInput.dispatchEvent(new Event('input', { bubbles: true }))
+      timeoutInput.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+    await act(async () => setValue('600'))
+    expect(saveButton?.disabled).toBe(false)
+    await act(async () => setValue('601'))
+    expect(saveButton?.disabled).toBe(true)
+  })
+
   it('shows the configured telegram token state without rendering the token', async () => {
     await act(async () => root.render(<AdminSettingsCard />))
     expect(container.textContent).toContain('A bot token is configured.')

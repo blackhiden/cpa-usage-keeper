@@ -57,13 +57,27 @@ func TestAdminSettingsRejectsInvalidTimeoutWithoutChangingValue(t *testing.T) {
 	if _, err := service.Save(context.Background(), Update{RequestTimeoutSeconds: &valid}); err != nil {
 		t.Fatal(err)
 	}
-	invalid := int64(121)
+	invalid := int64(601)
 	if _, err := service.Save(context.Background(), Update{RequestTimeoutSeconds: &invalid}); err == nil {
 		t.Fatal("expected invalid timeout")
 	}
 	settings, err := service.Get(context.Background())
 	if err != nil || settings.RequestTimeoutSeconds != valid {
 		t.Fatalf("settings=%+v err=%v", settings, err)
+	}
+}
+
+func TestAdminSettingsAllowsMaximumTimeout(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db, "management-secret")
+	maximum := int64(600)
+	settings, err := service.Save(context.Background(), Update{RequestTimeoutSeconds: &maximum})
+	if err != nil || settings.RequestTimeoutSeconds != maximum {
+		t.Fatalf("settings=%+v err=%v", settings, err)
+	}
+	loaded, err := service.Get(context.Background())
+	if err != nil || loaded.RequestTimeoutSeconds != maximum {
+		t.Fatalf("settings=%+v err=%v", loaded, err)
 	}
 }
 

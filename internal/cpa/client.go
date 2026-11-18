@@ -25,13 +25,14 @@ import (
 )
 
 type Client struct {
-	baseURL           string
-	managementKey     string
-	httpClient        *http.Client
-	streamHTTPClient  *http.Client
-	streamIdleTimeout time.Duration
-	liveFlowAPIKey    string
-	tlsSkipVerify     bool
+	baseURL             string
+	managementKey       string
+	httpClient          *http.Client
+	streamHTTPClient    *http.Client
+	modelTestHTTPClient *http.Client
+	streamIdleTimeout   time.Duration
+	liveFlowAPIKey      string
+	tlsSkipVerify       bool
 }
 
 type RequestLogResult struct {
@@ -183,13 +184,19 @@ func NewClient(baseURL, managementKey string, timeout time.Duration, tlsSkipVeri
 	if timeout > 0 {
 		streamTransport.ResponseHeaderTimeout = timeout
 	}
+	// Model tests use the validated Admin Settings timeout instead of the
+	// application-wide REQUEST_TIMEOUT, so this client carries no total or
+	// header deadline of its own.
+	modelTestTransport := transport.Clone()
+	modelTestTransport.ResponseHeaderTimeout = 0
 	return &Client{
-		baseURL:           strings.TrimRight(strings.TrimSpace(baseURL), "/"),
-		managementKey:     strings.TrimSpace(managementKey),
-		httpClient:        httpClient,
-		streamHTTPClient:  &http.Client{Transport: streamTransport},
-		streamIdleTimeout: requestLogStreamIdleTimeout(timeout),
-		tlsSkipVerify:     tlsSkipVerify,
+		baseURL:             strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+		managementKey:       strings.TrimSpace(managementKey),
+		httpClient:          httpClient,
+		streamHTTPClient:    &http.Client{Transport: streamTransport},
+		modelTestHTTPClient: &http.Client{Transport: modelTestTransport},
+		streamIdleTimeout:   requestLogStreamIdleTimeout(timeout),
+		tlsSkipVerify:       tlsSkipVerify,
 	}
 }
 
@@ -578,9 +585,15 @@ func (c *Client) TestModel(ctx context.Context, apiKey, model string, mode Model
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	client := c.httpClient
-	if mode == ModelTestModeStreaming && c.streamHTTPClient != nil {
-		client = c.streamHTTPClient
+	// The per-test context deadline is the only bound; the shared client must
+	// not inherit the shorter application-wide REQUEST_TIMEOUT.
+	client := c.modelTestHTTPClient
+	if client == nil {
+		transport := cloneDefaultHTTPTransport()
+		if c.tlsSkipVerify {
+			transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		client = &http.Client{Transport: transport}
 	}
 	resp, err := client.Do(req)
 	if err != nil {

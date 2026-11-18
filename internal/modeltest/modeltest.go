@@ -12,7 +12,7 @@ import (
 const (
 	DefaultTimeout = 30 * time.Second
 	MinTimeout     = 1 * time.Second
-	MaxTimeout     = 120 * time.Second
+	MaxTimeout     = 600 * time.Second
 )
 
 type Mode string

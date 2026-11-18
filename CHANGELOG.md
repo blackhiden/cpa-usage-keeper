@@ -135,7 +135,7 @@ All protected features maintained through merge conflicts:
 - **Phase 2.23 model testing and viewer Models access.** API-key viewers can
   browse the catalog without pricing settings and test models with their active
   session key. Administrators can configure an encrypted test key and a
-  1–120-second timeout in Admin Settings. Regular and streaming probes use a
+  1–600-second timeout in Admin Settings. Regular and streaming probes use a
   fixed bounded request and return only success or safe bounded failure data.
 
 ### Added

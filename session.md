@@ -1,5 +1,23 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Admin Settings Request Timeout raised to 600 seconds
+
+**Date:** 2026-11-18
+**Status:** Implemented on `dev`; uncommitted
+
+- Raised the Admin Settings `request_timeout_seconds` maximum from 120 to 600 in
+  every enforcement point: `internal/adminsettings` validation,
+  `internal/modeltest` timeout bounds, and the Admin Settings input
+  (`MAX_TIMEOUT_SECONDS`). Minimum (1 s) and default (30 s) are unchanged.
+- Model tests now build a request client without the application-wide
+  `REQUEST_TIMEOUT` and without the stream header timeout, so the Admin Settings
+  value actually governs probe duration up to 600 seconds.
+- Updated en/zh/zh-TW hints and error text, plus `CHANGELOG.md`,
+  `docs/SPECIFICATION.md`, `docs/MERGE-PRESERVATION.md`, and this file.
+- Added boundary tests: settings accept 600 and reject 601; model-test
+  validation accepts 600 s; a probe outliving the global request timeout
+  succeeds; the UI renders `max=600` and blocks 601.
+
 ## Session: Phase 2.24 Follow-ups (REC-010 … REC-014)
 
 **Date:** 2026-11-18
@@ -85,7 +103,7 @@
   translations.
 - Viewer credential selection is server-side and session-bound. The admin key
   is encrypted with a key derived from `CPA_MANAGEMENT_KEY`, never returned,
-  and blank input clears it. Timeout is persisted independently at 1–120
+  and blank input clears it. Timeout is persisted independently at 1–600
   seconds with a 30-second default.
 - Focused Go/API tests, frontend typecheck, lint, build, i18n tests, viewer
   navigation tests, and Admin Settings component tests pass. The full Go

@@ -29,7 +29,7 @@ The authenticated `/models` catalog and per-model test controls must remain
 available to API-key viewers without exposing pricing settings. The server
 selects credentials by role: the active viewer key for viewers and the
 encrypted Admin Settings key for administrators. Probes use the configured CPA
-base URL, a fixed bounded prompt, a maximum output budget, and a 1–120 second
+base URL, a fixed bounded prompt, a maximum output budget, and a 1–600 second
 timeout.
 
 - Backend: `internal/modeltest/`, `internal/modeltest/httpapi/`,

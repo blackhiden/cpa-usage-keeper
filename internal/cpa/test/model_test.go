@@ -39,6 +39,21 @@ func TestTestModelRegularRequestUsesViewerCredentialAndBoundedProbe(t *testing.T
 	}
 }
 
+func TestTestModelUsesAdminTimeoutInsteadOfGlobalRequestTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(150 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"}}]}`)
+	}))
+	defer server.Close()
+	// The global REQUEST_TIMEOUT is deliberately far below the per-test timeout.
+	client := cpa.NewClient(server.URL, "management-secret", 20*time.Millisecond, false)
+	status, err := client.TestModel(context.Background(), "viewer-secret", "gpt-test", cpa.ModelTestModeRegular, 2*time.Second)
+	if err != nil || status != http.StatusOK {
+		t.Fatalf("status=%d err=%v", status, err)
+	}
+}
+
 func TestTestModelStreamingRequiresDone(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

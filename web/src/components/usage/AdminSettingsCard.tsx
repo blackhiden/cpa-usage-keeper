@@ -7,7 +7,7 @@ import { fetchAdminSettings, sendTelegramTestMessage, updateAdminSettings, type 
 import type { TelegramAdminSettings, UpdateAdminSettingsRequest, UpdateTelegramAdminSettings } from '@/lib/types'
 import styles from './AdminSettingsCard.module.scss'
 
-const MAX_TIMEOUT_SECONDS = 120
+const MAX_TIMEOUT_SECONDS = 600
 const CHAT_ID_PATTERN = /^(-?[0-9]{1,20}|@[A-Za-z0-9_]{5,32})$/
 
 function telegramValues(telegram?: TelegramAdminSettings) {
