@@ -7,6 +7,8 @@
 
 **Policy (Phase 2.22):** Live Flow Model History (`internal/liveflow/` + `web/src/features/live-flow/`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
 
+**Policy (Phase 2.24, planned):** Model Test Failure Telegram Notification (`internal/telegram/` + `web/src/features/model-test/`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
+
 ---
 
 ## Phase 0 — Documentation & Developer Tooling
@@ -160,6 +162,39 @@
     request-mode behaviors have automated coverage.
   - **Execution plan:** see [Phase 2.23 — Model Test & API-key Viewer Models
     Access](#phase-223--model-test--api-key-viewer-models-access-execution-plan).
+
+- **2.24 Model Test Failure Telegram Notification.** ⬜ (planned)
+  - **Status:** Planned — no feature code has been implemented.
+  - **Confirmed requirements:** when a model test fails, the user can notify the
+    administrator through a Telegram bot. The message reports the reporter as
+    the **API Key Name** (never the API key value), the tested **model**, and
+    the **failure reason**. `/settings` → **Admin Settings** gains Telegram
+    configuration: **Bot Token**, **Chat ID**, and **Topic ID**
+    (`message_thread_id`). The feature must live in a dedicated domain and be
+    documented in `docs/MERGE-PRESERVATION.md`.
+  - **Implementation direction:** new backend domain `internal/telegram/` with
+    HTTP registration in `internal/telegram/httpapi/` (following the
+    `internal/gnn/` and `internal/liveflow/` precedent); extend
+    `internal/adminsettings/` for encrypted Telegram settings; extend
+    `web/src/features/model-test/` and
+    `web/src/components/usage/AdminSettingsCard.tsx` on the frontend. Reuse the
+    existing `app_settings` store, the existing AES-GCM protection key derived
+    from `CPA_MANAGEMENT_KEY`, and the bounded outbound-HTTP pattern used by
+    `internal/ranking/client.go`.
+  - **Dependencies:** Phase 2.23 (implemented) supplies the model-test result
+    contract (`internal/modeltest/modeltest.go` `Result`). OQ-5 (explicit vs
+    automatic notification), OQ-6 (administrator reporter label), OQ-7 (rate
+    limiting), and OQ-8 (failure payload depth) must be settled before the
+    request contract is final.
+  - **Acceptance criteria:** a failed test exposes a notify action; the
+    delivered Telegram message contains the API Key Name, the model, and a
+    bounded reason, and never the credential; the bot token is never returned,
+    logged, or echoed; unconfigured Telegram yields a stable, non-secret error
+    code; the endpoint is rate-limited per reporter; all user-facing strings are
+    translated in en, zh, and zh-TW; the feature is documented in
+    `docs/MERGE-PRESERVATION.md`.
+  - **Execution plan:** see [Phase 2.24 — Model Test Failure Telegram
+    Notification](#phase-224--model-test-failure-telegram-notification-execution-plan).
 
 ### Phase 2.22 — Live Flow Model History & Period Filter (Execution Plan)
 
@@ -691,6 +726,313 @@ test with a separately configured key and timeout.
 
 ---
 
+### Phase 2.24 — Model Test Failure Telegram Notification (Execution Plan)
+
+**Goal:** Let a user whose model test failed notify the administrator through a
+Telegram bot, with a message that identifies the reporter by API Key Name, the
+tested model, and the failure reason — without exposing any credential — and
+configure the bot from `/settings` → **Admin Settings**.
+
+**Status:** ⬜ Planned — no feature code has been implemented.
+
+**Evidence and existing boundaries**
+
+- `internal/modeltest/modeltest.go` defines the current failure contract:
+  `Result{Success, Mode, StatusCode, ErrorCode, Reason}`. `safeReason()` caps
+  the reason at 240 characters, and `internal/cpa/client.go` `TestModel`
+  discards upstream error bodies (`io.CopyN(io.Discard, …)`), so no raw
+  upstream payload is currently retained anywhere. Any "failure request
+  response" in the notification is therefore the bounded `Reason` plus
+  `StatusCode` and `ErrorCode` unless the CPA client is changed (see OQ-8).
+- `internal/modeltest/httpapi/routes.go` registers `POST /model-test` through
+  `RegisterAuthenticatedRoutes`; `internal/api/router.go` mounts it on the
+  `catalogProtected` group (`RoleAdmin` + `RoleAPIKeyViewer` plus
+  `activeAPIKeyViewerIfPresentMiddleware`). The resolver returns
+  `(credential, isViewer)` from `activeAPIKeyViewerContext`.
+- `activeAPIKeyViewerContext` (`internal/api/auth.go`) returns the bound
+  `auth.Session` and `entities.CPAAPIKey` only when the session's
+  `CPAAPIKeyID` matches the resolved key. `helper.CPAAPIKeyDisplayName`
+  (`internal/helper/redact.go`) already implements the display priority
+  `KeyName → KeyAlias → masked key`, which is the correct source for the
+  reporter label and never yields the raw key.
+- `internal/adminsettings/settings.go` already persists settings in
+  `app_settings` through `repository.GetAppSettings` / `UpsertAppSetting`,
+  encrypts secrets with AES-GCM using a key derived from
+  `CPA_MANAGEMENT_KEY`, and exposes only `api_key_configured` — never the
+  stored value. `internal/adminsettings/httpapi/routes.go` serves admin-only
+  `GET/PUT /admin-settings` (registered on `adminProtected` in
+  `internal/api/router.go`).
+- `web/src/components/usage/AdminSettingsCard.tsx` is the existing Admin
+  Settings surface, composed in `web/src/pages/UsagePage.tsx` on the
+  `settings` tab. `web/src/features/model-test/ModelTestControls.tsx` renders
+  the per-model test control and is mounted by
+  `web/src/components/usage/models/ModelCatalog.tsx` when `enableTesting` is
+  set.
+- `web/src/lib/api.ts` already exposes `fetchAdminSettings`,
+  `updateAdminSettings`, and `testModel`; `web/src/lib/types.ts` holds
+  `AdminSettingsResponse`, `UpdateAdminSettingsRequest`, `ModelTestRequest`,
+  and `ModelTestResult`.
+- No Telegram, webhook, or outbound-notification code exists in the repository
+  today. `docs/ROADMAP.md` §3.1 (webhook notifications) is a broader, unstarted
+  Phase 3 item; this phase is a narrower, earlier delivery and does not replace
+  it.
+- `internal/ranking/client.go` is the established outbound-HTTP pattern:
+  dedicated `http.Client` with a fixed timeout, bounded response read, and no
+  secret logging. `internal/auth/login_limiter.go` is the established
+  in-process limiter pattern (mutex + per-source window map).
+
+**Confirmed scope and behavior**
+
+1. A failed model test offers the user an explicit action to notify the
+   administrator. The action is available to API-key viewers (the primary
+   reporter) and to administrators.
+2. The Telegram message contains exactly: **Reporter** (API Key Name, never the
+   key value), **Model**, and **Reason** (bounded failure reason). Message
+   wording may be formal or casual; it must be plain text or correctly escaped
+   markup.
+3. `/settings` → **Admin Settings** gains Telegram configuration: **Bot Token**,
+   **Chat ID**, and **Topic ID** (`message_thread_id`, optional).
+4. The bot token is stored encrypted at rest, is never returned by any
+   endpoint, and is never written to logs or error messages.
+5. The reporter identity is resolved server-side from the authenticated
+   session; the browser cannot claim another reporter.
+6. When Telegram is not configured, the notify action fails with a stable,
+   non-secret error code and a translated message; nothing is sent.
+7. The feature lives in a dedicated domain and is recorded in
+   `docs/MERGE-PRESERVATION.md`.
+
+**Open questions requiring resolution**
+
+- **OQ-5 — Explicit action vs automatic send:** the request says the user
+  "can not notify admin", read here as a missing capability rather than a
+  request for automatic alerts. The baseline plan implements an explicit
+  user-triggered action. Automatic notification on every failure is listed as
+  REC-010 and requires approval because it changes volume, privacy, and abuse
+  characteristics.
+- **OQ-6 — Administrator reporter label:** the requested Reporter field is an
+  API Key Name, which only exists for viewer sessions. Confirm the label used
+  when an administrator triggers the notification (baseline: `Administrator`).
+- **OQ-7 — Abuse and volume control:** viewers can trigger outbound messages to
+  the administrator's chat. Confirm the acceptable cooldown and cap (baseline:
+  per-reporter-per-model cooldown plus a per-reporter hourly cap, both
+  server-enforced).
+- **OQ-8 — Failure payload depth:** confirm that the bounded `Reason` +
+  `StatusCode` + `ErrorCode` is sufficient, or approve capturing a bounded
+  upstream error body in `internal/cpa/client.go`. Capturing bodies increases
+  disclosure risk (provider error text can echo request content) and is not in
+  the baseline.
+- **OQ-9 — Topic ID semantics:** confirm that `message_thread_id` is the
+  intended field (it is the Telegram Bot API field for forum topics) and that
+  it is optional. Baseline: optional; omitted when empty; invalid values are
+  rejected at save time.
+- **OQ-10 — Configuration verification:** confirm whether Admin Settings needs
+  a "Send test message" action. Baseline: not included; listed as REC-011.
+
+**Task breakdown**
+
+#### FEAT-TG-1 — Resolve the notification contract and trust boundary
+
+- **Layer:** feature contract / security boundary.
+- **Work:** settle OQ-5 through OQ-10. Define the notify request and response
+  DTOs, the exact message template, the reporter resolution rule per role, the
+  accepted failure fields, and the stable error codes
+  (`telegram_not_configured`, `telegram_send_failed`, `notify_rate_limited`,
+  `invalid_notify_request`). Decide explicitly that the client-supplied
+  `reason` is untrusted and is re-bounded and redacted server-side.
+- **Acceptance:** a written contract lists every request/response field, every
+  error code, the message template, and the trust boundary; no field can carry
+  a credential.
+- **Dependencies:** Phase 2.23 result contract.
+
+#### FEAT-TG-2 — Create the isolated backend notification domain
+
+- **Layer:** backend domain (`internal/telegram/`).
+- **Files:** `internal/telegram/telegram.go` (service, DTOs, validation,
+  message rendering), `internal/telegram/client.go` (Telegram Bot API sender),
+  `internal/telegram/limiter.go` (per-reporter cooldown), and co-located
+  `*_test.go`.
+- **Work:** implement a `Notifier` interface
+  (`SendMessage(ctx, Message) error`) with a Bot API implementation that posts
+  to `https://api.telegram.org/bot<token>/sendMessage` using a dedicated
+  `http.Client` with a fixed timeout (baseline 10 s), a bounded response read,
+  and no token in any error string. Support `chat_id` and optional
+  `message_thread_id`. Render a plain-text message with Reporter, Model, and
+  Reason. Keep the domain free of Gin and GORM types; accept a
+  `SettingsSource` interface so the service never reads the database directly.
+- **Acceptance:** unit tests cover message rendering, field validation,
+  timeout/transport failure mapping, non-2xx Bot API responses, and the
+  guarantee that the token never appears in returned errors or logs.
+- **Dependencies:** FEAT-TG-1.
+
+#### FEAT-TG-3 — Extend Admin Settings persistence and API for Telegram
+
+- **Layer:** settings service/repository/API (`internal/adminsettings/`).
+- **Files:** `internal/adminsettings/settings.go`,
+  `internal/adminsettings/httpapi/routes.go`,
+  `internal/adminsettings/settings_test.go`.
+- **Work:** add `telegram.bot_token` (encrypted, same AES-GCM protection key),
+  `telegram.chat_id` (plain, validated), and `telegram.message_thread_id`
+  (optional integer). Extend `Settings` with a nested `telegram` object that
+  reports only `bot_token_configured`, `chat_id`, and `message_thread_id`.
+  Extend `Update` with a nested pointer struct so omitted fields keep their
+  value and an explicit empty string clears the token. Validate the token shape
+  (single `:`, bounded length, no whitespace/control characters), the chat ID
+  (`-?[0-9]{1,20}` or `@username`), and the topic ID (positive integer).
+  Expose a `TelegramSettings(ctx)` accessor for the notification domain.
+- **Acceptance:** `GET /admin-settings` never returns the token; `PUT` accepts
+  partial updates; invalid values return `400` with `invalid_admin_settings`;
+  clearing the token makes the feature inert; existing API-key and timeout
+  behavior is unchanged; tests cover round-trip, clearing, and validation.
+- **Dependencies:** FEAT-TG-1.
+
+#### FEAT-TG-4 — Add the notify HTTP route with role-aware reporter resolution
+
+- **Layer:** HTTP surface (`internal/telegram/httpapi/`) and router wiring.
+- **Files:** `internal/telegram/httpapi/routes.go`, `internal/api/router.go`,
+  `internal/app/app.go`.
+- **Work:** register `POST /api/v1/model-test/notify` on the existing
+  `catalogProtected` group so both roles can call it. Resolve the reporter
+  server-side: for viewers use `activeAPIKeyViewerContext` +
+  `helper.CPAAPIKeyDisplayName`; for administrators use the agreed label from
+  OQ-6. Reject any caller-supplied reporter field. Validate and re-bound the
+  model, mode, status code, error code, and reason; strip control characters
+  and redact key-like substrings. Apply the per-reporter limiter before
+  sending. Map domain errors to stable codes and never echo the token, chat ID,
+  or Bot API response body.
+- **Acceptance:** authorization matrix tests (admin, viewer, unauthenticated,
+  forged reporter, cross-key attempt) pass; a viewer cannot attribute a
+  notification to another key; rate limiting returns `429` with
+  `notify_rate_limited`; unconfigured Telegram returns a stable non-secret
+  error; response bodies never contain the token.
+- **Dependencies:** FEAT-TG-2, FEAT-TG-3.
+
+#### FEAT-TG-5 — Add the Admin Settings Telegram UI
+
+- **Layer:** frontend settings surface.
+- **Files:** `web/src/components/usage/AdminSettingsCard.tsx`,
+  `AdminSettingsCard.module.scss`, `web/src/lib/api.ts`,
+  `web/src/lib/types.ts`, and the co-located test.
+- **Work:** add a Telegram subsection to the existing card with a Bot Token
+  password input (configured placeholder, clear action), a Chat ID text input,
+  and an optional Topic ID number input. Extend
+  `AdminSettingsResponse`/`UpdateAdminSettingsRequest` with the nested
+  `telegram` object and send only changed fields. Show inline validation for
+  the chat ID and topic ID, and keep the existing save/notice/error pattern.
+- **Acceptance:** the card loads and saves Telegram settings; the token is
+  never rendered back; clearing works; invalid input is blocked client-side and
+  still rejected server-side; the card renders correctly in light, dark, and
+  auto themes and at narrow widths; component tests cover load, save, clear,
+  and validation.
+- **Dependencies:** FEAT-TG-3.
+
+#### FEAT-TG-6 — Add the failure "Notify admin" action to model-test controls
+
+- **Layer:** frontend model-test feature.
+- **Files:** `web/src/features/model-test/ModelTestControls.tsx`,
+  `ModelTestControls.module.scss`, `web/src/lib/api.ts`,
+  `web/src/lib/types.ts`, and the co-located test.
+- **Work:** after a failed result, render a secondary "Notify admin" action
+  next to the failure state. Send only the model, mode, status code, error
+  code, and bounded reason. Show sending, sent, and failed states; prevent
+  duplicate submissions while in flight; keep the action hidden for successful
+  tests. Map `telegram_not_configured` and `notify_rate_limited` to distinct
+  translated messages rather than a generic failure.
+- **Acceptance:** the action appears only after a failure; a successful send
+  shows a confirmation and cannot be double-submitted; a rate-limited or
+  unconfigured response shows the specific message; no credential is included
+  in the request; component tests cover all states.
+- **Dependencies:** FEAT-TG-4.
+
+#### FEAT-TG-7 — Add translations (en / zh / zh-TW)
+
+- **Layer:** i18n.
+- **Files:** `web/src/i18n/index.ts` (all three locale blocks).
+- **Work:** add `admin_settings.telegram_*` keys (section title, description,
+  bot token, chat ID, topic ID, hints, validation, configured/clear states) and
+  `usage_stats.model_test_notify_*` keys (action, sending, sent, failed,
+  not configured, rate limited). Keep key names and structure identical across
+  the three locales.
+- **Acceptance:** the existing i18n parity test passes; no hard-coded
+  user-facing string remains in the new components.
+- **Dependencies:** FEAT-TG-5, FEAT-TG-6.
+
+#### FEAT-TG-8 — Document and protect the feature domain
+
+- **Layer:** documentation and merge preservation.
+- **Files:** `docs/MERGE-PRESERVATION.md`, `docs/ARCHITECTURE.md`,
+  `docs/SPECIFICATION.md`, `docs/CODE_GRAPH.md`, `docs/CONFIGURATION.md`
+  (only if a new env var or flag is introduced — the baseline adds none),
+  `README.md` / `README.zh.md`, `CHANGELOG.md`, `session.md`.
+- **Work:** add a protected-feature entry to `docs/MERGE-PRESERVATION.md` with
+  the domain paths (`internal/telegram/`, `internal/telegram/httpapi/`,
+  `web/src/features/model-test/`,
+  `web/src/components/usage/AdminSettingsCard.tsx`), the routes
+  (`POST /api/v1/model-test/notify`, extended `GET/PUT /api/v1/admin-settings`),
+  the security invariants, and copy-paste verification commands. Add the
+  domain to the `docs/ARCHITECTURE.md` module map and extensibility table, the
+  use case and API surface to `docs/SPECIFICATION.md`, the domain row to
+  `docs/CODE_GRAPH.md` §8.3 (Feature Location Map), and the capability to
+  `README.md` / `README.zh.md`.
+- **Acceptance:** every listed document describes the implemented behavior;
+  the preservation entry contains runnable verification commands; no duplicate
+  documentation is created.
+- **Dependencies:** FEAT-TG-1 through FEAT-TG-7.
+
+#### FEAT-TG-9 — Verification baseline
+
+- **Layer:** end-to-end regression and release readiness.
+- **Work:** run focused suites first
+  (`go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...`,
+  `npm --prefix ./web run test`), then the project baseline `make verify`.
+  Perform a manual check with a real bot in a test chat: configure, save,
+  trigger a failing test, notify, and confirm the message content and that the
+  token never appears in the UI, logs, or API responses.
+- **Acceptance:** `make verify` passes; the manual check confirms message
+  content (Reporter = API Key Name, Model, Reason) and redaction; no unrelated
+  protected feature regressed.
+- **Dependencies:** FEAT-TG-1 through FEAT-TG-8.
+
+**Risks and mitigations**
+
+| Risk | Mitigation |
+|---|---|
+| Bot token disclosure through logs, errors, or API responses | Encrypt at rest; return only `bot_token_configured`; never include the token in error strings; add a test asserting the token is absent from responses and logs. |
+| Viewer-triggered message flooding | Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly cap; `429` with a stable code; UI disables the action while in flight. |
+| Reporter spoofing | Reporter is derived only from `activeAPIKeyViewerContext`; any caller-supplied reporter field is ignored or rejected. |
+| Sensitive content in the failure reason | Send only the bounded `Reason`/`StatusCode`/`ErrorCode`; strip control characters; redact key-like substrings; do not capture raw upstream bodies without explicit approval (OQ-8). |
+| Telegram outage or slow API | Fixed client timeout, bounded response read, failure-tolerant handling that never blocks the model-test response path, and a translated failure state. |
+| Merge regression of the new domain | Dedicated domain plus a `docs/MERGE-PRESERVATION.md` entry with verification commands. |
+| Configuration mistakes (wrong chat ID, topic ID) | Save-time validation plus the optional "Send test message" action (REC-011). |
+
+**Verification commands**
+
+```bash
+go build ./...
+go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...
+npm --prefix ./web run typecheck
+npm --prefix ./web run test
+make verify
+```
+
+**Acceptance criteria (feature level)**
+
+- [ ] A failed model test exposes a notify action for viewers and
+      administrators.
+- [ ] The delivered Telegram message contains the API Key Name, the model, and
+      the bounded reason, and no credential.
+- [ ] The bot token is never returned, logged, or echoed; only
+      `bot_token_configured` is exposed.
+- [ ] Admin Settings persists and clears Bot Token, Chat ID, and optional Topic
+      ID with server-side validation.
+- [ ] Unconfigured Telegram and rate limiting produce distinct, translated,
+      non-secret errors.
+- [ ] All new strings exist in en, zh, and zh-TW.
+- [ ] `docs/MERGE-PRESERVATION.md` lists the domain, routes, invariants, and
+      verification commands.
+- [ ] `make verify` passes.
+
+---
+
 ### Feature Recommendations for User Review
 
 > Proposals only. They are **not** part of the confirmed scope and must not be
@@ -849,6 +1191,108 @@ FEAT-MTEST-4 validation, settings UI and timeout tests.
 **Priority:** High
 **Status:** Pending User Review
 
+#### REC-010: Send the Telegram notification automatically on every failed test
+
+**Category:** Product / UX
+**Recommendation:** Instead of (or in addition to) the explicit "Notify admin"
+action, send the Telegram message automatically whenever a model test fails.
+**Reasoning:** The stated problem is that the administrator does not learn about
+failures. An explicit action depends on the user remembering to click it, so
+some failures will still go unreported.
+**Expected Benefits:** No missed reports; no extra user step; the administrator
+sees failures as they happen.
+**Trade-offs:** Message volume grows with test usage; a viewer can generate
+traffic without an explicit action, which raises abuse and privacy concerns and
+makes the rate limiter mandatory rather than defensive; repeated failures of the
+same model produce duplicate messages unless deduplication is added.
+**Implementation Impact:** FEAT-TG-1 contract, FEAT-TG-4 route/service call site
+inside `internal/modeltest` or the route handler, FEAT-TG-6 UI (the action
+becomes informational), limiter and dedupe tests.
+**Priority:** Medium — requires an explicit decision because it changes the
+feature's volume and abuse profile.
+**Status:** Pending User Review
+
+#### REC-011: Add a "Send test message" action to Admin Settings
+
+**Category:** Operations / UX
+**Recommendation:** Add an admin-only action that sends a fixed sample message
+through the configured bot, chat, and topic so the administrator can verify the
+configuration immediately.
+**Reasoning:** Chat IDs and forum topic IDs are easy to mistype, and the first
+real notification is a poor place to discover a misconfiguration. The
+notification path is otherwise only exercised by a failing model test.
+**Expected Benefits:** Immediate, low-risk configuration feedback; fewer silent
+delivery failures; a natural place to surface Bot API error descriptions
+(without the token).
+**Trade-offs:** One more endpoint and UI state to build and test; it must be
+rate-limited and admin-only so it cannot be used to spam the chat.
+**Implementation Impact:** `internal/telegram/httpapi/routes.go`,
+`internal/adminsettings/httpapi/routes.go` (or a dedicated admin route),
+`AdminSettingsCard.tsx`, i18n keys, tests.
+**Priority:** Medium
+**Status:** Pending User Review
+
+#### REC-012: Record the failure server-side instead of trusting the client payload
+
+**Category:** Security / Architecture
+**Recommendation:** Keep a short-lived, in-memory record of the last failed test
+per session and model, and have the notify endpoint read the reason from that
+record so the browser sends only `{model, mode}`.
+**Reasoning:** The current plan accepts a client-supplied `reason` and re-bounds
+and redacts it server-side. That is workable, but the value is still
+caller-controlled, so a viewer can put arbitrary text into the administrator's
+chat within the length limit.
+**Expected Benefits:** The message content is fully server-authored; no
+client-controlled text reaches Telegram; simpler redaction guarantees.
+**Trade-offs:** Adds in-memory state with a TTL, must be keyed per session and
+model, and is lost on restart or in a multi-instance deployment (the project is
+single-instance today, so this is acceptable but should be documented).
+**Implementation Impact:** `internal/modeltest` (record failures),
+`internal/telegram` (read the record), FEAT-TG-4 handler, tests.
+**Priority:** Medium — recommended if the administrator chat is considered
+sensitive.
+**Status:** Pending User Review
+
+#### REC-013: Add an enable toggle and per-model mute
+
+**Category:** Operations
+**Recommendation:** Add a `telegram.enabled` switch and a per-model mute list so
+the administrator can silence noisy models without clearing the bot token.
+**Reasoning:** The baseline treats "configured" as "enabled". A single noisy
+model (for example a deprecated model that always fails) would otherwise
+generate a steady stream of messages, and the only remedy would be clearing the
+configuration.
+**Expected Benefits:** Operational control without re-entering credentials;
+fewer duplicate reports for known-broken models.
+**Trade-offs:** More settings surface, more validation, and a mute list that
+needs its own UI and persistence; it also adds a second reason for the feature
+to be inert, which must be reflected in the error codes.
+**Implementation Impact:** `internal/adminsettings` (new keys),
+`AdminSettingsCard.tsx`, `internal/telegram` (mute check), i18n, tests.
+**Priority:** Low
+**Status:** Pending User Review
+
+#### REC-014: Introduce a channel abstraction instead of a Telegram-only service
+
+**Category:** Architecture
+**Recommendation:** Define a small `Notifier` interface with a Telegram
+implementation now, and keep the message model channel-neutral so a Discord or
+generic webhook sender can be added later without touching the model-test
+feature.
+**Reasoning:** `docs/ROADMAP.md` §3.1 already plans configurable outbound
+webhooks with Discord/Telegram templates. A channel-neutral message model lets
+this phase stay small while leaving a clean seam for that work.
+**Expected Benefits:** No duplicated message-building logic later; the
+model-test feature depends on an interface rather than a Telegram client.
+**Trade-offs:** Slightly more indirection than a Telegram-only service; the
+abstraction must stay minimal to avoid speculative design.
+**Implementation Impact:** `internal/telegram/telegram.go` (interface and
+message type), FEAT-TG-2, FEAT-TG-4.
+**Priority:** Low — the baseline already isolates the sender behind a
+`Notifier` interface; this recommendation only asks that the message model stay
+channel-neutral.
+**Status:** Pending User Review
+
 ---
 
 ### Restoration Tasks (Upstream Merge Recovery)
@@ -997,6 +1441,12 @@ follow-ups for richer session insight and manageability.*
   - Configurable outbound webhooks (generic JSON + Discord/Telegram
     templates) for: quota threshold crossed, error-rate spike, ingest source
     down, aggregate cost budget exceeded.
+  - **Relationship to Phase 2.24:** the model-test failure Telegram
+    notification is a narrower, earlier delivery and does not replace this
+    item. Phase 2.24 covers one event (a failed model test) and one channel
+    (Telegram); 3.1 remains the general rule-driven notification system. If
+    REC-014 is accepted, Phase 2.24's channel-neutral message model becomes the
+    starting point for 3.1 rather than a parallel implementation.
 - **3.2 Prometheus metrics endpoint.** ⬜
   - `GET /metrics`: ingestion rate, inbox depth, checkpoint lag, roll-up
     durations, quota refresh outcomes, Go runtime metrics.

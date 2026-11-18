@@ -126,7 +126,7 @@ const resources = {
         key_configured: 'A test key is configured.',
         clear_key: 'Clear key',
         request_timeout: 'Request Timeout (seconds)',
-        timeout_hint: 'Choose between 1 and 120 seconds. Default: 30 seconds.',
+        timeout_hint: 'Choose between 1 and 600 seconds. Default: 30 seconds.',
         save: 'Save Admin Settings'
       },
       key_viewer: {

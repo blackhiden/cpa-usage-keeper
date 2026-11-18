@@ -14,7 +14,7 @@ const MAX_REASON_LENGTH = 240
 
 export function ModelTestControls({ model }: ModelTestControlsProps) {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<ModelTestMode>('regular')
+  const [mode, setMode] = useState<ModelTestMode>('streaming')
   const [result, setResult] = useState<ModelTestResult | null>(null)
   const [errorCode, setErrorCode] = useState('')
   const [running, setRunning] = useState(false)
