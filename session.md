@@ -3,7 +3,7 @@
 ## Session: Phase 2.24 Model Test Failure Telegram Notification
 
 **Date:** 2026-11-18
-**Status:** Implemented in the integration worktree; not merged into `dev`
+**Status:** Merged into `main`; `dev` is not yet updated
 
 - Created three parallel feature worktrees and one integration worktree from
   `dev` commit `4dd457b1`: `feature/phase-2-24-telegram-domain`,
@@ -40,6 +40,11 @@
   `internal/liveflow` today-period test inserted an event dated 2026-11-16 and
   queried the "today" window, so it failed on the base `dev` commit too. It now
   anchors the event to the current local time (test-only change).
+- Integration into `main`: the three feature branches were merged sequentially
+  (`telegram-domain`, `admin-settings`, `frontend`) and validated after each
+  merge, then this integration branch (route wiring, docs, liveflow test fix)
+  was merged last. `dev` stayed at `4dd457b1`; it needs the same merge before the
+  next phase branches from it.
 
 
 ## Session: Phase 2.23 Model Test & API-key Viewer Models Access
