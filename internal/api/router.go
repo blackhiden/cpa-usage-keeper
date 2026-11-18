@@ -18,6 +18,7 @@ import (
 	gnnhttpapi "cpa-usage-keeper/internal/gnn/httpapi"
 	liveflowhttpapi "cpa-usage-keeper/internal/liveflow/httpapi"
 	"cpa-usage-keeper/internal/logging"
+	modelrankinghttpapi "cpa-usage-keeper/internal/modelranking/httpapi"
 	"cpa-usage-keeper/internal/modeltest"
 	modeltesthttpapi "cpa-usage-keeper/internal/modeltest/httpapi"
 	"cpa-usage-keeper/internal/poller"
@@ -77,6 +78,8 @@ type OptionalProviders struct {
 	RequestLogs            service.RequestLogProvider
 	// Local ranking provider (fork feature)
 	LocalRanking rankinghttpapi.LocalProvider
+	// Model Ranking (Phase 2.25 fork feature)
+	ModelRanking modelrankinghttpapi.Provider
 	// Community ranking provider (disabled but preserved)
 	Ranking rankinghttpapi.Provider
 	// Models provider (upstream feature)
@@ -146,6 +149,8 @@ func NewRouter(
 	var requestLogProvider service.RequestLogProvider
 	// Local ranking provider (fork feature)
 	var localRankingProvider rankinghttpapi.LocalProvider
+	// Model Ranking (Phase 2.25 fork feature)
+	var modelRankingProvider modelrankinghttpapi.Provider
 	// Community ranking is disabled but preserved
 	var _ rankinghttpapi.Provider // rankingProvider - disabled but type preserved
 	// Provider Model GNN (permanent fork feature)
@@ -172,6 +177,8 @@ func NewRouter(
 		requestLogProvider = optionalProviders[0].RequestLogs
 		// Local ranking is enabled for both admin and key viewer
 		localRankingProvider = optionalProviders[0].LocalRanking
+		// Model Ranking is admin-only (Phase 2.25 fork feature)
+		modelRankingProvider = optionalProviders[0].ModelRanking
 		// Community ranking is disabled but code preserved
 		// rankingProvider = optionalProviders[0].Ranking
 		// Provider Model GNN is a permanent fork feature
@@ -257,6 +264,10 @@ func NewRouter(
 	if localRankingProvider != nil {
 		rankinghttpapi.RegisterLocalRoutes(adminProtected, localRankingProvider)
 	}
+	// Model Ranking is a self-contained feature domain (Phase 2.25). It is
+	// admin-only because it aggregates usage across every API key, and the route
+	// is always mounted so an unconfigured provider returns 503.
+	modelrankinghttpapi.RegisterRoutes(adminProtected, modelRankingProvider)
 	keyViewerProtected := apiV1.Group("")
 	keyViewerProtected.Use(authHandler.apiKeyViewerMiddleware())
 	keyViewerProtected.Use(authHandler.activeAPIKeyViewerMiddleware())
