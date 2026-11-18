@@ -25,6 +25,18 @@ All notable changes to this project are documented here.
     unconfigured/rate-limited states.
   - Translations in en, zh, and zh-TW; the feature is recorded as protected in
     `docs/MERGE-PRESERVATION.md`.
+- **Telegram notification follow-ups (Phase 2.24 recommendations).** All five
+  accepted recommendations are implemented:
+  - Failed probes notify automatically, off the model-test response path, while
+    the explicit **Notify admin** action remains (REC-010).
+  - The failure is recorded server-side per session and model with a 10-minute
+    TTL, and the browser now sends only `{model, mode}` (REC-012).
+  - Admin Settings gains an enable toggle, a per-model mute list (REC-013), and
+    a **Send test message** action backed by admin-only
+    `POST /api/v1/telegram/test-message` (REC-011).
+  - New stable codes `telegram_disabled` and `telegram_model_muted`; the
+    channel-neutral `Message`/`Notifier` seam is preserved for future channels
+    (REC-014).
 
 ## [2.1.3] - 2026-11-17
 

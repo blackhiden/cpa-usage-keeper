@@ -304,7 +304,17 @@ Key invariants:
   topic id), so the domain never imports GORM or the settings package. The
   reporter is always derived from the session — `helper.CPAAPIKeyDisplayName`
   for viewers, `telegram.AdminReporterLabel` for administrators — and the request
-  body has no reporter field.
+  body has no reporter field. Every failed probe is recorded in an in-memory,
+  bounded `FailureStore` keyed by session scope and model (10-minute TTL), and
+  the automatic notification runs on its own goroutine so the model-test
+  response path is never blocked; the explicit **Notify admin** action re-sends
+  the same recorded failure. Only `model` and `mode` travel from the browser,
+  so all message content is server-authored. The enable toggle and per-model
+  mute list from `adminsettings.TelegramConfig` are enforced before delivery,
+  and `POST /api/v1/telegram/test-message` (admin-only) sends a fixed
+  configuration check. `telegram.Message` and `telegram.Notifier` are
+  channel-neutral, so another channel can be added without touching the
+  model-test feature.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

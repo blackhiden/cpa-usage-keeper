@@ -172,13 +172,15 @@ keys that are synchronized from CPA itself.
   (models, providers, latency, status) but no prompts, bodies, headers, or
   credentials. This provides operational visibility into current CPA activity.
 - **UC-17 — Notify the administrator of a failed model test.** As a key holder
-  (and, likewise, an administrator), when a model probe fails I can send a
-  Telegram notification to the administrator reporting me by **API Key Name**,
-  the tested model, and a bounded failure reason. The bot token, chat id, and
-  optional topic id are managed in `/settings` → Admin Settings. The reporter is
-  derived from my session and cannot be forged, notifications are rate-limited per
-  reporter, no credential is ever included, and the bot token is never returned
-  by the API.
+  (and, likewise, an administrator), when a model probe fails the administrator
+  is notified automatically through a Telegram bot reporting me by **API Key
+  Name**, the tested model, and a bounded failure reason; the same failure can
+  be re-sent explicitly with **Notify admin**. The bot token, chat id, optional
+  topic id, an enable toggle, and a per-model mute list are managed in
+  `/settings` → Admin Settings, which also provides **Send test message**. The
+  reporter and failure details are derived from my session and the server-side
+  failure record; notifications are rate-limited per reporter, no credential is
+  ever included, and the bot token is never returned by the API.
 
 
 
@@ -245,8 +247,9 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET/... /api/auth-files` | Auth Files inventory, details, and management. |
 | `GET /api/models/used` | Models observed in usage. |
 | `GET /api/models`, `POST /api/model-test` | Authenticated model catalog and bounded regular/streaming probes (admin and API-key viewer). Viewers probe with their active key; administrators use the Admin Settings key. |
-| `POST /api/model-test/notify` | Send a failed-model-test report to the administrator's Telegram chat. The body carries only `model`, `mode`, `status_code`, `error_code`, and a bounded `reason`; the reporter comes from the session. Stable failure codes: `telegram_not_configured` (409), `notify_rate_limited` (429 + `Retry-After`), `telegram_send_failed` (502), `invalid_notify_request` (400). |
-| `GET/PUT /api/admin-settings` | Admin Settings: encrypted model-test key, request timeout (1–120 s), and Telegram bot token/chat id/optional topic id. `GET` returns only `api_key_configured`, `request_timeout_seconds`, and `telegram {bot_token_configured, chat_id, message_thread_id}`; the bot token is never returned. |
+| `POST /api/model-test/notify` | Report the last failed test for a model. The body carries only `model` and `mode`; the reporter, status code, error code, and reason come from the server-side failure record (10-minute TTL) and the session. Stable failure codes: `telegram_not_configured` (409), `telegram_disabled` (409), `telegram_model_muted` (409), `notify_rate_limited` (429 + `Retry-After`), `telegram_send_failed` (502), `invalid_notify_request` (400). |
+| `POST /api/telegram/test-message` | Admin-only configuration check: sends a fixed sample message through the configured bot, chat, and topic. Requires a configured target; `telegram_not_configured` (409) or `telegram_send_failed` (502) otherwise. |
+| `GET/PUT /api/admin-settings` | Admin Settings: encrypted model-test key, request timeout (1–120 s), and Telegram configuration (`bot_token`, `chat_id`, optional `message_thread_id`, `enabled`, `muted_models`). `GET` returns only `api_key_configured`, `request_timeout_seconds`, and `telegram {bot_token_configured, chat_id, message_thread_id, enabled, muted_models}`; the bot token is never returned. |
 | `GET /api/pricing` (+`/rules`, `/sync/preview`, `/batch/:model`) | Price catalog, rule CRUD, sync preview, batch/single-model mutation. |
 | `GET/POST /api/quota/...` | Quota reads, refresh, auto-refresh settings/cache, raw payload inspection, per-provider and global credit resets. Quota responses may include a response-level `subscription` object (`{provider, plan, tierId?, tierName?}`) when the provider exposes subscription metadata (see §6.5). |
 | `GET /api/quota/history/:auth_index` | Codex quota efficiency history for an Auth File. Returns the real window series (primary/secondary), current-cycle Token/USD-per-percentage-point chart data, and completed-cycle details from the last 30 days. Cost is computed dynamically against the current pricing snapshot; no tokens or costs are persisted in the history tables. Optional query: `window_role`, `window_seconds`. |
@@ -461,9 +464,12 @@ the Session Settings panel. Controlled by `IP_ENRICHMENT_ENABLED` (default
 - **Telegram notification settings.** The bot token is encrypted at rest with the
   same AES-GCM key derived from `CPA_MANAGEMENT_KEY` used for the model-test key
   and is never returned, logged, or echoed; `GET /api/admin-settings` exposes
-  only a configured flag. Failure reports are re-bounded to 240 characters,
-  strip control characters, and redact key-like substrings before delivery,
-  and are rate-limited per reporter server-side.
+  only a configured flag. Failure reports are server-authored: the browser sends
+  only `model` and `mode`, while the reason is read from an in-memory,
+  per-session failure record, re-bounded to 240 characters, stripped of control
+  characters, and stripped of key-like substrings before delivery. Sends are
+  rate-limited per reporter server-side, and the enable toggle plus per-model
+  mute list are enforced before delivery.
 - **Password storage.** `LOGIN_PASSWORD` is provided via environment; it is
   never returned by any endpoint.
 - **Request logs.** When `CPA_REQUEST_LOG_ACCESS_ENABLED=true`, administrators

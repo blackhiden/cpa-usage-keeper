@@ -1,5 +1,31 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.24 Follow-ups (REC-010 … REC-014)
+
+**Date:** 2026-11-18
+**Status:** Implemented on `feature/phase-2-24-integration`; merged into `main`
+
+- The user accepted REC-010 … REC-014 and resolved OQ-5 … OQ-10. Delivered:
+  - **REC-010** automatic notification for every failed probe. The model-test
+    handler exposes a result observer; `internal/api/telegram_wiring.go` records
+    the failure and runs the send on its own goroutine with a 15 s context, so
+    the test response is never blocked. The **Notify admin** action remains.
+  - **REC-011** admin-only `POST /api/v1/telegram/test-message` plus a
+    **Send test message** button. The action requires a configured target but
+    ignores the enable toggle, because it is an explicit admin check.
+  - **REC-012** in-memory `telegram.FailureStore` keyed by session scope and
+    model (10-minute TTL, 4096-entry bound, oldest-eviction). The browser sends
+    only `{model, mode}`; the reporter, status code, error code, and reason are
+    server-authored. The scope is `role:apiKeyID:sessionCreatedAt` — no session
+    token is retained as a key.
+  - **REC-013** `admin.telegram.enabled` (default true) and
+    `admin.telegram.muted_models` (trimmed, de-duplicated, max 200 × 512 chars),
+    enforced before delivery with `telegram_disabled` / `telegram_model_muted`.
+  - **REC-014** `telegram.Message`/`telegram.Notifier` stay channel-neutral;
+    Telegram is the only implementation.
+- Verified: `go test ./internal/telegram/... ./internal/adminsettings/...
+  ./internal/modeltest/... ./internal/api/...`, focused Vitest suites,
+  i18n parity, ESLint, and TypeScript typecheck.
 ## Session: Phase 2.24 Model Test Failure Telegram Notification
 
 **Date:** 2026-11-18

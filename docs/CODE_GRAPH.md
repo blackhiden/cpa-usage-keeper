@@ -512,7 +512,7 @@ web/
 | Where are Live Flow blocks named? | Alias first, real model fallback: `COALESCE(NULLIF(TRIM(model_alias),''), model)` in `internal/repository/liveflow_models.go`, live events folded via `buildLiveFlowAliasMap` in `web/src/features/live-flow/merge.ts` |
 | Where is Live Flow canvas layout? | `web/src/features/usage/FlowTopology.tsx` (`liveFlowRingRadius`, `liveFlowNodeZIndex`) |
 | Where is ranking? | Backend: `internal/ranking/`, Frontend: `web/src/features/ranking/` |
-| Where are Telegram failure notifications? | Backend: `internal/telegram/` + `internal/telegram/httpapi/` (settings in `internal/adminsettings/`), Frontend: `web/src/features/model-test/` + `web/src/components/usage/AdminSettingsCard.tsx` |
+| Where are Telegram failure notifications? | Backend: `internal/telegram/` (contract, `FailureStore`, limiter) + `internal/telegram/httpapi/` (settings in `internal/adminsettings/`, wiring in `internal/api/telegram_wiring.go`), Frontend: `web/src/features/model-test/` + `web/src/components/usage/AdminSettingsCard.tsx` |
 
 ### 8.3 Feature Location Map
 
@@ -522,7 +522,7 @@ web/
 | Community Ranking | `internal/ranking/` + `internal/ranking/httpapi/` | `web/src/features/ranking/` (local by default) |
 | API Key Viewer | `internal/service/` (scoped queries) | `web/src/features/key-viewer/`, `web/src/pages/Key*.tsx` |
 | Model Test & Viewer Models | `internal/modeltest/`, `internal/adminsettings/`, `internal/modeltest/httpapi/` | `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`, `web/src/components/usage/AdminSettingsCard.tsx` |
-| Model Test Failure Telegram Notifications | `internal/telegram/` + `internal/telegram/httpapi/`, settings in `internal/adminsettings/` | `web/src/features/model-test/ModelTestControls.tsx`, `web/src/components/usage/AdminSettingsCard.tsx` |
+| Model Test Failure Telegram Notifications | `internal/telegram/` (contract, failure store, limiter, Bot API client) + `internal/telegram/httpapi/`, settings in `internal/adminsettings/`, wiring in `internal/api/telegram_wiring.go` | `web/src/features/model-test/ModelTestControls.tsx`, `web/src/components/usage/AdminSettingsCard.tsx` |
 | Live Flow | `internal/cpa/liveflow.go` (WebSocket proxy) | `web/src/features/usage/` (WebSocket client) |
 | Live Flow History | `internal/liveflow/` + `internal/liveflow/httpapi/` + `internal/repository/liveflow_models.go` (alias-grouped) | `web/src/features/live-flow/` (types, API client, merge/trend, period select) |
 | Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
