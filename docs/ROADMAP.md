@@ -9,6 +9,8 @@
 
 **Policy (Phase 2.24, planned):** Model Test Failure Telegram Notification (`internal/telegram/` + `web/src/features/model-test/`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
 
+**Policy (Phase 2.25, planned):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go`, `web/src/features/model-ranking/`, and the single mount point in `web/src/pages/UsagePage.tsx`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
+
 ---
 
 ## Phase 0 — Documentation & Developer Tooling
@@ -198,6 +200,45 @@
     `docs/MERGE-PRESERVATION.md`.
   - **Execution plan:** see [Phase 2.24 — Model Test Failure Telegram
     Notification](#phase-224--model-test-failure-telegram-notification-execution-plan).
+
+- **2.25 Model Ranking on `/ranking`.** ⬜ (planned)
+  - **Objective:** Add a Model leaderboard next to the existing API Key
+    leaderboard on `/ranking`, ranked over a user-selected period
+    (Today, Yesterday, Current Week, Last Week, Current Month, Last Month;
+    default Today), grouping the same model served through different providers
+    under its alias so it accumulates one combined value.
+  - **User Story:** As an admin, I want to see which models are used most (and
+    how reliably) during a period, with the same model from different providers
+    counted together, so I can compare model demand without reading raw events.
+  - **Scope:** new self-contained domain (backend `internal/modelranking/` +
+    `internal/modelranking/httpapi/`, repository query
+    `internal/repository/model_ranking.go`, frontend
+    `web/src/features/model-ranking/`), one read-only endpoint, one mount point
+    in `web/src/pages/UsagePage.tsx`, i18n in en/zh/zh-TW,
+    `docs/MERGE-PRESERVATION.md` protection entry. No schema change and no new
+    background runner in the baseline.
+  - **Dependencies:** none for the baseline (reads existing `usage_events`
+    columns `model`, `model_alias`, `provider`, token/latency columns).
+    OQ-MR-1, OQ-MR-2, OQ-MR-4, and OQ-MR-5 below must be settled before the
+    metric set, the `overall` label, and the calendar timezone are final.
+  - **Acceptance Criteria:**
+    - [ ] `/ranking` shows two distinct leaderboards: API Key ranking and
+      Model ranking, each with its own period selector.
+    - [ ] The model selector offers exactly Today, Yesterday, Current Week,
+      Last Week, Current Month, Last Month, defaulting to Today.
+    - [ ] Models that share an alias across providers appear once with the
+      combined totals of every provider.
+    - [ ] Ranked values match a direct aggregation of `usage_events` for the
+      same window.
+    - [ ] Loading, empty, stale, and error states are handled without breaking
+      the API Key leaderboard.
+    - [ ] The endpoint is admin-only, returns no prompts, bodies, headers, or
+      credentials, and validates its two query parameters.
+    - [ ] i18n keys exist in en, zh, and zh-TW.
+    - [ ] The feature is recorded in `docs/MERGE-PRESERVATION.md` and
+      `docs/ARCHITECTURE.md`.
+  - **Execution plan:** see [Phase 2.25 — Model Ranking for the Ranking
+    Page](#phase-225--model-ranking-for-the-ranking-page-execution-plan).
 
 ### Phase 2.22 — Live Flow Model History & Period Filter (Execution Plan)
 
@@ -1028,6 +1069,465 @@ make verify
 
 ---
 
+### Phase 2.25 — Model Ranking for the Ranking Page (Execution Plan)
+
+**Goal:** Add a second leaderboard to `/ranking` that ranks **models** (not API
+keys) over a selected period, folding the same model served through different
+providers under its alias so a model used through several providers accumulates
+one combined value.
+
+**Status:** ⬜ Planned — not implemented. Nothing in this phase is delivered;
+this section is the implementation contract.
+
+**Evidence used for this plan**
+
+- `web/src/features/ranking/RankingPage.tsx` renders exactly one leaderboard
+  card: `<article className={leaderboardCard}>` containing one period select
+  (`RankingToolbar`), one metric select (`RankingMetricSelect`), and
+  `RankingLeaderboardResults`. `web/src/pages/UsagePage.tsx` (around line 2171)
+  mounts it for `activeTab === 'ranking'` with
+  `rankingScope: RankingScope = 'local'`, `rankingPeriod` defaulting to
+  `'today'`, and `rankingMetric` defaulting to `'overall'`.
+  `web/src/pages/KeyRankingPage.tsx` reuses the same components for the API-key
+  viewer route.
+- `web/src/features/ranking/hooks/useLocalRankingData.ts` fetches
+  `/ranking/local/leaderboards`, caches per `period:metric`, aborts stale
+  requests, polls every `LOCAL_RANKING_POLL_INTERVAL_MS` (60 s) while the
+  document is visible, and keeps the last value visible when a silent refresh
+  fails.
+- `internal/ranking/httpapi/local_routes.go` registers
+  `GET /ranking/local/leaderboards` and `GET /key-ranking/local/leaderboards`
+  with exactly two query parameters (`period`, `metric`), `Cache-Control:
+  no-store`, `400 invalid_leaderboard_selection`, and
+  `503 local_ranking_unavailable`. `internal/api/router.go` mounts
+  `RegisterLocalRoutes` on `adminProtected` and
+  `RegisterKeyViewerLocalRoutes` on `keyViewerProtected`; community ranking
+  routes remain commented out.
+- `internal/ranking/client.go` defines the existing vocabulary: periods
+  `today`, `yesterday`, `current_month`, `previous_month` only, metrics
+  `overall`, `total_tokens`, `request_count`, `cache_read_rate`,
+  `ttft_average`, `latency_average`, `peak_tpm`, `peak_rpm`, and the
+  `Leaderboard` / `LeaderboardEntry` JSON shape.
+- `internal/ranking/local_service.go` maintains `local_ranking_period_stats`
+  (entity `internal/entities/local_ranking_period_stat.go`) per **API key**
+  with kinds `day` and `month` only, refreshed every five minutes by
+  `LocalRankingRunner` (`internal/ranking/local_runner.go`,
+  `LocalRankingAggregationInterval = 5 * time.Minute`). The table has no model
+  dimension and cannot represent week periods, so it cannot back this feature.
+- `internal/ranking/local_service.go` resolves its windows in a hardcoded
+  `time.FixedZone("Asia/Shanghai", 8*60*60)` (`localRankingPeriodLocation`),
+  while `internal/config/config.go` assigns `time.Local` from `TZ` and
+  `internal/liveflow/period.go` resolves periods with
+  `timeutil.NormalizeStorageTime`. The two calendar definitions disagree for a
+  deployment whose `TZ` is not Asia/Shanghai; recorded as OQ-MR-4 instead of
+  silently changing the existing key ranking.
+- Alias grouping already exists in production code:
+  `internal/repository/liveflow_models.go` groups with
+  `COALESCE(NULLIF(TRIM(event.model_alias), ''), event.model)`, bounded by
+  `liveFlowModelLimit = 60`, reads through `dbresolver.Read`, and filters to
+  generation traffic (`event.generate IS NULL OR event.generate = true`).
+  `internal/repository/provider_models.go` aggregates per provider through
+  `providerModelEventAggregateExpressions()`.
+- `internal/entities/usage_event.go` carries `Model`, `ModelAlias *string`,
+  `Provider`, `Failed`, `Timestamp`, `InputTokens`, `CacheReadTokens`,
+  `TotalTokens`, `TTFTMS`, `LatencyMS`, and `Generate`, with indexes
+  `idx_usage_events_timestamp_id` (timestamp, id) and `idx_usage_events_model`
+  (model). There is no index on `model_alias`.
+- Five-minute peak buckets have an established SQL shape in
+  `LocalRankingService.aggregateLocalRankingWindow`
+  (`CAST(strftime('%s', timestamp) AS INTEGER) / 300 AS bucket_key`, then
+  `MAX(request_count)` / `MAX(total_tokens)`), and
+  `rankingTimeRangePredicate` handles the stored-text versus local-offset
+  comparison needed for correct window edges.
+- Domain-isolation precedent: `internal/gnn` + `internal/gnn/httpapi`,
+  `internal/liveflow` + `internal/liveflow/httpapi`, and
+  `web/src/features/live-flow/`, each registered from
+  `internal/api/router.go` and recorded in `docs/MERGE-PRESERVATION.md`.
+- Documentation state: `docs/SPECIFICATION.md` UC-9 covers local API-key
+  ranking only; `docs/ARCHITECTURE.md` §7 describes `features/ranking`;
+  `docs/MERGE-PRESERVATION.md` protects "Local Ranking Default" with no model
+  ranking entry; this roadmap has no model-ranking task before this phase.
+
+**Confirmed requirements (from the feature request)**
+
+1. `/ranking` must show a **Model Ranking** in addition to the existing API Key
+   ranking, in its own card or section on the same page.
+2. The model ranking is period-based, with exactly six selectable periods:
+   Today, Yesterday, Current Week, Last Week, Current Month, Last Month.
+   **Today is the default.**
+3. Models are identified by **alias**: the same model served through different
+   providers, under different model names but with the same alias, must rank as
+   one entry so the combined usage produces a higher value.
+4. The feature must live in its own domain and be documented in
+   `docs/MERGE-PRESERVATION.md` so an upstream merge cannot remove it.
+
+**Technical implementation decisions (baseline scope)**
+
+- **New self-contained domain.** Backend `internal/modelranking/` with route
+  registration in `internal/modelranking/httpapi/`; frontend
+  `web/src/features/model-ranking/` (types, API client, data hook, section
+  component, styles). There are four integration points:
+  `internal/app/app.go` (construct the service and populate `api.OptionalProviders`)
+  plus the `OptionalProviders.ModelRanking` field and `RegisterRoutes` call in
+  `internal/api/router.go` (on `adminProtected`), the repository query file
+  described below, and `web/src/pages/UsagePage.tsx` (one mount immediately
+  after `<RankingPage … />` inside the existing `activeTab === 'ranking'`
+  block). `web/src/features/ranking/` and `internal/ranking/` are not modified,
+  so the API-key leaderboard keeps its behavior and its merge surface.
+- **Read model, not a new pipeline.** Rows are aggregated on demand from
+  `usage_events` for the selected window, following the
+  `ListLiveFlowModels` precedent. No new table, no migration, no background
+  runner, and `usage_events_archive` is never queried. All six periods fall
+  inside the 90-day hot retention, so no archive access is required.
+- **SQL stays in `internal/repository`.** Add
+  `internal/repository/model_ranking.go` plus a DTO in
+  `internal/repository/dto/model_ranking.go`, matching
+  `internal/repository/liveflow_models.go`. The domain service owns only
+  period resolution, value projection, ordering, and response shaping. The
+  repository file is an explicit, documented integration point (it is listed
+  in the protection entry) because the layering rule puts all SQL there.
+- **Grouping key.** Use exactly
+  `COALESCE(NULLIF(TRIM(event.model_alias), ''), event.model)`: the alias wins
+  when present, otherwise the real model name. Several real model names that
+  share one alias collapse into a single row, which is the requested
+  cross-provider accumulation. Rows also report the distinct
+  `event.provider` values that contributed (`providers[]`, bounded), so the UI
+  can show provenance without splitting the ranking.
+- **Metric vocabulary.** The domain defines its own metric type with the same
+  wire strings as `ranking.LeaderboardMetric`, and a unit test asserts string
+  parity. This keeps the domain import-free of `internal/ranking` while
+  preventing silent drift. The baseline exposes the seven quantitative metrics
+  (`total_tokens` default); `overall` for models depends on OQ-MR-2 and is not
+  part of the mandatory scope.
+- **Period resolution.** `internal/modelranking/period.go` resolves the six
+  periods as half-open `[Start, End)` local-calendar windows using
+  `timeutil.NormalizeStorageTime`, ISO Monday→Sunday weeks, `AddDate` month
+  arithmetic, and stable keys (`2006-01-02`, `2026-W46`, `2006-01`). This
+  mirrors `internal/liveflow/period.go` and uses the project `TZ` rather than
+  the hardcoded Asia/Shanghai zone of the API-key ranking (OQ-MR-4).
+- **API contract.**
+  `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>`
+  accepts exactly those two parameters and returns
+  `{period, period_key, metric, start, end, timezone, generated_at, entries[]}`
+  where each entry is
+  `{rank, model, providers[], request_count, success_count, failure_count,
+  input_tokens, cache_read_tokens, total_tokens, value, rate_numerator?,
+  rate_denominator?, metrics?}`. Unknown or extra parameters →
+  `400 invalid_model_ranking_selection`; unconfigured provider →
+  `503 model_ranking_unavailable`; every response carries
+  `Cache-Control: no-store`.
+- **Metric semantics parity with the existing leaderboard.**
+  `value`, `rate_numerator`, and `rate_denominator` follow
+  `internal/ranking/local_leaderboard.go`: tokens and requests sort
+  descending; cache read rate is `cache_read_tokens / input_tokens` scaled by
+  1e6; TTFT and latency are scaled mean milliseconds that sort ascending
+  (lower is better) and require at least one successful sample with
+  `ttft_ms > 0` and `latency_ms > 0`; peak TPM/RPM use the largest five-minute
+  token/request bucket. Models with no eligible sample for the selected metric
+  are omitted.
+- **Bounds.** At most `modelRankingTopLimit = 100` displayed entries, matching
+  `localRankingTopLimit`; the repository caps candidate rows at
+  `modelRankingCandidateLimit = 1000` before ranking. Ties break by model name
+  ascending so the order is deterministic.
+- **Read path and caching.** Aggregate through `dbresolver.Read`. A process
+  cache keyed by `period kind + period key + metric` with a 30-second TTL
+  (the same `leaderboardReadCacheTTL` used by `internal/ranking/cache.go`)
+  prevents bursty polls and rapid period toggling from rescanning the window.
+  The cache is in-memory only; a restart simply recomputes, and nothing new is
+  persisted.
+- **Authorization.** Admin only in the baseline (`adminProtected`). Model
+  ranking is global across all API keys, so exposing it to API-key viewers
+  would disclose other users' usage patterns; a viewer-scoped variant is
+  OQ-MR-3.
+- **Frontend shape.** `ModelRankingSection` renders its own card with its own
+  period select (six options, default Today, persisted under a dedicated
+  `localStorage` key) and metric select (seven options, default
+  `total_tokens`). The two leaderboards have independent selectors: changing
+  the model period must not reload or reset the API-key leaderboard. Loading,
+  empty, error, and stale states mirror `RankingPage`, and the 60-second poll
+  stops while the document is hidden.
+- **i18n namespace.** New keys live in a dedicated `model_ranking` namespace in
+  `web/src/i18n/index.ts` for en, zh, and zh-TW rather than extending the
+  existing `ranking` block, which keeps merge conflicts confined to the new
+  namespace.
+
+**Task breakdown**
+
+#### FEAT-MR-1.1 — Domain skeleton and period model
+
+- **Layer:** `internal/modelranking/` (`period.go`, `period_test.go`).
+- **Work:** define `Period` with the six values (`today`, `yesterday`,
+  `current_week`, `previous_week`, `current_month`, `previous_month`),
+  `AllPeriods()` in display order, `ParsePeriod` rejecting unknown values, and
+  `ResolveWindow(period, now)` returning half-open local-calendar bounds with a
+  stable `Key`. Weeks start Monday; months use `AddDate(0, 1, 0)` so short
+  months and DST transitions stay correct. Use
+  `timeutil.NormalizeStorageTime(now)` for the local clock.
+- **Tests:** table-driven coverage for each period, a Sunday→Monday week edge,
+  a month edge (31st → 1st), a `TZ` other than Asia/Shanghai, and proof that
+  `End` is exclusive.
+- **Acceptance:** `ResolveWindow` never returns an empty or inverted range; an
+  unknown period returns an error; period keys are stable strings.
+- **Dependencies:** none.
+
+#### FEAT-MR-1.2 — Repository aggregation query
+
+- **Layer:** `internal/repository/model_ranking.go`,
+  `internal/repository/dto/model_ranking.go`, plus tests under
+  `internal/repository/test/`.
+- **Work:** implement
+  `ListModelRankingRows(ctx, db, window)` returning per display-name totals
+  (`request_count`, `success_count`, `failure_count`, `input_tokens`,
+  `cache_read_tokens`, `total_tokens`, `ttft_sum_ms`, `ttft_sample_count`,
+  `latency_sum_ms`, `latency_sample_count`, `peak_5m_request_count`,
+  `peak_5m_total_tokens`) and the contributing providers.
+  1. One bucketed statement built like
+     `LocalRankingService.aggregateLocalRankingWindow`: a `ranged_events` CTE
+     with the window predicate, a `five_minute_buckets` CTE grouped by
+     display name and `CAST(strftime('%s', timestamp) AS INTEGER) / 300`, and a
+     final `GROUP BY` on display name computing every sum plus
+     `MAX(request_count)` / `MAX(total_tokens)`. No metric-specific
+     pre-ordering or request-count limit is applied, because limiting
+     candidates by popularity would bias the TTFT, latency, and cache
+     rankings; the result is ordered by display name for determinism and
+     capped at `modelRankingCandidateLimit = 1000` rows as a safety bound.
+  2. A providers query grouped by display name and `event.provider`, folded in
+     Go into `providers[]` per row (trimmed, de-duplicated, capped at a small
+     number such as 10, sorted).
+
+  Both queries read through `dbresolver.Read` and use the coarse-text plus
+  epoch predicate shape of `rankingTimeRangePredicate` (its helper is
+  unexported in `internal/ranking`; document the intentional duplicate and
+  reference the precedent in a comment). Skip rows with an empty display name.
+- **Tests:** window edges (inclusive start, exclusive end), alias collapsing
+  across two `provider` values, real-name fallback when `model_alias` is
+  NULL/blank, empty window returning an empty slice, the candidate safety cap,
+  and peak bucket selection.
+- **Acceptance:** a fixture with two providers and one shared alias yields one
+  row with summed counters and both providers; the candidate row set returned by
+  the repository is identical for every metric, so a metric switch cannot change
+  which models are considered; no query touches `usage_events_archive`.
+- **Dependencies:** FEAT-MR-1.1.
+- **Dependencies:** FEAT-MR-1.1.
+
+#### FEAT-MR-1.3 — Domain service, metric projection, and ordering
+
+- **Layer:** `internal/modelranking/` (`service.go`, `metric.go`,
+  `service_test.go`).
+- **Work:** define the metric type with the seven wire values, validate it, and
+  project each row into a `LeaderboardEntry`-equivalent value plus
+  `rate_numerator` / `rate_denominator`. Sort descending for tokens, requests,
+  and peak metrics; ascending for TTFT and latency; filter ineligible rows;
+  truncate to `modelRankingTopLimit`; assign `rank` starting at 1; break ties
+  by model name ascending. Build the response with `period`, `period_key`,
+  `metric`, `start`, `end`, `timezone` (`time.Local.String()`),
+  `generated_at` (UTC), and `entries`. Add the 30-second in-memory cache with a
+  mutex, keyed by kind/key/metric.
+- **Tests:** metric parity against the formulas in
+  `internal/ranking/local_leaderboard.go` (fixed rows with known expected
+  values), ascending versus descending order, ineligible rows omitted,
+  deterministic ties, top-100 truncation, empty window, and cache hit versus
+  miss behavior.
+- **Acceptance:** identical fixtures produce identical `value` output to the
+  API-key leaderboard formulas; `generated_at` is UTC; an empty period returns
+  an empty entry list, not an error.
+- **Dependencies:** FEAT-MR-1.2.
+
+#### FEAT-MR-1.4 — HTTP surface, app wiring, and route registration
+
+- **Layer:** `internal/modelranking/httpapi/routes.go`, `internal/app/app.go`,
+  `internal/api/router.go`, plus `internal/api/test/`.
+- **Work:** register
+  `GET /model-ranking/leaderboards` on `adminProtected` through a
+  `RegisterRoutes(router gin.IRoutes, provider *modelranking.Service)` call,
+  following `modeltest/httpapi` and `gnn/httpapi`. Reject anything other than
+  exactly `period` and `metric` (`400 invalid_model_ranking_selection`), return
+  `503 model_ranking_unavailable` when the provider is nil, and set
+  `Cache-Control: no-store`. Add the `ModelRanking` field to
+  `OptionalProviders` in `internal/api/router.go` and construct the service in
+  `internal/app/app.go` next to `ranking.NewLocalRankingService`
+  (the service needs no runner and must not block startup).
+- **Tests:** `internal/api/test/model_ranking_routes_test.go` covering admin
+  200, viewer 403, missing/extra parameter 400, unknown period/metric 400, nil
+  provider 503, and the response headers.
+- **Acceptance:** `internal/api/router.go` comment block documents the single
+  registration; no existing route path or group changes.
+- **Dependencies:** FEAT-MR-1.3.
+
+#### FEAT-MR-1.5 — Frontend domain: types, API client, data hook
+
+- **Layer:** `web/src/features/model-ranking/` (`types.ts`, `api.ts`,
+  `hooks/useModelRankingData.ts`, `period.ts`, plus tests under
+  `web/src/features/model-ranking/test/`).
+- **Work:** feature-local `types.ts` with the six periods, seven metrics, and
+  the response contract from FEAT-MR-1.4 (no imports from
+  `@/features/ranking`). `api.ts` reuses `apiFetch`/`apiPath` from
+  `@/lib/api`, sets `credentials: 'include'` and `cache: 'no-store'`, and maps
+  failures to a stable `ModelRankingApiError` carrying `status` and `code`,
+  following `features/ranking/api.ts`. The hook mirrors
+  `useLocalRankingData`: abort stale requests, keep a per-`period:metric`
+  cache, show the cached board while refreshing, mark it `stale` when a
+  background refresh fails, poll every 60 s only while the document is
+  visible, and expose `refresh`.
+- **Tests:** request URL/parameters, abort on selection change, cached board
+  reuse, stale flag on failed silent refresh, error propagation, and
+  `localStorage` persistence of the selected period (invalid stored values
+  fall back to `today`).
+- **Acceptance:** no network call is issued when the section is not mounted;
+  an API failure leaves the last successful board rendered with a stale badge.
+- **Dependencies:** FEAT-MR-1.4 (contract only; can be developed in parallel
+  against the documented JSON shape).
+
+#### FEAT-MR-1.6 — Model ranking section and page integration
+
+- **Layer:** `web/src/features/model-ranking/ModelRankingSection.tsx`,
+  `ModelRankingSection.module.scss`, and one mount in
+  `web/src/pages/UsagePage.tsx`.
+- **Work:** render a second `card` with a title, its own period `Select`
+  (reuse `web/src/components/ui/Select.tsx` as `RankingToolbar` does), its own
+  metric `Select`, and a table (rank, model, providers, metric value) plus a
+  three-entry podium only if it fits the card density; otherwise table-only.
+  Show `generated_at`, a stale badge, a loading state, an empty state
+  ("no model usage in this period"), and an error state with a retry action.
+  Mount it inside `activeTab === 'ranking'` immediately after
+  `<RankingPage ... />`, without passing props from `RankingPage`. Styles use
+  the global `card` class and the existing title classes, with the feature's
+  own CSS module for the rest.
+- **Tests:** `web/src/features/model-ranking/test/ModelRankingSection.test.tsx`
+  covering six period options, default `today`, alias-collapsed row rendering
+  with two provider badges, metric switching, empty and error states, and that
+  changing the model period does not call the API-key leaderboard endpoint.
+  Add a `UsagePage` composition test asserting both cards render on the
+  ranking tab.
+- **Acceptance:** both leaderboards render on `/ranking`; the model card looks
+  correct in light, dark, and auto themes and stacks without horizontal
+  overflow at mobile widths.
+- **Dependencies:** FEAT-MR-1.5.
+
+#### FEAT-MR-1.7 — i18n for en, zh, and zh-TW
+
+- **Layer:** `web/src/i18n/index.ts`, `web/src/i18n/test/`.
+- **Work:** add a `model_ranking` namespace: card title, period labels and
+  trigger labels for the six periods, metric labels and short labels for the
+  seven metrics, table headers, provider label, updated-at, stale, loading,
+  empty, error, and retry strings.
+- **Tests:** extend the existing translation-parity pattern
+  (`web/src/i18n/test/rankingTranslations.test.ts`) with a
+  `modelRankingTranslations.test.ts` that asserts the same key set in all
+  three locales and no empty values.
+- **Acceptance:** no raw translation key can render in the new card; all three
+  locales carry identical key sets.
+- **Dependencies:** FEAT-MR-1.6.
+
+#### FEAT-MR-1.8 — Documentation and merge-preservation record
+
+- **Layer:** `docs/MERGE-PRESERVATION.md`, `docs/ARCHITECTURE.md`,
+  `docs/SPECIFICATION.md`, `CHANGELOG.md`, `session.md`, and (if the capability
+  is user-visible enough to warrant it) `README.md` / `README.zh.md`.
+- **Work:** add a numbered protection entry to `MERGE-PRESERVATION.md`
+  covering the domain paths, the repository query file, the route, the mount
+  point in `UsagePage.tsx`, the i18n namespace, and post-merge verification
+  commands. Add `internal/modelranking` (+ `httpapi/`) to the
+  `ARCHITECTURE.md` §2 module map and a §7 note describing the domain, its
+  single mount point, and its read-only aggregation. Extend
+  `SPECIFICATION.md` UC-9 (or add a sibling use case) with the six periods,
+  alias grouping, the seven metrics, and the admin-only boundary. Record the
+  delivered behavior in `CHANGELOG.md` and the implementation notes in
+  `session.md`.
+- **Acceptance:** the checklist grep commands in the new protection entry pass
+  against the implemented files; no documentation claims behavior the code
+  does not have; the API-key ranking documentation is unchanged.
+- **Dependencies:** FEAT-MR-1.1 through FEAT-MR-1.7.
+
+#### FEAT-MR-1.9 — Integration, regression, and release readiness
+
+- **Layer:** repository-wide verification.
+- **Work:** run the focused suites first
+  (`go test ./internal/modelranking/... ./internal/repository/... ./internal/api/...`)
+  and the frontend checks
+  (`npm --prefix ./web run test -- model-ranking`,
+  `npm --prefix ./web run typecheck`, `npm --prefix ./web run lint`), then the
+  full baseline `make verify`. Exercise the route by hand or in a test with a
+  seeded database: confirm alias collapsing across two providers, period
+  switching, the empty state, and that the API-key leaderboard still loads,
+  sorts, edits profiles, and polls normally.
+- **Acceptance:** `make verify` passes; `/ranking` renders both cards; no
+  change to existing ranking endpoints, their payloads, or their tests beyond
+  the new composition test; `git diff` shows only the planned files.
+- **Dependencies:** FEAT-MR-1.1 through FEAT-MR-1.8.
+- **Risks:** the frontend suite is large; a shared fixture or i18n parity test
+  can fail for an unrelated reason, so failures must be diagnosed rather than
+  masked.
+
+**Testing and acceptance strategy**
+
+- **Period logic (unit).** Six windows, Monday-start weeks, month arithmetic,
+  half-open bounds, project `TZ`, stable keys.
+- **Aggregation (repository).** Alias collapsing across providers, real-name
+  fallback, window edges, five-minute peak extraction, the candidate safety cap,
+  and read-pool routing. Use the existing SQLite fixture setup under
+  `internal/repository/test/`.
+- **Metric semantics (unit).** Expected scaled values for cache rate, TTFT,
+  latency, TPM, and RPM computed from fixed rows, plus ascending versus
+  descending ordering and ineligible-row omission.
+- **API contract (handler).** Admin 200, viewer 403, 400 for missing, extra, or
+  unknown parameters, 503 when unconfigured, `cache-control: no-store`.
+- **Frontend (vitest).** Period and metric selection, persistence, polling
+  gating by visibility, stale and error states, alias-collapsed rendering, and
+  the two-card composition on `/ranking`.
+- **i18n.** Key-set parity across en, zh, zh-TW.
+- **Regression.** Existing `internal/api/test/ranking_routes_test.go`,
+  `internal/api/test/key_viewer_ranking_routes_test.go`,
+  `internal/ranking/local_service_test.go`, and the ranking frontend tests must
+  pass unchanged.
+- **Manual or browser check.** Two cards on `/ranking`, correct rendering in
+  light, dark, and auto themes, no horizontal overflow at mobile width, and a
+  period switch that only refreshes the model card.
+
+**Risks and mitigations**
+
+| Risk | Mitigation |
+|---|---|
+| Month/week aggregation over `usage_events` is slow on large databases (no `model_alias` index) | Candidate safety cap, 30 s process cache, time-range predicate on the indexed `timestamp` column; REC-015 if measurements justify a rollup. |
+| Alias collapsing merges visually different names into one row | Show contributing `providers[]`; OQ-MR-6 covers an explicit merged-alias disclosure. |
+| Metric drift between the two leaderboards | String-parity test for metric values plus formula tests against fixed rows. |
+| Two independent period selectors confuse users | Independent selectors are an explicit decision; REC-019 offers a link-periods affordance if feedback asks for it. |
+| Timezone mismatch with the API-key ranking (Asia/Shanghai versus project `TZ`) | Model ranking uses the project `TZ` and states it in the payload; OQ-MR-4 tracks aligning the existing ranking separately. |
+| A model-ranking request failure breaks the ranking tab | The model card owns its error state; a failed model request must never unmount or reset `RankingPage`. |
+| An upstream merge deletes the mount point or the module map entry | Protection entry with grep-based verification commands; the domain is self-contained and additive. |
+
+**Open questions requiring resolution**
+
+- **OQ-MR-1 — Metric set and default metric.** The request does not name
+  metrics. The baseline exposes the seven quantitative metrics with
+  `total_tokens` as the default, matching the existing vocabulary minus
+  `overall`. Confirm the set and the default, or name a single metric if the
+  card must stay minimal.
+- **OQ-MR-2 — `overall` for models.** The existing overall score
+  (`internal/ranking/local_overall.go`, `localOverallScoreExplanation`) is
+  normalized only among API keys and its text says so. Decide whether models
+  get an equivalent score (and against which population), or whether the card
+  offers quantitative metrics only. This decides whether `overall` is added at
+  all.
+- **OQ-MR-3 — API-key viewer exposure.** Should `/key-ranking` show model
+  ranking too? If yes it must be scoped to the viewer's own `api_group_key`, so
+  a viewer cannot infer other users' model usage. Not part of the baseline.
+- **OQ-MR-4 — Calendar timezone.** `internal/ranking/local_service.go` uses a
+  hardcoded Asia/Shanghai zone while the project configures `time.Local` from
+  `TZ`. Decide whether model ranking follows `TZ` (recommended, matching Live
+  Flow and the dashboard day boundaries) and whether the existing key ranking
+  should later be aligned in a separately reviewed change.
+- **OQ-MR-5 — Traffic scope.** Should the model ranking include every usage
+  event (baseline, matching the API-key ranking) or only generation traffic
+  (`generate IS NULL OR generate = true`, as Live Flow does)? Embedding and
+  other non-generation models are visible in the baseline.
+- **OQ-MR-6 — Alias normalization depth.** Exact match after `TRIM` is the
+  baseline and matches Live Flow. Case-insensitive or punctuation-normalized
+  matching would merge more variants but risks false merges. If widening is
+  wanted, the card should disclose which real names were merged.
+
+---
+
 ### Feature Recommendations for User Review
 
 > Proposals only. They are **not** part of the confirmed scope and must not be
@@ -1297,6 +1797,178 @@ channel-neutral.
 **Status:** Accepted and implemented (2026-11-18) — `telegram.Message` and
 `telegram.Notifier` remain channel-neutral; Telegram is the only implementation.
 
+**Model Ranking (Phase 2.25) proposals**
+The recommendations below relate to the planned Model Ranking card. They are
+**not** part of the confirmed scope above and require explicit user acceptance
+before any of them becomes a task.
+
+#### REC-015: Pre-aggregate model ranking if on-demand aggregation proves slow
+
+**Category:** Performance
+**Recommendation:** Only if measurements show the on-demand query is too slow
+for month or week periods, add a per-model rollup table (period kind/key/model)
+maintained by a checkpointed aggregation pipeline, and serve the leaderboard
+from it.
+**Reasoning:** `usage_events` has no `model_alias` index, so a month window is
+grouped by an expression over every event in the range. The project already
+uses checkpointed rollups (`UsageAggregationRunner`, `docs/ARCHITECTURE.md`
+§4) for overview, activity, and latency, and maintains a five-minute per-API-key
+snapshot in `local_ranking_period_stats`.
+**Expected Benefits:** Constant-time reads; request cost independent of window
+size and hot-retention volume.
+**Trade-offs:** New entity, migration, aggregation pipeline and checkpoint,
+backfill, plus a second copy of the truth that can drift; it also enlarges the
+fork's schema surface that upstream merges must not disturb.
+**Implementation Impact:** `internal/entities`,
+`internal/repository/migration`, `internal/poller/usage_aggregation_runner.go`,
+`internal/repository/model_ranking.go`.
+**Priority:** Low until measured; the 30 s cache and candidate safety cap are
+expected to cover normal installations.
+**Status:** Pending User Review
+
+#### REC-016: Define a model-level `overall` score deliberately, or omit it
+
+**Category:** Business Logic
+**Recommendation:** Either (a) keep the card quantitative-only, or (b) extract
+the numeric core of `internal/ranking/local_overall.go` into a shared
+population-scoring helper (token/request utility, Wilson reliability, TTFT and
+latency utilities, cache and peak utility, weighted geometric mean) and run it
+over model rows with model-specific explanation text.
+**Reasoning:** The current overall score is normalized only among API keys and
+its explanation says so. Reusing the label for models without adapting the
+formula and the text would misdescribe the number. Copying the ~200-line
+algorithm into the new domain would create two implementations that drift.
+**Expected Benefits:** Users can rank models with the same mental model as API
+keys; one scoring implementation instead of two.
+**Trade-offs:** Refactoring a fork feature used in production
+(`internal/ranking/local_overall.go`) adds regression risk to the API-key
+leaderboard; a model population (dozens of rows) is also statistically smaller
+than a key population, so the same shrinkage assumptions may not hold.
+**Implementation Impact:** `internal/ranking/local_overall.go` (extraction),
+`internal/modelranking/`, explanation strings, tests on both leaderboards.
+**Priority:** Medium; option (a) is the baseline and needs no work.
+**Status:** Pending User Review
+
+#### REC-017: Add a provider filter and per-provider contribution to the model rows
+
+**Category:** UX / Business Logic
+**Recommendation:** Beyond listing `providers[]`, let the administrator filter
+the model leaderboard to one provider and show each provider's share of the
+collapsed row (requests or tokens).
+**Reasoning:** The whole point of alias collapsing is that one ranked model can
+be served by several providers. When a number looks surprising, the immediate
+next question is "which provider produced it", and the raw provider list does
+not answer how much each contributed.
+**Expected Benefits:** Explains merged rows; supports cost and routing
+decisions; turns the card into a diagnostic view rather than a bare top list.
+**Trade-offs:** The aggregation must then group by display name and provider,
+which grows the result set and the SQL; it also needs a second table state or a
+drill-down affordance in the card.
+**Implementation Impact:** `internal/repository/model_ranking.go`,
+`internal/modelranking/`, `ModelRankingSection.tsx`, i18n, tests.
+**Priority:** Medium
+**Status:** Pending User Review
+
+#### REC-018: Offer a viewer-scoped model ranking on `/key-ranking`
+
+**Category:** Functional / Security
+**Recommendation:** After the admin card ships, evaluate adding model ranking to
+the API-key viewer page, strictly filtered to the session key's
+`api_group_key`.
+**Reasoning:** The requesting user described this as a user-facing request
+("one of my user asked"), yet the global model ranking aggregates traffic from
+every key. A viewer card is the safe way to serve that audience.
+**Expected Benefits:** Viewers can see their own model mix without seeing other
+users' usage; one interaction pattern across both roles.
+**Trade-offs:** Requires a second authorization path
+(`RegisterKeyViewerRoutes`-style), scoping tests, and a clear label that the
+viewer sees only their own key; the global ranking must never be reachable from
+the viewer group.
+**Implementation Impact:** `internal/modelranking/httpapi/routes.go`,
+`internal/api/router.go`, `web/src/pages/KeyRankingPage.tsx`,
+`docs/MERGE-PRESERVATION.md`.
+**Priority:** Medium, and only after OQ-MR-3 is answered.
+**Status:** Pending User Review
+
+#### REC-019: Add an optional "link periods" toggle for the two leaderboards
+
+**Category:** UX
+**Recommendation:** Keep the two period selectors independent by default, but
+offer a small toggle that mirrors the API-key period into the model card.
+**Reasoning:** Independent selectors avoid coupling, but a user comparing
+"which key" with "which model" for the same window will otherwise set the same
+period twice on every visit.
+**Expected Benefits:** Faster side-by-side comparison; no loss of the
+independent behavior for users who want it.
+**Trade-offs:** One more persisted preference and interaction state; the two
+cards can look inconsistent if the toggle is on and one request fails.
+**Implementation Impact:** `ModelRankingSection.tsx`, the mount in
+`UsagePage.tsx` (to pass the current period when linked), i18n, tests.
+**Priority:** Low
+**Status:** Pending User Review
+
+#### REC-020: Show a previous-period trend per model
+
+**Category:** UX
+**Recommendation:** Add a delta column comparing the selected period with its
+natural predecessor (Today vs Yesterday, Current Week vs Last Week, Current
+Month vs Last Month), reusing the pairing rule already stated for Live Flow.
+**Reasoning:** A ranking answers "who is on top"; a delta answers "what
+changed", which is what usually prompts a routing or credit decision. The six
+fixed periods make the comparison unambiguous.
+**Expected Benefits:** Actionable movement instead of a static snapshot.
+**Trade-offs:** Doubles the aggregation work per request (two windows) or needs
+a second cached query; the oldest periods have no baseline and must render an
+explicitly empty delta.
+**Implementation Impact:** `internal/modelranking/` (second window),
+`internal/repository/model_ranking.go`, `ModelRankingSection.tsx`, i18n, tests.
+**Priority:** Medium
+**Status:** Pending User Review
+
+#### REC-021: Use one calendar definition across ranking and the dashboard
+
+**Category:** Architecture / Correctness
+**Recommendation:** Treat the hardcoded `localRankingPeriodLocation`
+(`Asia/Shanghai`) in `internal/ranking/local_service.go` as a defect, and
+migrate the API-key ranking to `timeutil.NormalizeStorageTime` / `TZ` in a
+separately reviewed change; meanwhile model ranking uses the project `TZ`.
+**Reasoning:** `docs/CONFIGURATION.md` and `README.md` describe `TZ` as the
+timezone for "Today, daily totals, page timestamps", and Live Flow already
+follows it. A deployment with `TZ=America/New_York` currently gets two
+different "Today" windows on the same page, which is a correctness bug rather
+than a preference.
+**Expected Benefits:** Consistent day/week/month boundaries everywhere; no
+misleading "Today" totals; one place to reason about period keys.
+**Trade-offs:** Changing the existing key ranking alters which events fall in
+Today/Yesterday/This month for non-Asia/Shanghai deployments, so historical
+`local_ranking_period_stats` rows keyed by the old calendar can be stale until
+the next aggregation settles; the change is user-visible and needs its own
+release note.
+**Implementation Impact:** `internal/ranking/local_service.go`,
+`internal/ranking/local_leaderboard.go`, `local_service_test.go`, migration or
+re-settlement of `local_ranking_period_stats`, documentation.
+**Priority:** High for correctness, but explicitly out of Model Ranking scope.
+**Status:** Pending User Review
+
+#### REC-022: Add an estimated cost column per model
+
+**Category:** Functional
+**Recommendation:** Include the period's estimated cost per model
+(`usage_events.cost_usd` summed per display name, with the existing
+"cost unavailable" handling) as an optional column.
+**Reasoning:** Model choice is usually driven by cost as much as volume, and
+the pricing pipeline already populates cost on ingestion and recalculation.
+**Expected Benefits:** Directly answers "which model costs me most" without a
+second report.
+**Trade-offs:** Cost availability differs by provider and pricing coverage, so
+the column needs an explicit unavailable state; aggregating it adds a pricing
+dependency to a read path that is otherwise pure counters.
+**Implementation Impact:** `internal/repository/model_ranking.go` (cost sum and
+unavailable count), `internal/modelranking/`, `ModelRankingSection.tsx`, i18n,
+tests.
+**Priority:** Low
+**Status:** Pending User Review
+
 ---
 
 ### Restoration Tasks (Upstream Merge Recovery)
@@ -1549,6 +2221,7 @@ Runs alongside every phase; items are pulled as needed rather than ordered.
 
 - **Feature phases:** `FEAT-PROV-X.Y` (AI Provider table redesign)
 - **Live Flow history:** `FEAT-LF-X.Y` (Phase 2.22)
+- **Model Ranking:** `FEAT-MR-X.Y` (Phase 2.25)
 - **General improvements:** `IMP-X.Y`
 - **Bug fixes:** `BUG-X`
 - **Documentation:** `DOC-X`
