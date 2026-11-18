@@ -65,8 +65,13 @@ internal/api ────── Gin router, handlers, auth middleware, DTO mappi
         ├── internal/ranking ───── local and community ranking (local by default)
         ├── internal/modeltest ─── bounded regular/streaming CPA model probes;
         │                          HTTP registration in internal/modeltest/httpapi
+        ├── internal/telegram ──── model-test failure Telegram notifications
+        │                          (self-contained: contract, rendering,
+        │                          Bot API client, limiter; HTTP surface in
+        │                          internal/telegram/httpapi)
         ├── internal/adminsettings settings service for encrypted Admin Settings
-        │                          key storage and bounded model-test timeouts
+        │                          key storage, bounded model-test timeouts, and
+        │                          encrypted Telegram notification settings
         ├── internal/benchmark ─── production capacity suite (test-only tooling)
         ├── internal/pricing ───── price catalog, resolver, snapshot
         ├── internal/cpa ───────── CPA management API client (HTTP + Redis queue client)
@@ -287,6 +292,19 @@ Key invariants:
   in-flight requests or a pending trail is raised above idle blocks
   (`liveFlowNodeZIndex`, 10 vs 1, plus the `live-flow-node-active` class) so a
   busy block and its label are never covered by an overlapping neighbour.
+- **Model-test failure Telegram notifications** are a self-contained feature
+  domain. The backend is `internal/telegram/` (request/message contract, bounded
+  and redacted reason rendering, a Bot API client with a fixed 10-second timeout
+  and token-free errors, and a per-reporter-per-model cooldown plus hourly cap)
+  plus `internal/telegram/httpapi/` for `POST /api/v1/model-test/notify`, mounted
+  on the shared `catalogProtected` group so administrators and API-key viewers
+  can both report. Configuration is read through a `SettingsSource`, implemented
+  by the `telegramSettingsSource` adapter in `internal/app/app.go` over
+  `adminsettings.TelegramConfig` (AES-GCM encrypted token, chat id, optional
+  topic id), so the domain never imports GORM or the settings package. The
+  reporter is always derived from the session — `helper.CPAAPIKeyDisplayName`
+  for viewers, `telegram.AdminReporterLabel` for administrators — and the request
+  body has no reporter field.
 
   > **Permanence requirement:** the Provider Model GNN diagram is a **core,
   > permanent feature** of the Usage overview tab. It must always remain

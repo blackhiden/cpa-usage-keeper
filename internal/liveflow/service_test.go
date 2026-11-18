@@ -30,7 +30,9 @@ func openServiceTestDB(t *testing.T) *gorm.DB {
 
 func TestServiceModelsReturnsResponseShape(t *testing.T) {
 	db := openServiceTestDB(t)
-	now := time.Date(2026, 11, 16, 12, 0, 0, 0, time.Local)
+	// Anchor the event to the current local day so the "today" window assertion
+	// stays valid regardless of when the suite runs.
+	now := time.Now()
 	generate := true
 	if err := db.Create(&entities.UsageEvent{EventKey: "s1", Model: "gpt-5", Timestamp: now, Generate: &generate}).Error; err != nil {
 		t.Fatalf("create usage event: %v", err)

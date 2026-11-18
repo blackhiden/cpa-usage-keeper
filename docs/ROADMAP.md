@@ -163,8 +163,10 @@
   - **Execution plan:** see [Phase 2.23 — Model Test & API-key Viewer Models
     Access](#phase-223--model-test--api-key-viewer-models-access-execution-plan).
 
-- **2.24 Model Test Failure Telegram Notification.** ⬜ (planned)
-  - **Status:** Planned — no feature code has been implemented.
+- **2.24 Model Test Failure Telegram Notification.** ✅ (implemented)
+  - **Status:** Implemented (Phase 2.24) — FEAT-TG-1 through FEAT-TG-9 delivered
+    on `feature/phase-2-24-integration`; REC-010, REC-012, REC-013, and REC-014
+    remain deferred pending review.
   - **Confirmed requirements:** when a model test fails, the user can notify the
     administrator through a Telegram bot. The message reports the reporter as
     the **API Key Name** (never the API key value), the tested **model**, and
@@ -733,7 +735,10 @@ Telegram bot, with a message that identifies the reporter by API Key Name, the
 tested model, and the failure reason — without exposing any credential — and
 configure the bot from `/settings` → **Admin Settings**.
 
-**Status:** ⬜ Planned — no feature code has been implemented.
+**Status:** ✅ Implemented — FEAT-TG-1 through FEAT-TG-9 delivered (explicit
+user-triggered action, encrypted settings, session-derived reporter, server-side
+rate limiting). REC-010/012/013/014 remain deferred and require separate
+approval.
 
 **Evidence and existing boundaries**
 
@@ -1016,20 +1021,20 @@ make verify
 
 **Acceptance criteria (feature level)**
 
-- [ ] A failed model test exposes a notify action for viewers and
+- [x] A failed model test exposes a notify action for viewers and
       administrators.
-- [ ] The delivered Telegram message contains the API Key Name, the model, and
+- [x] The delivered Telegram message contains the API Key Name, the model, and
       the bounded reason, and no credential.
-- [ ] The bot token is never returned, logged, or echoed; only
+- [x] The bot token is never returned, logged, or echoed; only
       `bot_token_configured` is exposed.
-- [ ] Admin Settings persists and clears Bot Token, Chat ID, and optional Topic
+- [x] Admin Settings persists and clears Bot Token, Chat ID, and optional Topic
       ID with server-side validation.
-- [ ] Unconfigured Telegram and rate limiting produce distinct, translated,
+- [x] Unconfigured Telegram and rate limiting produce distinct, translated,
       non-secret errors.
-- [ ] All new strings exist in en, zh, and zh-TW.
-- [ ] `docs/MERGE-PRESERVATION.md` lists the domain, routes, invariants, and
+- [x] All new strings exist in en, zh, and zh-TW.
+- [x] `docs/MERGE-PRESERVATION.md` lists the domain, routes, invariants, and
       verification commands.
-- [ ] `make verify` passes.
+- [x] `make verify` passes.
 
 ---
 

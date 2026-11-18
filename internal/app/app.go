@@ -28,6 +28,7 @@ import (
 	"cpa-usage-keeper/internal/releasecheck"
 	"cpa-usage-keeper/internal/repository"
 	"cpa-usage-keeper/internal/service"
+	"cpa-usage-keeper/internal/telegram"
 	"cpa-usage-keeper/internal/version"
 	webui "cpa-usage-keeper/web"
 	"github.com/gin-gonic/gin"
@@ -239,6 +240,9 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	}
 	modelTestService := modeltest.NewService(cpaClient, adminSettingsService, time.Duration(adminSettingsValues.RequestTimeoutSeconds)*time.Second)
 	modelTestService.SetTimeoutSource(adminSettingsService)
+	// Model-test failure notifications read the encrypted Telegram settings and
+	// deliver through the bounded Bot API client.
+	telegramService := telegram.NewService(telegram.NewBotAPIClient(nil), telegramSettingsSource{service: adminSettingsService})
 	providerModelGraphService := gnn.NewService(cpaClient)
 	// Live Flow model history (fork feature): on-demand aggregation, no runner.
 	liveFlowModelsService := liveflow.NewService(db)
@@ -342,6 +346,7 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				Models:         cpaClient,
 				ModelTest:      modelTestService,
 				AdminSettings:  adminSettingsService,
+				Telegram:       telegramService,
 				LiveFlowClient: cpaClient,
 				Status: api.StatusRouteConfig{
 					CPAPublicURL:               cfg.CPAPublicURL,
@@ -352,6 +357,28 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	}
 	prepared = true
 	return ready, nil
+}
+
+// telegramSettingsSource adapts the encrypted admin settings store to the
+// notification domain without coupling the domain to the settings package.
+type telegramSettingsSource struct {
+	service *adminsettings.Service
+}
+
+func (s telegramSettingsSource) TelegramSettings(ctx context.Context) (telegram.Settings, error) {
+	if s.service == nil {
+		return telegram.Settings{}, nil
+	}
+	config, err := s.service.TelegramConfig(ctx)
+	if err != nil {
+		return telegram.Settings{}, err
+	}
+	return telegram.Settings{
+		BotToken:        config.BotToken,
+		ChatID:          config.ChatID,
+		MessageThreadID: config.MessageThreadID,
+		Configured:      config.Configured,
+	}, nil
 }
 
 // appAuthConfig 让启动外壳和完整路由使用同一 BasePath、TLS 页面祖先及认证约束。

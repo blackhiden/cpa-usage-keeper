@@ -109,6 +109,10 @@ func (e *RateLimitError) Error() string { return ErrRateLimited.Error() }
 
 func (e *RateLimitError) Unwrap() error { return ErrRateLimited }
 
+// AdminReporterLabel is the reporter label used when an administrator triggers
+// a notification (OQ-6 baseline: API Key Name exists only for viewer sessions).
+const AdminReporterLabel = "Administrator"
+
 // Service validates, rate-limits, and delivers failure notifications.
 type Service struct {
 	notifier Notifier

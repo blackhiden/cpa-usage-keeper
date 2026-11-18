@@ -1,5 +1,52 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.24 Model Test Failure Telegram Notification
+
+**Date:** 2026-11-18
+**Status:** Merged into `main`; `dev` is not yet updated
+
+- Created three parallel feature worktrees and one integration worktree from
+  `dev` commit `4dd457b1`: `feature/phase-2-24-telegram-domain`,
+  `feature/phase-2-24-admin-settings`, `feature/phase-2-24-frontend`, and
+  `feature/phase-2-24-integration` (the integration branch merges the other
+  three locally for verification only).
+- Delivered FEAT-TG-1…FEAT-TG-9: `internal/telegram/` (contract, bounded and
+  redacted rendering, Bot API client, limiter), encrypted Telegram settings in
+  `internal/adminsettings/`, `POST /api/v1/model-test/notify` on the shared
+  catalog group, the Admin Settings Telegram UI, the failure **Notify admin**
+  action, en/zh/zh-TW translations, and the protected-feature entry.
+- Decisions taken from the approved recommendations: OQ-5 explicit action
+  (REC-010 automatic send deferred), OQ-6 administrator label `Administrator`,
+  OQ-7 cooldown 60 s per reporter+model plus 10/hour per reporter, OQ-8 bounded
+  reason only (no upstream body capture), OQ-9 optional `message_thread_id`,
+  OQ-10 no send-test endpoint (REC-011 deferred). REC-012/013/014 deferred.
+- The reporter is always server-derived (`activeAPIKeyViewerContext` +
+  `helper.CPAAPIKeyDisplayName`); the request body has no reporter field.
+- Admin Settings encrypts the bot token with the existing AES-GCM key derived
+  from `CPA_MANAGEMENT_KEY` and returns only `telegram.bot_token_configured`.
+  Settings are validated before any write so a rejected request cannot leave
+  partial state.
+- Verification on `feature/phase-2-24-integration`:
+  - `go test ./cmd/... ./internal/...` → exit 0.
+  - `npm --prefix ./web run test` → 226 files, 1,884 passed, 2 skipped.
+  - `npm --prefix ./web run lint`, `typecheck`, and `build` → clean; `web/dist`
+    is rebuilt so the `go:embed` compiles inside the checkout.
+  - `npm ci` was not re-run: the checkout reuses the trunk checkout's locked
+    `web/node_modules` through a git-ignored symlink, and `package-lock.json`
+    is unchanged.
+  - Live Telegram delivery against a real bot was not exercised here (no bot
+    token available); that remains the manual acceptance step from FEAT-TG-9.
+- Pre-existing baseline failure fixed while verifying: the
+  `internal/liveflow` today-period test inserted an event dated 2026-11-16 and
+  queried the "today" window, so it failed on the base `dev` commit too. It now
+  anchors the event to the current local time (test-only change).
+- Integration into `main`: the three feature branches were merged sequentially
+  (`telegram-domain`, `admin-settings`, `frontend`) and validated after each
+  merge, then this integration branch (route wiring, docs, liveflow test fix)
+  was merged last. `dev` stayed at `4dd457b1`; it needs the same merge before the
+  next phase branches from it.
+
+
 ## Session: Phase 2.23 Model Test & API-key Viewer Models Access
 
 **Date:** 2026-11-17

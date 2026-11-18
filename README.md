@@ -98,6 +98,7 @@ Keep usage history for [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIP
 - **Inspect AI providers**: administrators can review one aggregate row per provider, sort by success rate, and open a paginated key-detail page for that provider.
 - **Share scoped access**: provide a read-only usage view for an individual CPA API Key, including their own request events, analysis, and local ranking (always enabled). API key viewers can also monitor Live Flow for operational visibility.
 - **Test catalog models safely**: API-key viewers can open `/models` without pricing controls and run bounded regular or streaming probes with their own session key. Administrators configure a separate encrypted test key and timeout under Admin Settings.
+- **Notify on failed model tests**: when a model probe fails, the user can send a plain-text Telegram report to the administrator containing the reporter's API Key Name, the tested model, and a bounded failure reason. The bot token is stored encrypted, is never returned by the API, and the endpoint is rate-limited per reporter.
 - **Visualize topology**: Provider Model GNN diagram (dual renderers: React Flow grid + Reagraph WebGL) shows provider/model relationships, request flows, and credential dependencies.
 - **Inspect Live Flow**: the standalone administrator **Live Flow** menu streams CLIProxyAPI request metadata into a live model-flow canvas. It never relays prompts, request bodies, headers, or credentials. API key viewers can access this global view with a privacy notice.
 

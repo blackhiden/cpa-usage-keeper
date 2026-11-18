@@ -16,6 +16,7 @@ import (
 	adminsettingshttpapi "cpa-usage-keeper/internal/adminsettings/httpapi"
 	"cpa-usage-keeper/internal/auth"
 	gnnhttpapi "cpa-usage-keeper/internal/gnn/httpapi"
+	"cpa-usage-keeper/internal/helper"
 	liveflowhttpapi "cpa-usage-keeper/internal/liveflow/httpapi"
 	"cpa-usage-keeper/internal/logging"
 	"cpa-usage-keeper/internal/modeltest"
@@ -24,6 +25,8 @@ import (
 	"cpa-usage-keeper/internal/quota"
 	rankinghttpapi "cpa-usage-keeper/internal/ranking/httpapi"
 	"cpa-usage-keeper/internal/service"
+	"cpa-usage-keeper/internal/telegram"
+	telegramhttpapi "cpa-usage-keeper/internal/telegram/httpapi"
 	"cpa-usage-keeper/internal/updatecheck"
 	"cpa-usage-keeper/internal/version"
 	"github.com/gin-gonic/gin"
@@ -81,6 +84,8 @@ type OptionalProviders struct {
 	Models        service.ModelsFetcher
 	ModelTest     *modeltest.Service
 	AdminSettings *adminsettings.Service
+	// Model-test failure notifications (Phase 2.24 fork feature)
+	Telegram *telegram.Service
 	// Provider Model GNN (permanent fork feature)
 	ProviderModelGraph gnnhttpapi.Provider
 	// Live Flow model history (fork feature)
@@ -150,6 +155,7 @@ func NewRouter(
 	var modelsProvider service.ModelsFetcher
 	var modelTestProvider *modeltest.Service
 	var adminSettingsProvider *adminsettings.Service
+	var telegramProvider *telegram.Service
 	var statusConfig StatusRouteConfig
 	var liveFlowClient LiveFlowProvider
 	var liveFlowModelsProvider liveflowhttpapi.Provider
@@ -175,6 +181,7 @@ func NewRouter(
 		modelsProvider = optionalProviders[0].Models
 		modelTestProvider = optionalProviders[0].ModelTest
 		adminSettingsProvider = optionalProviders[0].AdminSettings
+		telegramProvider = optionalProviders[0].Telegram
 		statusConfig = optionalProviders[0].Status
 		liveFlowClient = optionalProviders[0].LiveFlowClient
 		// Live Flow model history shares the relay's authorization
@@ -199,6 +206,15 @@ func NewRouter(
 			return "", false
 		}
 		return viewerKey.APIKey, true
+	})
+	// Model-test failure notifications are available to both roles. The
+	// reporter is derived from the session only: a viewer reports as its API
+	// Key Name and an administrator reports as the fixed admin label.
+	telegramhttpapi.RegisterRoutes(catalogProtected, telegramProvider, func(c *gin.Context) (string, bool) {
+		if _, key, ok := activeAPIKeyViewerContext(c); ok {
+			return helper.CPAAPIKeyDisplayName(key), true
+		}
+		return telegram.AdminReporterLabel, true
 	})
 
 	// Live Flow is available to both admin and API key viewers (global metadata-only view)
