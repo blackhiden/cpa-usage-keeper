@@ -2,6 +2,26 @@
   min-width: 0;
 }
 
+.telegram {
+  margin-bottom: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.sectionTitle {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sectionDescription {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .description {
   margin: 0 0 16px;
   color: var(--text-secondary);
