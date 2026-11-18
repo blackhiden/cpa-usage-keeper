@@ -10,9 +10,11 @@ import (
 )
 
 type telegramUpdateRequest struct {
-	BotToken        *string `json:"bot_token"`
-	ChatID          *string `json:"chat_id"`
-	MessageThreadID *int64  `json:"message_thread_id"`
+	BotToken        *string   `json:"bot_token"`
+	ChatID          *string   `json:"chat_id"`
+	MessageThreadID *int64    `json:"message_thread_id"`
+	Enabled         *bool     `json:"enabled"`
+	MutedModels     *[]string `json:"muted_models"`
 }
 
 type updateRequest struct {
@@ -30,6 +32,8 @@ func (r updateRequest) toUpdate() adminsettings.Update {
 			BotToken:        r.Telegram.BotToken,
 			ChatID:          r.Telegram.ChatID,
 			MessageThreadID: r.Telegram.MessageThreadID,
+			Enabled:         r.Telegram.Enabled,
+			MutedModels:     r.Telegram.MutedModels,
 		}
 	}
 	return update

@@ -1234,6 +1234,12 @@ export async function notifyModelTestFailure(request: ModelTestNotifyRequest, si
   return response.json()
 }
 
+export async function sendTelegramTestMessage(): Promise<ModelTestNotifyResponse> {
+  const response = await apiFetch(apiPath('/telegram/test-message'), { method: 'POST' })
+  if (!response.ok) await parseApiError(response, `Send Telegram test message failed: ${response.status}`)
+  return response.json()
+}
+
 // 列表同时返回完整配置与已保存修订，供编辑和重算确认使用。
 export async function fetchPricingModels(signal?: AbortSignal): Promise<PricingModelsResponse> {
   const response = await apiFetch(apiPath('/pricing/models'), { signal, cache: 'no-store' })

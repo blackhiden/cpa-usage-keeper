@@ -48,31 +48,44 @@ func postNotify(router *gin.Engine, body string) *httptest.ResponseRecorder {
 
 func configuredService(notifier *notifierStub) *telegram.Service {
 	return telegram.NewService(notifier, settingsStub{settings: telegram.Settings{
-		BotToken: "123456789:AAHtest-token-value", ChatID: "-1001234567890", Configured: true,
+		BotToken: "123456789:AAHtest-token-value", ChatID: "-1001234567890", Enabled: true, Configured: true,
 	}})
 }
 
-func TestNotifyRouteResolvesReporterServerSide(t *testing.T) {
-	notifier := &notifierStub{}
-	router := testRouter(configuredService(notifier), func(*gin.Context) (string, bool) {
-		return "Team Key", true
+// resolverFor returns a fixed server-side reporter and scope.
+func resolverFor(reporter, scope string) ReporterResolver {
+	return func(*gin.Context) (string, string, bool) { return reporter, scope, true }
+}
+
+func recordFailure(service *telegram.Service, scope string) {
+	service.RecordFailure(scope, telegram.Failure{
+		Model: "gpt-test", Mode: "streaming", StatusCode: 502, ErrorCode: "test_failed", Reason: "upstream timeout",
 	})
-	recorder := postNotify(router, `{"model":"gpt-test","mode":"streaming","status_code":502,"error_code":"test_failed","reason":"boom","reporter":"Forged"}`)
+}
+
+func TestNotifyRouteResolvesReporterAndFailureServerSide(t *testing.T) {
+	notifier := &notifierStub{}
+	service := configuredService(notifier)
+	recordFailure(service, "scope-team")
+	router := testRouter(service, resolverFor("Team Key", "scope-team"))
+	// Forged reporter/reason fields in the body must be ignored entirely.
+	recorder := postNotify(router, `{"model":"gpt-test","mode":"streaming","reason":"forged","reporter":"Forged","status_code":401}`)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 	if notifier.calls != 1 || notifier.message.Reporter != "Team Key" {
 		t.Fatalf("calls=%d message=%+v", notifier.calls, notifier.message)
 	}
-	if notifier.message.Model != "gpt-test" {
-		t.Fatalf("unexpected model: %+v", notifier.message)
+	if notifier.message.Reason != "upstream timeout" || notifier.message.StatusCode != 502 {
+		t.Fatalf("client fields influenced the message: %+v", notifier.message)
 	}
 }
 
 func TestNotifyRouteRateLimited(t *testing.T) {
 	notifier := &notifierStub{}
 	service := configuredService(notifier)
-	router := testRouter(service, func(*gin.Context) (string, bool) { return "Team Key", true })
+	recordFailure(service, "scope-team")
+	router := testRouter(service, resolverFor("Team Key", "scope-team"))
 	body := `{"model":"gpt-test","mode":"regular"}`
 	if recorder := postNotify(router, body); recorder.Code != http.StatusOK {
 		t.Fatalf("first status=%d body=%s", recorder.Code, recorder.Body.String())
@@ -92,9 +105,34 @@ func TestNotifyRouteRateLimited(t *testing.T) {
 	}
 }
 
+func TestNotifyRouteDisabledAndMuted(t *testing.T) {
+	notifier := &notifierStub{}
+	settings := settingsStub{settings: telegram.Settings{
+		BotToken: "123456789:AAHtest-token-value", ChatID: "-1001234567890", Enabled: false, Configured: true,
+	}}
+	router := testRouter(telegram.NewService(notifier, settings), resolverFor("Team Key", "scope-team"))
+	recorder := postNotify(router, `{"model":"gpt-test"}`)
+	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), telegram.CodeDisabled) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if notifier.calls != 0 {
+		t.Fatalf("unexpected send: %d", notifier.calls)
+	}
+
+	settings.settings.Enabled = true
+	settings.settings.MutedModels = []string{"gpt-test"}
+	router = testRouter(telegram.NewService(notifier, settings), resolverFor("Team Key", "scope-team"))
+	recorder = postNotify(router, `{"model":"gpt-test"}`)
+	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), telegram.CodeModelMuted) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestNotifyRouteSendFailed(t *testing.T) {
 	notifier := &notifierStub{err: telegram.ErrSendFailed}
-	router := testRouter(configuredService(notifier), func(*gin.Context) (string, bool) { return "Team Key", true })
+	service := configuredService(notifier)
+	recordFailure(service, "scope-team")
+	router := testRouter(service, resolverFor("Team Key", "scope-team"))
 	recorder := postNotify(router, `{"model":"gpt-test"}`)
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
@@ -106,7 +144,7 @@ func TestNotifyRouteSendFailed(t *testing.T) {
 
 func TestNotifyRouteRejectsInvalidPayload(t *testing.T) {
 	notifier := &notifierStub{}
-	router := testRouter(configuredService(notifier), func(*gin.Context) (string, bool) { return "Team Key", true })
+	router := testRouter(configuredService(notifier), resolverFor("Team Key", "scope-team"))
 	for _, body := range []string{`not json`, `{}`, `{"model":"a","mode":"other"}`} {
 		recorder := postNotify(router, body)
 		if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), telegram.CodeInvalidRequest) {
@@ -120,7 +158,7 @@ func TestNotifyRouteRejectsInvalidPayload(t *testing.T) {
 
 func TestNotifyRouteRequiresResolvedReporter(t *testing.T) {
 	notifier := &notifierStub{}
-	router := testRouter(configuredService(notifier), func(*gin.Context) (string, bool) { return "", false })
+	router := testRouter(configuredService(notifier), func(*gin.Context) (string, string, bool) { return "", "", false })
 	recorder := postNotify(router, `{"model":"gpt-test"}`)
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
@@ -135,5 +173,32 @@ func TestNotifyRouteUnavailableWithoutService(t *testing.T) {
 	recorder := postNotify(router, `{"model":"gpt-test"}`)
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestTelegramTestMessageRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	notifier := &notifierStub{}
+	router := gin.New()
+	RegisterAdminRoutes(router, configuredService(notifier))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/telegram/test-message", nil))
+	if recorder.Code != http.StatusOK || notifier.calls != 1 || notifier.message.Kind != telegram.KindTest {
+		t.Fatalf("status=%d calls=%d message=%+v", recorder.Code, notifier.calls, notifier.message)
+	}
+}
+
+func TestTelegramTestMessageRouteUnconfigured(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	notifier := &notifierStub{}
+	router := gin.New()
+	RegisterAdminRoutes(router, telegram.NewService(notifier, settingsStub{}))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/telegram/test-message", nil))
+	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), telegram.CodeNotConfigured) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if notifier.calls != 0 {
+		t.Fatalf("unexpected send: %d", notifier.calls)
 	}
 }

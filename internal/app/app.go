@@ -377,6 +377,8 @@ func (s telegramSettingsSource) TelegramSettings(ctx context.Context) (telegram.
 		BotToken:        config.BotToken,
 		ChatID:          config.ChatID,
 		MessageThreadID: config.MessageThreadID,
+		Enabled:         config.Enabled,
+		MutedModels:     config.MutedModels,
 		Configured:      config.Configured,
 	}, nil
 }

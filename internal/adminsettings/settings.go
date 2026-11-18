@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,30 +21,38 @@ import (
 )
 
 const (
-	apiKeySettingKey      = "admin.model_test.api_key"
-	timeoutSettingKey     = "admin.model_test.timeout_seconds"
-	telegramBotTokenKey   = "admin.telegram.bot_token"
-	telegramChatIDKey     = "admin.telegram.chat_id"
-	telegramThreadIDKey   = "admin.telegram.message_thread_id"
-	encryptedValueType    = "encrypted"
-	integerValueType      = "int"
-	stringValueType       = "string"
-	defaultTimeoutSeconds = int64(30)
-	minTimeoutSeconds     = int64(1)
-	maxTimeoutSeconds     = int64(120)
-	minBotTokenLength     = 20
-	maxBotTokenLength     = 200
-	maxChatIDLength       = 64
-	maxMessageThreadID    = int64(1 << 31)
+	apiKeySettingKey       = "admin.model_test.api_key"
+	timeoutSettingKey      = "admin.model_test.timeout_seconds"
+	telegramBotTokenKey    = "admin.telegram.bot_token"
+	telegramChatIDKey      = "admin.telegram.chat_id"
+	telegramThreadIDKey    = "admin.telegram.message_thread_id"
+	telegramEnabledKey     = "admin.telegram.enabled"
+	telegramMutedModelsKey = "admin.telegram.muted_models"
+	encryptedValueType     = "encrypted"
+	integerValueType       = "int"
+	stringValueType        = "string"
+	boolValueType          = "bool"
+	jsonValueType          = "json"
+	defaultTimeoutSeconds  = int64(30)
+	minTimeoutSeconds      = int64(1)
+	maxTimeoutSeconds      = int64(120)
+	minBotTokenLength      = 20
+	maxBotTokenLength      = 200
+	maxChatIDLength        = 64
+	maxMessageThreadID     = int64(1 << 31)
+	maxMutedModels         = 200
+	maxMutedModelLength    = 512
 )
 
 var ErrProtectionKeyRequired = errors.New("admin settings protection key is required")
 
 // TelegramSettings is the API-facing Telegram view. It never carries the token.
 type TelegramSettings struct {
-	BotTokenConfigured bool   `json:"bot_token_configured"`
-	ChatID             string `json:"chat_id"`
-	MessageThreadID    int64  `json:"message_thread_id,omitempty"`
+	BotTokenConfigured bool     `json:"bot_token_configured"`
+	ChatID             string   `json:"chat_id"`
+	MessageThreadID    int64    `json:"message_thread_id,omitempty"`
+	Enabled            bool     `json:"enabled"`
+	MutedModels        []string `json:"muted_models"`
 }
 
 type Settings struct {
@@ -58,6 +67,8 @@ type TelegramUpdate struct {
 	BotToken        *string
 	ChatID          *string
 	MessageThreadID *int64
+	Enabled         *bool
+	MutedModels     *[]string
 }
 
 type Update struct {
@@ -72,7 +83,15 @@ type TelegramConfig struct {
 	BotToken        string
 	ChatID          string
 	MessageThreadID int64
+	Enabled         bool
+	MutedModels     []string
 	Configured      bool
+}
+
+// Active reports whether notifications may be delivered: the target is
+// configured and the administrator has not disabled the feature.
+func (c TelegramConfig) Active() bool {
+	return c.Configured && c.Enabled
 }
 
 type Service struct {
@@ -87,6 +106,7 @@ func NewService(db *gorm.DB, protectionKey string) *Service {
 func (s *Service) Get(ctx context.Context) (Settings, error) {
 	settings, err := repository.GetAppSettings(ctx, s.db, []string{
 		apiKeySettingKey, timeoutSettingKey, telegramBotTokenKey, telegramChatIDKey, telegramThreadIDKey,
+		telegramEnabledKey, telegramMutedModelsKey,
 	})
 	if err != nil {
 		return Settings{}, err
@@ -113,6 +133,8 @@ func (s *Service) Get(ctx context.Context) (Settings, error) {
 		BotTokenConfigured: telegram.BotToken != "",
 		ChatID:             telegram.ChatID,
 		MessageThreadID:    telegram.MessageThreadID,
+		Enabled:            telegram.Enabled,
+		MutedModels:        telegram.MutedModels,
 	}
 	return result, nil
 }
@@ -147,6 +169,13 @@ func (s *Service) Save(ctx context.Context, update Update) (Settings, error) {
 					return Settings{}, err
 				}
 			}
+		}
+		if update.Telegram.MutedModels != nil {
+			models, err := normalizeMutedModels(*update.Telegram.MutedModels)
+			if err != nil {
+				return Settings{}, err
+			}
+			update.Telegram.MutedModels = &models
 		}
 	}
 	current, err := s.Get(ctx)
@@ -228,13 +257,41 @@ func (s *Service) saveTelegram(ctx context.Context, update *TelegramUpdate, curr
 			current.MessageThreadID = id
 		}
 	}
+	if update.Enabled != nil {
+		value := strconv.FormatBool(*update.Enabled)
+		if err := s.upsert(ctx, telegramEnabledKey, &value, boolValueType); err != nil {
+			return err
+		}
+		current.Enabled = *update.Enabled
+	}
+	if update.MutedModels != nil {
+		models := *update.MutedModels
+		if len(models) == 0 {
+			if err := s.upsert(ctx, telegramMutedModelsKey, nil, jsonValueType); err != nil {
+				return err
+			}
+			current.MutedModels = nil
+		} else {
+			encoded, err := json.Marshal(models)
+			if err != nil {
+				return err
+			}
+			value := string(encoded)
+			if err := s.upsert(ctx, telegramMutedModelsKey, &value, jsonValueType); err != nil {
+				return err
+			}
+			current.MutedModels = models
+		}
+	}
 	return nil
 }
 
 // TelegramConfig returns the secret-bearing configuration used by the
 // notification domain. It is never marshalled into an API response.
 func (s *Service) TelegramConfig(ctx context.Context) (TelegramConfig, error) {
-	settings, err := repository.GetAppSettings(ctx, s.db, []string{telegramBotTokenKey, telegramChatIDKey, telegramThreadIDKey})
+	settings, err := repository.GetAppSettings(ctx, s.db, []string{
+		telegramBotTokenKey, telegramChatIDKey, telegramThreadIDKey, telegramEnabledKey, telegramMutedModelsKey,
+	})
 	if err != nil {
 		return TelegramConfig{}, err
 	}
@@ -242,7 +299,7 @@ func (s *Service) TelegramConfig(ctx context.Context) (TelegramConfig, error) {
 }
 
 func (s *Service) telegramFromSettings(settings map[string]entities.AppSetting) (TelegramConfig, error) {
-	config := TelegramConfig{}
+	config := TelegramConfig{Enabled: true}
 	if setting, ok := settings[telegramBotTokenKey]; ok && setting.Value != nil && strings.TrimSpace(*setting.Value) != "" {
 		token, err := s.decrypt(*setting.Value)
 		if err != nil {
@@ -260,8 +317,50 @@ func (s *Service) telegramFromSettings(settings map[string]entities.AppSetting) 
 		}
 		config.MessageThreadID = id
 	}
+	if setting, ok := settings[telegramEnabledKey]; ok && setting.Value != nil && strings.TrimSpace(*setting.Value) != "" {
+		enabled, err := strconv.ParseBool(strings.TrimSpace(*setting.Value))
+		if err != nil {
+			return TelegramConfig{}, fmt.Errorf("stored telegram enabled flag is invalid")
+		}
+		config.Enabled = enabled
+	}
+	if setting, ok := settings[telegramMutedModelsKey]; ok && setting.Value != nil && strings.TrimSpace(*setting.Value) != "" {
+		var models []string
+		if err := json.Unmarshal([]byte(*setting.Value), &models); err != nil {
+			return TelegramConfig{}, fmt.Errorf("stored telegram muted models are invalid")
+		}
+		normalized, err := normalizeMutedModels(models)
+		if err != nil {
+			return TelegramConfig{}, fmt.Errorf("stored telegram muted models are invalid")
+		}
+		config.MutedModels = normalized
+	}
 	config.Configured = config.BotToken != "" && config.ChatID != ""
 	return config, nil
+}
+
+// normalizeMutedModels trims, de-duplicates, and bounds the mute list.
+func normalizeMutedModels(models []string) ([]string, error) {
+	if len(models) > maxMutedModels {
+		return nil, fmt.Errorf("at most %d muted models are allowed", maxMutedModels)
+	}
+	result := make([]string, 0, len(models))
+	seen := make(map[string]struct{}, len(models))
+	for _, model := range models {
+		value := strings.TrimSpace(model)
+		if value == "" {
+			continue
+		}
+		if len(value) > maxMutedModelLength || strings.ContainsAny(value, "\r\n") {
+			return nil, errors.New("muted model is invalid")
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result, nil
 }
 
 func (s *Service) AdminTestCredential(ctx context.Context) (string, error) {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { notifyModelTestFailure, testModel, type ApiError } from '@/lib/api'
 import type { ModelTestMode, ModelTestResult } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +14,21 @@ interface ModelTestControlsProps {
 type NotifyState = 'idle' | 'sending' | 'sent' | 'failed'
 
 const MAX_REASON_LENGTH = 240
+
+function notifyErrorMessage(code: string | undefined, t: TFunction): string {
+  switch (code) {
+    case 'telegram_not_configured':
+      return t('usage_stats.model_test_notify_not_configured')
+    case 'telegram_disabled':
+      return t('usage_stats.model_test_notify_disabled')
+    case 'telegram_model_muted':
+      return t('usage_stats.model_test_notify_model_muted')
+    case 'notify_rate_limited':
+      return t('usage_stats.model_test_notify_rate_limited')
+    default:
+      return t('usage_stats.model_test_notify_failed')
+  }
+}
 
 export function ModelTestControls({ model }: ModelTestControlsProps) {
   const { t } = useTranslation()
@@ -67,22 +83,14 @@ export function ModelTestControls({ model }: ModelTestControlsProps) {
     setNotifyState('sending')
     setNotifyError('')
     try {
-      await notifyModelTestFailure({
-        model,
-        mode,
-        ...(result?.status_code ? { status_code: result.status_code } : {}),
-        ...(errorCode ? { error_code: errorCode } : {}),
-        ...(result?.reason ? { reason: result.reason.slice(0, MAX_REASON_LENGTH) } : {}),
-      })
+      // The server keeps the authoritative failure record (REC-012); the
+      // browser only identifies which test it is reporting.
+      await notifyModelTestFailure({ model, mode })
       setNotifyState('sent')
     } catch (failure) {
       const code = (failure as ApiError).code
       setNotifyState('failed')
-      setNotifyError(code === 'telegram_not_configured'
-        ? t('usage_stats.model_test_notify_not_configured')
-        : code === 'notify_rate_limited'
-          ? t('usage_stats.model_test_notify_rate_limited')
-          : t('usage_stats.model_test_notify_failed'))
+      setNotifyError(notifyErrorMessage(code, t))
     }
   }
 

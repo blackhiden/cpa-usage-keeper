@@ -35,6 +35,8 @@ const (
 // Stable, non-secret error codes returned to HTTP callers.
 const (
 	CodeNotConfigured  = "telegram_not_configured"
+	CodeDisabled       = "telegram_disabled"
+	CodeModelMuted     = "telegram_model_muted"
 	CodeSendFailed     = "telegram_send_failed"
 	CodeRateLimited    = "notify_rate_limited"
 	CodeInvalidRequest = "invalid_notify_request"
@@ -42,9 +44,17 @@ const (
 
 var (
 	ErrNotConfigured  = errors.New("telegram is not configured")
+	ErrDisabled       = errors.New("telegram notifications are disabled")
+	ErrModelMuted     = errors.New("telegram model is muted")
 	ErrSendFailed     = errors.New("telegram send failed")
 	ErrRateLimited    = errors.New("telegram notification rate limited")
 	ErrInvalidRequest = errors.New("invalid telegram notification request")
+)
+
+// Message kinds. The message model stays channel-neutral (REC-014).
+const (
+	KindFailure = "failure"
+	KindTest    = "test"
 )
 
 // Model-test modes accepted from the failure contract.
@@ -54,18 +64,16 @@ const (
 )
 
 // Request is the caller-supplied notification payload. It deliberately has no
-// reporter field: the reporter is resolved server-side from the session, so a
-// browser cannot claim another identity.
+// reporter and no failure fields: the reporter is resolved server-side from the
+// session and the failure comes from the server-side record (REC-012).
 type Request struct {
-	Model      string `json:"model"`
-	Mode       string `json:"mode"`
-	StatusCode int    `json:"status_code"`
-	ErrorCode  string `json:"error_code"`
-	Reason     string `json:"reason"`
+	Model string `json:"model"`
+	Mode  string `json:"mode"`
 }
 
 // Message is the channel-neutral notification content.
 type Message struct {
+	Kind       string
 	Reporter   string
 	Model      string
 	Mode       string
@@ -87,6 +95,8 @@ type Settings struct {
 	BotToken        string
 	ChatID          string
 	MessageThreadID int64
+	Enabled         bool
+	MutedModels     []string
 	Configured      bool
 }
 
@@ -113,16 +123,23 @@ func (e *RateLimitError) Unwrap() error { return ErrRateLimited }
 // a notification (OQ-6 baseline: API Key Name exists only for viewer sessions).
 const AdminReporterLabel = "Administrator"
 
-// Service validates, rate-limits, and delivers failure notifications.
+// Service validates, records, rate-limits, and delivers notifications.
 type Service struct {
 	notifier Notifier
 	settings SettingsSource
 	limiter  *Limiter
+	failures *FailureStore
 }
 
-// NewService builds the notification service with the default limiter.
+// NewService builds the notification service with the default limiter and an
+// in-memory failure store (REC-012).
 func NewService(notifier Notifier, settings SettingsSource) *Service {
-	return &Service{notifier: notifier, settings: settings, limiter: NewLimiter(LimiterOptions{})}
+	return &Service{
+		notifier: notifier,
+		settings: settings,
+		limiter:  NewLimiter(LimiterOptions{}),
+		failures: NewFailureStore(DefaultFailureTTL),
+	}
 }
 
 // SetLimiter replaces the default limiter; nil disables rate limiting.
@@ -132,31 +149,95 @@ func (s *Service) SetLimiter(limiter *Limiter) {
 	}
 }
 
-// Notify validates the request, resolves configuration, applies the
-// per-reporter limiter, and delivers the message. The returned error wraps one
-// of the package sentinels and never contains the bot token.
-func (s *Service) Notify(ctx context.Context, reporter string, request Request) error {
+// SetFailureStore replaces the default failure store.
+func (s *Service) SetFailureStore(store *FailureStore) {
+	if s != nil && store != nil {
+		s.failures = store
+	}
+}
+
+// RecordFailure stores the server-authored failure for a session scope so the
+// notify endpoint does not need to trust the browser payload.
+func (s *Service) RecordFailure(scope string, failure Failure) {
+	if s == nil || s.failures == nil {
+		return
+	}
+	s.failures.Record(scope, failure)
+}
+
+// LookupFailure returns the recorded failure for a session scope and model.
+func (s *Service) LookupFailure(scope, model string) (Failure, bool) {
+	if s == nil || s.failures == nil {
+		return Failure{}, false
+	}
+	return s.failures.Lookup(scope, model)
+}
+
+// NotifyInput is the server-authoritative notification request.
+type NotifyInput struct {
+	Reporter string
+	Scope    string
+	Model    string
+	Mode     string
+}
+
+// Notify resolves the recorded failure, applies the configuration, mute, and
+// rate-limit rules, and delivers the message. The returned error wraps one of
+// the package sentinels and never contains the bot token.
+func (s *Service) Notify(ctx context.Context, input NotifyInput) error {
 	if s == nil || s.notifier == nil || s.settings == nil {
 		return ErrNotConfigured
 	}
-	message, err := BuildMessage(reporter, request)
-	if err != nil {
-		return err
+	model := strings.TrimSpace(input.Model)
+	if model == "" || len(model) > MaxModelLength || strings.ContainsAny(model, "\r\n") {
+		return fmt.Errorf("%w: model is invalid", ErrInvalidRequest)
 	}
 	settings, err := s.settings.TelegramSettings(ctx)
 	if err != nil {
 		return ErrNotConfigured
 	}
-	target := Target{
-		BotToken:        strings.TrimSpace(settings.BotToken),
-		ChatID:          strings.TrimSpace(settings.ChatID),
-		MessageThreadID: settings.MessageThreadID,
+	target, err := resolveTarget(settings, true)
+	if err != nil {
+		return err
 	}
-	if !settings.Configured || target.BotToken == "" || target.ChatID == "" {
+	failure := Failure{Model: model, Mode: strings.TrimSpace(input.Mode)}
+	if recorded, ok := s.LookupFailure(input.Scope, model); ok {
+		failure = recorded
+		if failure.Mode == "" {
+			failure.Mode = strings.TrimSpace(input.Mode)
+		}
+	}
+	if isMutedModel(settings.MutedModels, failure.Model) {
+		return ErrModelMuted
+	}
+	message, err := BuildMessage(input.Reporter, failure)
+	if err != nil {
+		return err
+	}
+	return s.deliver(ctx, target, message)
+}
+
+// SendTestMessage delivers the fixed configuration-check message (REC-011).
+// It requires a configured target but intentionally ignores the enable toggle:
+// the administrator explicitly asked for a test.
+func (s *Service) SendTestMessage(ctx context.Context) error {
+	if s == nil || s.notifier == nil || s.settings == nil {
 		return ErrNotConfigured
 	}
+	settings, err := s.settings.TelegramSettings(ctx)
+	if err != nil {
+		return ErrNotConfigured
+	}
+	target, err := resolveTarget(settings, false)
+	if err != nil {
+		return err
+	}
+	return s.deliver(ctx, target, Message{Kind: KindTest, Reporter: AdminReporterLabel})
+}
+
+func (s *Service) deliver(ctx context.Context, target Target, message Message) error {
 	if s.limiter != nil {
-		if allowed, retryAfter := s.limiter.Allow(message.Reporter, message.Model); !allowed {
+		if allowed, retryAfter := s.limiter.Allow(message.Reporter, limiterKey(message)); !allowed {
 			return &RateLimitError{RetryAfter: retryAfter}
 		}
 	}
@@ -166,17 +247,53 @@ func (s *Service) Notify(ctx context.Context, reporter string, request Request) 
 	return nil
 }
 
-// BuildMessage validates and normalizes the caller payload into a message.
-func BuildMessage(reporter string, request Request) (Message, error) {
-	model := strings.TrimSpace(request.Model)
+// limiterKey keeps the test action out of the failure cooldown bucket.
+func limiterKey(message Message) string {
+	if message.Kind == KindTest {
+		return "test"
+	}
+	return message.Model
+}
+
+// resolveTarget validates the configuration. requireEnabled enforces the
+// administrator toggle for failure notifications.
+func resolveTarget(settings Settings, requireEnabled bool) (Target, error) {
+	target := Target{
+		BotToken:        strings.TrimSpace(settings.BotToken),
+		ChatID:          strings.TrimSpace(settings.ChatID),
+		MessageThreadID: settings.MessageThreadID,
+	}
+	if !settings.Configured || target.BotToken == "" || target.ChatID == "" {
+		return Target{}, ErrNotConfigured
+	}
+	if requireEnabled && !settings.Enabled {
+		return Target{}, ErrDisabled
+	}
+	return target, nil
+}
+
+// isMutedModel reports whether the model is on the administrator mute list.
+func isMutedModel(muted []string, model string) bool {
+	for _, entry := range muted {
+		if strings.EqualFold(strings.TrimSpace(entry), model) {
+			return true
+		}
+	}
+	return false
+}
+
+// BuildMessage validates and normalizes the server-authored failure into a
+// message. No field originates from the browser.
+func BuildMessage(reporter string, failure Failure) (Message, error) {
+	model := strings.TrimSpace(failure.Model)
 	if model == "" || len(model) > MaxModelLength || strings.ContainsAny(model, "\r\n") {
 		return Message{}, fmt.Errorf("%w: model is invalid", ErrInvalidRequest)
 	}
-	mode := strings.TrimSpace(request.Mode)
+	mode := strings.TrimSpace(failure.Mode)
 	if mode != "" && mode != ModeRegular && mode != ModeStreaming {
 		return Message{}, fmt.Errorf("%w: mode is invalid", ErrInvalidRequest)
 	}
-	if request.StatusCode < 0 || request.StatusCode > 599 {
+	if failure.StatusCode < 0 || failure.StatusCode > 599 {
 		return Message{}, fmt.Errorf("%w: status code is invalid", ErrInvalidRequest)
 	}
 	label := sanitizeText(reporter, MaxReporterLength)
@@ -184,17 +301,21 @@ func BuildMessage(reporter string, request Request) (Message, error) {
 		return Message{}, fmt.Errorf("%w: reporter is required", ErrInvalidRequest)
 	}
 	return Message{
+		Kind:       KindFailure,
 		Reporter:   label,
 		Model:      model,
 		Mode:       mode,
-		StatusCode: request.StatusCode,
-		ErrorCode:  sanitizeText(request.ErrorCode, MaxErrorCodeLength),
-		Reason:     sanitizeReason(request.Reason),
+		StatusCode: failure.StatusCode,
+		ErrorCode:  sanitizeText(failure.ErrorCode, MaxErrorCodeLength),
+		Reason:     sanitizeReason(failure.Reason),
 	}, nil
 }
 
 // Render produces the plain-text message body sent to Telegram.
 func Render(message Message) string {
+	if message.Kind == KindTest {
+		return "CPA Usage Keeper test message\nTelegram notifications are configured correctly."
+	}
 	var builder strings.Builder
 	builder.WriteString("Model test failure\n")
 	builder.WriteString("Reporter: " + message.Reporter + "\n")

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { fetchAdminSettings, updateAdminSettings, type ApiError } from '@/lib/api'
+import { fetchAdminSettings, sendTelegramTestMessage, updateAdminSettings, type ApiError } from '@/lib/api'
 import type { TelegramAdminSettings, UpdateAdminSettingsRequest, UpdateTelegramAdminSettings } from '@/lib/types'
 import styles from './AdminSettingsCard.module.scss'
 
@@ -15,7 +15,14 @@ function telegramValues(telegram?: TelegramAdminSettings) {
     configured: telegram?.bot_token_configured ?? false,
     chatID: telegram?.chat_id ?? '',
     threadID: telegram?.message_thread_id ? String(telegram.message_thread_id) : '',
+    enabled: telegram?.enabled ?? true,
+    muted: telegram?.muted_models ?? [],
   }
+}
+
+function sameModels(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((value, index) => value === right[index])
 }
 
 export function AdminSettingsCard() {
@@ -31,6 +38,12 @@ export function AdminSettingsCard() {
   const [telegramThreadID, setTelegramThreadID] = useState('')
   const [savedChatID, setSavedChatID] = useState('')
   const [savedThreadID, setSavedThreadID] = useState('')
+  const [telegramEnabled, setTelegramEnabled] = useState(true)
+  const [savedTelegramEnabled, setSavedTelegramEnabled] = useState(true)
+  const [mutedModels, setMutedModels] = useState<string[]>([])
+  const [savedMutedModels, setSavedMutedModels] = useState<string[]>([])
+  const [mutedDraft, setMutedDraft] = useState('')
+  const [testState, setTestState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -48,6 +61,10 @@ export function AdminSettingsCard() {
       setTelegramThreadID(telegram.threadID)
       setSavedChatID(telegram.chatID)
       setSavedThreadID(telegram.threadID)
+      setTelegramEnabled(telegram.enabled)
+      setSavedTelegramEnabled(telegram.enabled)
+      setMutedModels(telegram.muted)
+      setSavedMutedModels(telegram.muted)
     }).catch(() => {
       if (!controller.signal.aborted) setError(t('admin_settings.load_failed'))
     }).finally(() => {
@@ -71,6 +88,8 @@ export function AdminSettingsCard() {
     if (chatID !== savedChatID) telegram.chat_id = chatID
     const threadID = telegramThreadID.trim() === '' ? 0 : Number(telegramThreadID.trim())
     if (threadID !== (Number(savedThreadID) || 0)) telegram.message_thread_id = threadID
+    if (telegramEnabled !== savedTelegramEnabled) telegram.enabled = telegramEnabled
+    if (!sameModels(mutedModels, savedMutedModels)) telegram.muted_models = mutedModels
     const payload: UpdateAdminSettingsRequest = {
       request_timeout_seconds: timeout,
       ...(key || clearKey ? { api_key: key } : {}),
@@ -86,6 +105,10 @@ export function AdminSettingsCard() {
       setTelegramThreadID(nextTelegram.threadID)
       setSavedChatID(nextTelegram.chatID)
       setSavedThreadID(nextTelegram.threadID)
+      setTelegramEnabled(nextTelegram.enabled)
+      setSavedTelegramEnabled(nextTelegram.enabled)
+      setMutedModels(nextTelegram.muted)
+      setSavedMutedModels(nextTelegram.muted)
       setKey('')
       setClearKey(false)
       setTelegramToken('')
@@ -96,6 +119,32 @@ export function AdminSettingsCard() {
       setError(status === 400 ? t('admin_settings.invalid_settings') : t('admin_settings.save_failed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const addMutedModel = () => {
+    const value = mutedDraft.trim()
+    if (!value) return
+    if (mutedModels.some((entry) => entry.toLowerCase() === value.toLowerCase())) {
+      setMutedDraft('')
+      return
+    }
+    setMutedModels([...mutedModels, value])
+    setMutedDraft('')
+  }
+
+  const removeMutedModel = (model: string) => {
+    setMutedModels(mutedModels.filter((entry) => entry !== model))
+  }
+
+  const sendTestMessage = async () => {
+    if (testState === 'sending') return
+    setTestState('sending')
+    try {
+      await sendTelegramTestMessage()
+      setTestState('sent')
+    } catch {
+      setTestState('failed')
     }
   }
 
@@ -174,6 +223,45 @@ export function AdminSettingsCard() {
             value={telegramThreadID}
             onChange={(event) => setTelegramThreadID(event.target.value)}
           />
+          <label className={styles.toggle}>
+            <input type="checkbox" checked={telegramEnabled} onChange={(event) => setTelegramEnabled(event.target.checked)} />
+            <span>{t('admin_settings.telegram_enabled')}</span>
+          </label>
+          <p className={styles.sectionDescription}>{t('admin_settings.telegram_enabled_hint')}</p>
+          <div className={styles.muteRow}>
+            <Input
+              type="text"
+              autoComplete="off"
+              label={t('admin_settings.telegram_muted_models')}
+              hint={t('admin_settings.telegram_muted_models_hint')}
+              value={mutedDraft}
+              onChange={(event) => setMutedDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addMutedModel()
+                }
+              }}
+            />
+            <Button type="button" variant="secondary" appearance="action" size="sm" disabled={!mutedDraft.trim()} onClick={addMutedModel}>
+              {t('admin_settings.telegram_add_muted_model')}
+            </Button>
+          </div>
+          {mutedModels.length > 0 && <ul className={styles.mutedList}>
+            {mutedModels.map((model) => <li key={model} className={styles.mutedItem}>
+              <span>{model}</span>
+              <Button type="button" variant="ghost" appearance="action" size="sm" onClick={() => removeMutedModel(model)}>
+                {t('admin_settings.telegram_remove_muted_model')}
+              </Button>
+            </li>)}
+          </ul>}
+          <div className={styles.testRow}>
+            <Button type="button" variant="secondary" appearance="action" size="sm" disabled={!telegramConfigured || testState === 'sending'} loading={testState === 'sending'} onClick={() => void sendTestMessage()}>
+              {t('admin_settings.telegram_send_test')}
+            </Button>
+            {testState === 'sent' && <span className={styles.inlineNotice}>{t('admin_settings.telegram_test_sent')}</span>}
+            {testState === 'failed' && <span className={styles.inlineError}>{t('admin_settings.telegram_test_failed')}</span>}
+          </div>
         </section>
         <Button type="button" variant="primary" appearance="action" loading={saving} disabled={saving || !timeoutValid || !chatIDValid || !threadIDValid} onClick={() => void save()}>
           {t('admin_settings.save')}

@@ -14,8 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ReporterResolver derives the reporter label from the request context.
-type ReporterResolver func(*gin.Context) (string, bool)
+// ReporterResolver derives the reporter label and the server-side failure
+// scope from the authenticated session.
+type ReporterResolver func(*gin.Context) (reporter string, scope string, ok bool)
 
 // RegisterRoutes exposes POST /model-test/notify.
 func RegisterRoutes(router gin.IRoutes, service *telegram.Service, resolve ReporterResolver) {
@@ -29,16 +30,38 @@ func RegisterRoutes(router gin.IRoutes, service *telegram.Service, resolve Repor
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid notification request", "code": telegram.CodeInvalidRequest})
 			return
 		}
-		reporter := ""
+		reporter, scope := "", ""
 		if resolve != nil {
 			var ok bool
-			reporter, ok = resolve(c)
+			reporter, scope, ok = resolve(c)
 			if !ok {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 				return
 			}
 		}
-		if err := service.Notify(c.Request.Context(), reporter, request); err != nil {
+		err := service.Notify(c.Request.Context(), telegram.NotifyInput{
+			Reporter: reporter,
+			Scope:    scope,
+			Model:    request.Model,
+			Mode:     request.Mode,
+		})
+		if err != nil {
+			writeError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"sent": true})
+	})
+}
+
+// RegisterAdminRoutes exposes the configuration-check message (REC-011). It is
+// registered on the admin-only group.
+func RegisterAdminRoutes(router gin.IRoutes, service *telegram.Service) {
+	router.POST("/telegram/test-message", func(c *gin.Context) {
+		if service == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "telegram notifications are unavailable", "code": "telegram_unavailable"})
+			return
+		}
+		if err := service.SendTestMessage(c.Request.Context()); err != nil {
 			writeError(c, err)
 			return
 		}
@@ -54,6 +77,10 @@ func writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid notification request", "code": telegram.CodeInvalidRequest})
 	case errors.Is(err, telegram.ErrNotConfigured):
 		c.JSON(http.StatusConflict, gin.H{"error": "telegram notifications are not configured", "code": telegram.CodeNotConfigured})
+	case errors.Is(err, telegram.ErrDisabled):
+		c.JSON(http.StatusConflict, gin.H{"error": "telegram notifications are disabled", "code": telegram.CodeDisabled})
+	case errors.Is(err, telegram.ErrModelMuted):
+		c.JSON(http.StatusConflict, gin.H{"error": "telegram notifications are muted for this model", "code": telegram.CodeModelMuted})
 	case errors.Is(err, telegram.ErrRateLimited):
 		wait := time.Minute
 		var rateLimit *telegram.RateLimitError
