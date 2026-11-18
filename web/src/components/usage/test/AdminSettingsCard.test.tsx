@@ -8,6 +8,7 @@ import i18n from '@/i18n'
 const api = vi.hoisted(() => ({
   fetchAdminSettings: vi.fn(),
   updateAdminSettings: vi.fn(),
+  sendTelegramTestMessage: vi.fn(),
 }))
 
 vi.mock('@/lib/api', async (original) => ({ ...await original<typeof import('@/lib/api')>(), ...api }))
@@ -23,13 +24,14 @@ describe('AdminSettingsCard', () => {
     api.fetchAdminSettings.mockReset().mockResolvedValue({
       api_key_configured: true,
       request_timeout_seconds: 30,
-      telegram: { bot_token_configured: true, chat_id: '-1001234567890', message_thread_id: 7 },
+      telegram: { bot_token_configured: true, chat_id: '-1001234567890', message_thread_id: 7, enabled: true, muted_models: [] },
     })
     api.updateAdminSettings.mockReset().mockResolvedValue({
       api_key_configured: true,
       request_timeout_seconds: 45,
-      telegram: { bot_token_configured: true, chat_id: '-1001234567890', message_thread_id: 7 },
+      telegram: { bot_token_configured: true, chat_id: '-1001234567890', message_thread_id: 7, enabled: true, muted_models: [] },
     })
+    api.sendTelegramTestMessage.mockReset().mockResolvedValue({ sent: true })
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
@@ -102,5 +104,33 @@ describe('AdminSettingsCard', () => {
     expect(container.textContent).toContain('Enter a numeric chat ID or @username.')
     const saveButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Save Admin Settings')
     expect(saveButton?.disabled).toBe(true)
+  })
+
+  it('saves the enable toggle and muted models', async () => {
+    await act(async () => root.render(<AdminSettingsCard />))
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    await act(async () => checkbox.click())
+    const muteInput = container.querySelectorAll<HTMLInputElement>('input[type="text"]')[1]!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(muteInput, 'legacy-model')
+      muteInput.dispatchEvent(new Event('input', { bubbles: true }))
+      muteInput.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const addButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Add')
+    await act(async () => addButton?.click())
+    const saveButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Save Admin Settings')
+    await act(async () => saveButton?.click())
+    expect(api.updateAdminSettings).toHaveBeenCalledWith({
+      request_timeout_seconds: 30,
+      telegram: { enabled: false, muted_models: ['legacy-model'] },
+    })
+  })
+
+  it('sends a telegram test message', async () => {
+    await act(async () => root.render(<AdminSettingsCard />))
+    const sendButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Send test message')
+    await act(async () => sendButton?.click())
+    expect(api.sendTelegramTestMessage).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toContain('Test message sent.')
   })
 })

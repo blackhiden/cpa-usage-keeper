@@ -18,12 +18,16 @@ export interface TelegramAdminSettings {
   bot_token_configured: boolean
   chat_id: string
   message_thread_id?: number
+  enabled: boolean
+  muted_models: string[]
 }
 
 export interface UpdateTelegramAdminSettings {
   bot_token?: string
   chat_id?: string
   message_thread_id?: number
+  enabled?: boolean
+  muted_models?: string[]
 }
 
 export interface AdminSettingsResponse {
@@ -55,9 +59,6 @@ export interface ModelTestResult {
 export interface ModelTestNotifyRequest {
   model: string
   mode: ModelTestMode
-  status_code?: number
-  error_code?: string
-  reason?: string
 }
 
 export interface ModelTestNotifyResponse {

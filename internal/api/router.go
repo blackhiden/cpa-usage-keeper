@@ -16,7 +16,6 @@ import (
 	adminsettingshttpapi "cpa-usage-keeper/internal/adminsettings/httpapi"
 	"cpa-usage-keeper/internal/auth"
 	gnnhttpapi "cpa-usage-keeper/internal/gnn/httpapi"
-	"cpa-usage-keeper/internal/helper"
 	liveflowhttpapi "cpa-usage-keeper/internal/liveflow/httpapi"
 	"cpa-usage-keeper/internal/logging"
 	"cpa-usage-keeper/internal/modeltest"
@@ -206,16 +205,11 @@ func NewRouter(
 			return "", false
 		}
 		return viewerKey.APIKey, true
-	})
+	}, modelTestFailureObserver(telegramProvider))
 	// Model-test failure notifications are available to both roles. The
 	// reporter is derived from the session only: a viewer reports as its API
 	// Key Name and an administrator reports as the fixed admin label.
-	telegramhttpapi.RegisterRoutes(catalogProtected, telegramProvider, func(c *gin.Context) (string, bool) {
-		if _, key, ok := activeAPIKeyViewerContext(c); ok {
-			return helper.CPAAPIKeyDisplayName(key), true
-		}
-		return telegram.AdminReporterLabel, true
-	})
+	telegramhttpapi.RegisterRoutes(catalogProtected, telegramProvider, telegramReporterResolver)
 
 	// Live Flow is available to both admin and API key viewers (global metadata-only view)
 	liveFlowProtected := apiV1.Group("")
@@ -249,6 +243,8 @@ func NewRouter(
 	registerCPAAPIKeyRoutes(adminProtected, cpaAPIKeyProvider, usageProvider)
 	registerPricingRoutes(adminProtected, pricingProvider)
 	adminsettingshttpapi.RegisterRoutes(adminProtected, adminSettingsProvider)
+	// Telegram configuration check (REC-011); admin-only.
+	telegramhttpapi.RegisterAdminRoutes(adminProtected, telegramProvider)
 	registerQuotaRoutes(adminProtected, quotaProvider)
 	// Provider Model GNN is a permanent, self-contained feature domain
 	// (docs/ARCHITECTURE.md §7); routes are registered by the domain itself.

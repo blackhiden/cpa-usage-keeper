@@ -164,9 +164,10 @@
     Access](#phase-223--model-test--api-key-viewer-models-access-execution-plan).
 
 - **2.24 Model Test Failure Telegram Notification.** ✅ (implemented)
-  - **Status:** Implemented (Phase 2.24) — FEAT-TG-1 through FEAT-TG-9 delivered
-    on `feature/phase-2-24-integration`; REC-010, REC-012, REC-013, and REC-014
-    remain deferred pending review.
+  - **Status:** Implemented and extended (Phase 2.24) — FEAT-TG-1 through
+    FEAT-TG-9 delivered, plus the accepted follow-ups REC-010 (automatic send),
+    REC-011 (Send test message), REC-012 (server-side failure record), REC-013
+    (enable toggle and per-model mute), and REC-014 (channel-neutral seam).
   - **Confirmed requirements:** when a model test fails, the user can notify the
     administrator through a Telegram bot. The message reports the reporter as
     the **API Key Name** (never the API key value), the tested **model**, and
@@ -806,32 +807,21 @@ approval.
 7. The feature lives in a dedicated domain and is recorded in
    `docs/MERGE-PRESERVATION.md`.
 
-**Open questions requiring resolution**
+**Open questions (resolved 2026-11-18)**
 
-- **OQ-5 — Explicit action vs automatic send:** the request says the user
-  "can not notify admin", read here as a missing capability rather than a
-  request for automatic alerts. The baseline plan implements an explicit
-  user-triggered action. Automatic notification on every failure is listed as
-  REC-010 and requires approval because it changes volume, privacy, and abuse
-  characteristics.
-- **OQ-6 — Administrator reporter label:** the requested Reporter field is an
-  API Key Name, which only exists for viewer sessions. Confirm the label used
-  when an administrator triggers the notification (baseline: `Administrator`).
-- **OQ-7 — Abuse and volume control:** viewers can trigger outbound messages to
-  the administrator's chat. Confirm the acceptable cooldown and cap (baseline:
-  per-reporter-per-model cooldown plus a per-reporter hourly cap, both
-  server-enforced).
-- **OQ-8 — Failure payload depth:** confirm that the bounded `Reason` +
-  `StatusCode` + `ErrorCode` is sufficient, or approve capturing a bounded
-  upstream error body in `internal/cpa/client.go`. Capturing bodies increases
-  disclosure risk (provider error text can echo request content) and is not in
-  the baseline.
-- **OQ-9 — Topic ID semantics:** confirm that `message_thread_id` is the
-  intended field (it is the Telegram Bot API field for forum topics) and that
-  it is optional. Baseline: optional; omitted when empty; invalid values are
-  rejected at save time.
-- **OQ-10 — Configuration verification:** confirm whether Admin Settings needs
-  a "Send test message" action. Baseline: not included; listed as REC-011.
+- **OQ-5 — Explicit action vs automatic send:** both. Every failed probe
+  notifies automatically (REC-010) and the explicit **Notify admin** action
+  remains available.
+- **OQ-6 — Administrator reporter label:** the reporter is the API Key Name for
+  viewer sessions and `Administrator` for administrators.
+- **OQ-7 — Abuse and volume control:** server-enforced per-reporter-per-model
+  cooldown plus a per-reporter hourly cap.
+- **OQ-8 — Failure payload depth:** the bounded `Reason` + `StatusCode` +
+  `ErrorCode` only; raw upstream bodies are not captured.
+- **OQ-9 — Topic ID semantics:** `message_thread_id` is optional and omitted
+  when empty; invalid values are rejected at save time.
+- **OQ-10 — Configuration verification:** Admin Settings provides a
+  **Send test message** action (REC-011).
 
 **Task breakdown**
 
@@ -1215,7 +1205,9 @@ inside `internal/modeltest` or the route handler, FEAT-TG-6 UI (the action
 becomes informational), limiter and dedupe tests.
 **Priority:** Medium — requires an explicit decision because it changes the
 feature's volume and abuse profile.
-**Status:** Pending User Review
+**Status:** Accepted and implemented (2026-11-18) — every failed probe records
+the failure and notifies automatically off the response path; the explicit
+**Notify admin** action remains available.
 
 #### REC-011: Add a "Send test message" action to Admin Settings
 
@@ -1235,7 +1227,9 @@ rate-limited and admin-only so it cannot be used to spam the chat.
 `internal/adminsettings/httpapi/routes.go` (or a dedicated admin route),
 `AdminSettingsCard.tsx`, i18n keys, tests.
 **Priority:** Medium
-**Status:** Pending User Review
+**Status:** Accepted and implemented (2026-11-18) — admin-only
+`POST /api/v1/telegram/test-message` plus a **Send test message** button in
+Admin Settings.
 
 #### REC-012: Record the failure server-side instead of trusting the client payload
 
@@ -1256,7 +1250,9 @@ single-instance today, so this is acceptable but should be documented).
 `internal/telegram` (read the record), FEAT-TG-4 handler, tests.
 **Priority:** Medium — recommended if the administrator chat is considered
 sensitive.
-**Status:** Pending User Review
+**Status:** Accepted and implemented (2026-11-18) — in-memory, per-session and
+per-model failure record with a 10-minute TTL; the browser sends only
+`{model, mode}`.
 
 #### REC-013: Add an enable toggle and per-model mute
 
@@ -1275,7 +1271,9 @@ to be inert, which must be reflected in the error codes.
 **Implementation Impact:** `internal/adminsettings` (new keys),
 `AdminSettingsCard.tsx`, `internal/telegram` (mute check), i18n, tests.
 **Priority:** Low
-**Status:** Pending User Review
+**Status:** Accepted and implemented (2026-11-18) —
+`admin.telegram.enabled` and `admin.telegram.muted_models`, enforced server-side
+with the `telegram_disabled` and `telegram_model_muted` codes.
 
 #### REC-014: Introduce a channel abstraction instead of a Telegram-only service
 
@@ -1296,7 +1294,8 @@ message type), FEAT-TG-2, FEAT-TG-4.
 **Priority:** Low — the baseline already isolates the sender behind a
 `Notifier` interface; this recommendation only asks that the message model stay
 channel-neutral.
-**Status:** Pending User Review
+**Status:** Accepted and implemented (2026-11-18) — `telegram.Message` and
+`telegram.Notifier` remain channel-neutral; Telegram is the only implementation.
 
 ---
 

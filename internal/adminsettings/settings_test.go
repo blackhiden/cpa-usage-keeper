@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -164,6 +165,55 @@ func TestAdminSettingsTelegramRejectsInvalidValues(t *testing.T) {
 func stringPtr(value string) *string { return &value }
 
 func int64Ptr(value int64) *int64 { return &value }
+
+func TestAdminSettingsTelegramEnableToggleAndMuteList(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db, "management-secret")
+	initial, err := service.Get(context.Background())
+	if err != nil || !initial.Telegram.Enabled || len(initial.Telegram.MutedModels) != 0 {
+		t.Fatalf("defaults=%+v err=%v", initial.Telegram, err)
+	}
+	enabled := false
+	muted := []string{" legacy-model ", "legacy-model", "other-model", "  "}
+	settings, err := service.Save(context.Background(), Update{Telegram: &TelegramUpdate{Enabled: &enabled, MutedModels: &muted}})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if settings.Telegram.Enabled || len(settings.Telegram.MutedModels) != 2 ||
+		settings.Telegram.MutedModels[0] != "legacy-model" || settings.Telegram.MutedModels[1] != "other-model" {
+		t.Fatalf("unexpected telegram settings: %+v", settings.Telegram)
+	}
+	config, err := service.TelegramConfig(context.Background())
+	if err != nil || config.Enabled || len(config.MutedModels) != 2 {
+		t.Fatalf("config=%+v err=%v", config, err)
+	}
+	empty := []string{}
+	cleared, err := service.Save(context.Background(), Update{Telegram: &TelegramUpdate{MutedModels: &empty}})
+	if err != nil || len(cleared.Telegram.MutedModels) != 0 {
+		t.Fatalf("cleared=%+v err=%v", cleared.Telegram, err)
+	}
+	reEnabled := true
+	restored, err := service.Save(context.Background(), Update{Telegram: &TelegramUpdate{Enabled: &reEnabled}})
+	if err != nil || !restored.Telegram.Enabled {
+		t.Fatalf("restored=%+v err=%v", restored.Telegram, err)
+	}
+}
+
+func TestAdminSettingsTelegramRejectsInvalidMuteList(t *testing.T) {
+	db := openTestDatabase(t)
+	service := NewService(db, "management-secret")
+	withNewline := []string{"bad\nmodel"}
+	if _, err := service.Save(context.Background(), Update{Telegram: &TelegramUpdate{MutedModels: &withNewline}}); err == nil {
+		t.Fatal("expected invalid muted model error")
+	}
+	tooMany := make([]string, maxMutedModels+1)
+	for index := range tooMany {
+		tooMany[index] = "model-" + strconv.Itoa(index)
+	}
+	if _, err := service.Save(context.Background(), Update{Telegram: &TelegramUpdate{MutedModels: &tooMany}}); err == nil {
+		t.Fatal("expected muted model limit error")
+	}
+}
 
 func openTestDatabase(t *testing.T) *gorm.DB {
 	t.Helper()

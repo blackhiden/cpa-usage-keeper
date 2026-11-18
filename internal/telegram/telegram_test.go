@@ -32,12 +32,16 @@ func (s settingsStub) TelegramSettings(context.Context) (Settings, error) {
 }
 
 func configuredSettings() Settings {
-	return Settings{BotToken: "123456789:AAHtest-token-value", ChatID: "-1001234567890", MessageThreadID: 42, Configured: true}
+	return Settings{BotToken: "123456789:AAHtest-token-value", ChatID: "-1001234567890", MessageThreadID: 42, Enabled: true, Configured: true}
+}
+
+func recordedFailure() Failure {
+	return Failure{Model: "gpt-test", Mode: ModeStreaming, StatusCode: 502, ErrorCode: "test_failed", Reason: "upstream timeout"}
 }
 
 func TestBuildMessageRedactsAndBoundsReason(t *testing.T) {
 	reason := "upstream rejected sk-abcdefghijklmnop with Authorization: Bearer abcdefghijklmnop\n" + strings.Repeat("x", 400)
-	message, err := BuildMessage("Team Key", Request{Model: "gpt-test", Mode: ModeStreaming, StatusCode: 502, ErrorCode: "test_failed", Reason: reason})
+	message, err := BuildMessage("Team Key", Failure{Model: "gpt-test", Mode: ModeStreaming, StatusCode: 502, ErrorCode: "test_failed", Reason: reason})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,16 +63,16 @@ func TestBuildMessageRejectsInvalidPayload(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		reporter string
-		request  Request
+		failure  Failure
 	}{
-		{"missing model", "Team Key", Request{Mode: ModeRegular}},
-		{"newline model", "Team Key", Request{Model: "a\nb", Mode: ModeRegular}},
-		{"invalid mode", "Team Key", Request{Model: "a", Mode: "other"}},
-		{"invalid status", "Team Key", Request{Model: "a", StatusCode: 700}},
-		{"missing reporter", "  ", Request{Model: "a"}},
+		{"missing model", "Team Key", Failure{Mode: ModeRegular}},
+		{"newline model", "Team Key", Failure{Model: "a\nb", Mode: ModeRegular}},
+		{"invalid mode", "Team Key", Failure{Model: "a", Mode: "other"}},
+		{"invalid status", "Team Key", Failure{Model: "a", StatusCode: 700}},
+		{"missing reporter", "  ", Failure{Model: "a"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := BuildMessage(tc.reporter, tc.request); !errors.Is(err, ErrInvalidRequest) {
+			if _, err := BuildMessage(tc.reporter, tc.failure); !errors.Is(err, ErrInvalidRequest) {
 				t.Fatalf("got %v", err)
 			}
 		})
@@ -84,10 +88,12 @@ func TestRenderIncludesReporterModelAndReason(t *testing.T) {
 	}
 }
 
-func TestNotifySendsResolvedMessage(t *testing.T) {
+func TestNotifySendsRecordedFailure(t *testing.T) {
 	notifier := &notifierStub{}
 	service := NewService(notifier, settingsStub{settings: configuredSettings()})
-	err := service.Notify(context.Background(), "Team Key", Request{Model: "gpt-test", Mode: ModeStreaming, StatusCode: 502, ErrorCode: "test_failed", Reason: "upstream timeout"})
+	service.RecordFailure("scope-team", recordedFailure())
+	// The client only supplies model and mode; every failure field is server-authored.
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "gpt-test", Mode: ModeStreaming})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -97,15 +103,77 @@ func TestNotifySendsResolvedMessage(t *testing.T) {
 	if notifier.target.ChatID != "-1001234567890" || notifier.target.MessageThreadID != 42 {
 		t.Fatalf("unexpected target: %+v", notifier.target)
 	}
-	if notifier.message.Reporter != "Team Key" || notifier.message.Model != "gpt-test" {
+	if notifier.message.Reporter != "Team Key" || notifier.message.Model != "gpt-test" || notifier.message.Reason != "upstream timeout" {
 		t.Fatalf("unexpected message: %+v", notifier.message)
+	}
+}
+
+func TestNotifyIgnoresFailureFromAnotherScope(t *testing.T) {
+	notifier := &notifierStub{}
+	service := NewService(notifier, settingsStub{settings: configuredSettings()})
+	service.RecordFailure("scope-team", recordedFailure())
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "other-scope", Model: "gpt-test", Mode: ModeStreaming})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if notifier.message.Reason != "" || notifier.message.StatusCode != 0 {
+		t.Fatalf("cross-scope failure leaked: %+v", notifier.message)
+	}
+}
+
+func TestNotifyDisabled(t *testing.T) {
+	notifier := &notifierStub{}
+	settings := configuredSettings()
+	settings.Enabled = false
+	service := NewService(notifier, settingsStub{settings: settings})
+	service.RecordFailure("scope-team", recordedFailure())
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "gpt-test"})
+	if !errors.Is(err, ErrDisabled) || notifier.calls != 0 {
+		t.Fatalf("err=%v calls=%d", err, notifier.calls)
+	}
+}
+
+func TestNotifyMutedModel(t *testing.T) {
+	notifier := &notifierStub{}
+	settings := configuredSettings()
+	settings.MutedModels = []string{"gpt-test"}
+	service := NewService(notifier, settingsStub{settings: settings})
+	service.RecordFailure("scope-team", recordedFailure())
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "GPT-TEST"})
+	if !errors.Is(err, ErrModelMuted) || notifier.calls != 0 {
+		t.Fatalf("err=%v calls=%d", err, notifier.calls)
+	}
+}
+
+func TestSendTestMessageUsesConfiguredTarget(t *testing.T) {
+	notifier := &notifierStub{}
+	settings := configuredSettings()
+	settings.Enabled = false
+	service := NewService(notifier, settingsStub{settings: settings})
+	if err := service.SendTestMessage(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if notifier.calls != 1 || notifier.message.Kind != KindTest {
+		t.Fatalf("calls=%d message=%+v", notifier.calls, notifier.message)
+	}
+	if rendered := Render(notifier.message); !strings.Contains(rendered, "test message") {
+		t.Fatalf("unexpected test body: %q", rendered)
+	}
+}
+
+func TestSendTestMessageRequiresConfiguration(t *testing.T) {
+	notifier := &notifierStub{}
+	service := NewService(notifier, settingsStub{settings: Settings{}})
+	if err := service.SendTestMessage(context.Background()); !errors.Is(err, ErrNotConfigured) || notifier.calls != 0 {
+		t.Fatalf("err=%v calls=%d", err, notifier.calls)
 	}
 }
 
 func TestNotifyNotConfigured(t *testing.T) {
 	notifier := &notifierStub{}
 	service := NewService(notifier, settingsStub{settings: Settings{}})
-	err := service.Notify(context.Background(), "Team Key", Request{Model: "gpt-test"})
+	service.RecordFailure("scope-team", recordedFailure())
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "gpt-test"})
 	if !errors.Is(err, ErrNotConfigured) || notifier.calls != 0 {
 		t.Fatalf("err=%v calls=%d", err, notifier.calls)
 	}
@@ -114,11 +182,12 @@ func TestNotifyNotConfigured(t *testing.T) {
 func TestNotifyRateLimited(t *testing.T) {
 	notifier := &notifierStub{}
 	service := NewService(notifier, settingsStub{settings: configuredSettings()})
-	request := Request{Model: "gpt-test", Mode: ModeRegular}
-	if err := service.Notify(context.Background(), "Team Key", request); err != nil {
+	service.RecordFailure("scope-team", recordedFailure())
+	input := NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "gpt-test", Mode: ModeRegular}
+	if err := service.Notify(context.Background(), input); err != nil {
 		t.Fatalf("first notify failed: %v", err)
 	}
-	err := service.Notify(context.Background(), "Team Key", request)
+	err := service.Notify(context.Background(), input)
 	if !errors.Is(err, ErrRateLimited) || notifier.calls != 1 {
 		t.Fatalf("err=%v calls=%d", err, notifier.calls)
 	}
@@ -132,7 +201,8 @@ func TestNotifySendFailureNeverLeaksToken(t *testing.T) {
 	settings := configuredSettings()
 	notifier := &notifierStub{err: errors.New("post https://api.telegram.org/bot" + settings.BotToken + "/sendMessage: connection refused")}
 	service := NewService(notifier, settingsStub{settings: settings})
-	err := service.Notify(context.Background(), "Team Key", Request{Model: "gpt-test"})
+	service.RecordFailure("scope-team", recordedFailure())
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team", Model: "gpt-test"})
 	if !errors.Is(err, ErrSendFailed) {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,7 +214,7 @@ func TestNotifySendFailureNeverLeaksToken(t *testing.T) {
 func TestNotifyRejectsInvalidRequestBeforeSending(t *testing.T) {
 	notifier := &notifierStub{}
 	service := NewService(notifier, settingsStub{settings: configuredSettings()})
-	err := service.Notify(context.Background(), "Team Key", Request{})
+	err := service.Notify(context.Background(), NotifyInput{Reporter: "Team Key", Scope: "scope-team"})
 	if !errors.Is(err, ErrInvalidRequest) || notifier.calls != 0 {
 		t.Fatalf("err=%v calls=%d", err, notifier.calls)
 	}

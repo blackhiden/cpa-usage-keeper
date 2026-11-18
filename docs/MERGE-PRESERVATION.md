@@ -59,10 +59,13 @@ Chat ID, and an optional Topic ID (`message_thread_id`).
 - **Frontend:** `web/src/features/model-test/` (notify action),
   `web/src/components/usage/AdminSettingsCard.tsx` (Telegram section)
 - **Routes:** `POST /api/v1/model-test/notify` (admin + API-key viewer),
-  extended `GET/PUT /api/v1/admin-settings` (admin only)
+  `POST /api/v1/telegram/test-message` (admin only), extended
+  `GET/PUT /api/v1/admin-settings` (admin only)
 - **Wiring:** `internal/app/app.go` (`telegram.NewService` +
   `telegramSettingsSource` adapter), `internal/api/router.go`
-  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes`)
+  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes` /
+  `RegisterAdminRoutes`), `internal/api/telegram_wiring.go` (session-derived
+  reporter/scope and the automatic-send observer on the model-test route)
 - **Security invariants:**
   - The bot token is encrypted at rest with the existing AES-GCM key derived
     from `CPA_MANAGEMENT_KEY`; no endpoint returns it. `GET /admin-settings`
@@ -70,13 +73,19 @@ Chat ID, and an optional Topic ID (`message_thread_id`).
   - The reporter is resolved server-side from `activeAPIKeyViewerContext` +
     `helper.CPAAPIKeyDisplayName`; administrators report as `Administrator`.
     The request body has no reporter field.
-  - The reason is re-bounded to 240 characters, control characters are stripped,
-    and key-like substrings are redacted before delivery.
+  - Failure content is server-authored: the browser sends only `model` and
+    `mode`, and the reason/status/error code come from the in-memory,
+    per-session failure record (10-minute TTL). The reason is re-bounded to 240
+    characters, control characters are stripped, and key-like substrings are
+    redacted before delivery.
   - Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly
     cap; `429` carries `notify_rate_limited` and `Retry-After`.
+  - The `admin.telegram.enabled` toggle and the `admin.telegram.muted_models`
+    list are enforced server-side (`telegram_disabled`, `telegram_model_muted`).
   - Error responses use stable codes (`telegram_not_configured`,
-    `telegram_send_failed`, `notify_rate_limited`, `invalid_notify_request`)
-    and never echo the token, the chat id, or the Bot API response body.
+    `telegram_disabled`, `telegram_model_muted`, `telegram_send_failed`,
+    `notify_rate_limited`, `invalid_notify_request`) and never echo the token,
+    the chat id, or the Bot API response body.
 
 Verification:
 

@@ -48,18 +48,12 @@ describe('ModelTestControls notify action', () => {
     expect(findButton('Notify admin')).toBeUndefined()
   })
 
-  it('sends only the bounded failure fields', async () => {
+  it('sends only the model and mode, leaving the failure to the server', async () => {
     await renderAndFail()
     const notifyButton = findButton('Notify admin')
     expect(notifyButton).toBeDefined()
     await act(async () => notifyButton?.click())
-    expect(api.notifyModelTestFailure).toHaveBeenCalledWith({
-      model: 'gpt-test',
-      mode: 'streaming',
-      status_code: 502,
-      error_code: 'test_failed',
-      reason: 'upstream timeout',
-    })
+    expect(api.notifyModelTestFailure).toHaveBeenCalledWith({ model: 'gpt-test', mode: 'streaming' })
     expect(container.textContent).toContain('Administrator notified.')
     expect(findButton('Notify admin')).toBeUndefined()
   })
@@ -76,5 +70,19 @@ describe('ModelTestControls notify action', () => {
     api.notifyModelTestFailure.mockRejectedValue(new ApiError('rate limited', 429, 'notify_rate_limited'))
     await act(async () => findButton('Notify admin')?.click())
     expect(container.textContent).toContain('A notification was sent recently. Please wait before sending another.')
+  })
+
+  it('reports a disabled feature with its own message', async () => {
+    await renderAndFail()
+    api.notifyModelTestFailure.mockRejectedValue(new ApiError('disabled', 409, 'telegram_disabled'))
+    await act(async () => findButton('Notify admin')?.click())
+    expect(container.textContent).toContain('Telegram notifications are disabled by the administrator.')
+  })
+
+  it('reports a muted model with its own message', async () => {
+    await renderAndFail()
+    api.notifyModelTestFailure.mockRejectedValue(new ApiError('muted', 409, 'telegram_model_muted'))
+    await act(async () => findButton('Notify admin')?.click())
+    expect(container.textContent).toContain('Notifications are muted for this model.')
   })
 })

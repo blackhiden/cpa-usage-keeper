@@ -10,6 +10,11 @@ import (
 type viewerCredentialResolver func(*gin.Context) string
 type authenticatedCredentialResolver func(*gin.Context) (string, bool)
 
+// ResultObserver runs after a test completes and before the response is
+// written. Observers must be fast and non-blocking; asynchronous work belongs
+// on their own goroutine.
+type ResultObserver func(*gin.Context, modeltest.Request, modeltest.Result)
+
 func RegisterRoutes(router gin.IRoutes, service *modeltest.Service) {
 	router.POST("/model-test", func(c *gin.Context) {
 		if service == nil {
@@ -44,7 +49,7 @@ func RegisterViewerRoutes(router gin.IRoutes, service *modeltest.Service, resolv
 	})
 }
 
-func RegisterAuthenticatedRoutes(router gin.IRoutes, service *modeltest.Service, resolve authenticatedCredentialResolver) {
+func RegisterAuthenticatedRoutes(router gin.IRoutes, service *modeltest.Service, resolve authenticatedCredentialResolver, observers ...ResultObserver) {
 	router.POST("/model-test", func(c *gin.Context) {
 		if service == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "model testing is unavailable", "code": "model_test_unavailable"})
@@ -59,6 +64,12 @@ func RegisterAuthenticatedRoutes(router gin.IRoutes, service *modeltest.Service,
 		if resolve != nil {
 			credential, viewer = resolve(c)
 		}
-		c.JSON(http.StatusOK, service.Test(c.Request.Context(), request, credential, viewer))
+		result := service.Test(c.Request.Context(), request, credential, viewer)
+		for _, observer := range observers {
+			if observer != nil {
+				observer(c, request, result)
+			}
+		}
+		c.JSON(http.StatusOK, result)
 	})
 }
