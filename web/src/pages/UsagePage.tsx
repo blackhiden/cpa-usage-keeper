@@ -64,6 +64,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { DashboardToolbar } from '@/components/dashboard/DashboardToolbar';
 import { cpamcEmbedSearch, isCPAMCEmbed } from '@/embed/cpamcEmbed';
 import { RankingPage } from '@/features/ranking/RankingPage';
+import { ModelRankingSection } from '@/features/model-ranking/ModelRankingSection';
 import { useRankingData } from '@/features/ranking/hooks/useRankingData';
 import { useLocalRankingData } from '@/features/ranking/hooks/useLocalRankingData';
 import { resolveLocalRankingPreviewAPI, resolveRankingPreviewAPI } from '@/features/ranking/previewMock';
@@ -2169,35 +2170,39 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
             )}
 
             {activeTab === 'ranking' && (
-              <RankingPage
-                key={rankingScope}
-                scope={rankingScope}
-                period={rankingPeriod}
-                metric={rankingMetric}
-                status={null}
-                metadata={null}
-                leaderboard={displayedRankingLeaderboard}
-                statusLoading={false}
-                metadataLoading={false}
-                leaderboardLoading={localRankingData.leaderboardLoading}
-                statusError={null}
-                metadataError={null}
-                leaderboardError={localRankingData.leaderboardError}
-                action={null}
-                actionError={null}
-                onClearActionError={rankingData.clearActionError}
-                onJoin={rankingData.join}
-                onSync={rankingData.sync}
-                onPause={rankingData.pause}
-                onResume={rankingData.resume}
-                onExit={rankingData.exit}
-                onRetryStatus={rankingData.refreshStatus}
-                onRetryMetadata={rankingData.refreshMetadata}
-                onRetryLeaderboard={localRankingData.refreshLeaderboard}
-                onUpdateLocalProfile={handleUpdateLocalRankingProfile}
-                onPeriodChange={setRankingPeriod}
-                onMetricChange={setRankingMetric}
-              />
+              <>
+                <RankingPage
+                  key={rankingScope}
+                  scope={rankingScope}
+                  period={rankingPeriod}
+                  metric={rankingMetric}
+                  status={null}
+                  metadata={null}
+                  leaderboard={displayedRankingLeaderboard}
+                  statusLoading={false}
+                  metadataLoading={false}
+                  leaderboardLoading={localRankingData.leaderboardLoading}
+                  statusError={null}
+                  metadataError={null}
+                  leaderboardError={localRankingData.leaderboardError}
+                  action={null}
+                  actionError={null}
+                  onClearActionError={rankingData.clearActionError}
+                  onJoin={rankingData.join}
+                  onSync={rankingData.sync}
+                  onPause={rankingData.pause}
+                  onResume={rankingData.resume}
+                  onExit={rankingData.exit}
+                  onRetryStatus={rankingData.refreshStatus}
+                  onRetryMetadata={rankingData.refreshMetadata}
+                  onRetryLeaderboard={localRankingData.refreshLeaderboard}
+                  onUpdateLocalProfile={handleUpdateLocalRankingProfile}
+                  onPeriodChange={setRankingPeriod}
+                  onMetricChange={setRankingMetric}
+                />
+                {/* Model Ranking owns its selectors; the API-key card is independent. */}
+                <ModelRankingSection />
+              </>
             )}
 
             {activeTab === 'events' && (
