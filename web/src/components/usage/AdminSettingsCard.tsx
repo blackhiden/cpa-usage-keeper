@@ -78,7 +78,7 @@ export function AdminSettingsCard() {
           <Input
             type="number"
             min={1}
-            max={120}
+            max={600}
             step={1}
             label={t('admin_settings.request_timeout')}
             hint={t('admin_settings.timeout_hint')}
@@ -86,7 +86,7 @@ export function AdminSettingsCard() {
             onChange={(event) => setTimeout(Number(event.target.value))}
           />
         </div>
-        <Button type="button" variant="primary" appearance="action" loading={saving} disabled={saving || timeout < 1 || timeout > 120 || !Number.isInteger(timeout)} onClick={() => void save()}>
+        <Button type="button" variant="primary" appearance="action" loading={saving} disabled={saving || timeout < 1 || timeout > 600 || !Number.isInteger(timeout)} onClick={() => void save()}>
           {t('admin_settings.save')}
         </Button>
       </>}
