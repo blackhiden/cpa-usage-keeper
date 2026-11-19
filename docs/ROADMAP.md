@@ -1076,10 +1076,9 @@ keys) over a selected period, folding the same model served through different
 providers under its alias so a model used through several providers accumulates
 one combined value.
 
-**Status:** ✅ Implemented (2026-11-19) on the `feature/model-ranking-*`
-branches; the integration branch is verified but not merged into `main`. This
-section remains the implementation contract, and the feature is protected in
-`docs/MERGE-PRESERVATION.md` §9.
+**Status:** ✅ Implemented and merged into `main` (2026-11-19, merge commit
+`676c2bda`). This section remains the implementation contract, and the feature
+is protected in `docs/MERGE-PRESERVATION.md` §9.
 
 **Evidence used for this plan**
 

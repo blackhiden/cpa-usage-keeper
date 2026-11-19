@@ -3,7 +3,7 @@
 ## Session: Phase 2.25 Model Ranking on `/ranking`
 
 **Date:** 2026-11-19
-**Status:** Implemented on three branches; integration verified; not merged into `main`
+**Status:** Merged into `main` (merge commit `676c2bda`)
 
 - Branched from `main` `dc8e0d3b`: `feature/model-ranking-backend`
   (`a097d4d8`, `../cpauk-model-ranking-backend`),
@@ -36,6 +36,12 @@
   `AGENT_INSTRUCTIONS.md` / `INITIAL_PROMPT.md` exist in each worktree for
   independent agents. No real-browser visual check was performed; component and
   `UsagePage` composition tests cover rendering in the happy-dom environment.
+- Merge and release readiness: the branches were merged into `main` in order
+  backend → frontend → integration (`c58829e1`, `03de60c8`, `676c2bda`), and
+  `make verify` passed on the merged tree (exit 0; 232 frontend files, 1,918
+  passed, 2 skipped; lint, typecheck, and production build clean). The feature
+  branches and worktrees were kept for review/cleanup, and `main` was not
+  pushed to `origin`.
 
 ## Session: Admin Settings Request Timeout raised to 600 seconds
 
