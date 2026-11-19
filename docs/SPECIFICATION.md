@@ -136,6 +136,16 @@ keys that are synchronized from CPA itself.
   optionally switch to community ranking to compare against other Keeper
   instances; my instance publishes an ed25519-signed identity and appears on
   the official leaderboard (opt-in).
+- **UC-9a — Model ranking (Phase 2.25).** As an admin, I view a second
+  leaderboard on `/ranking` that ranks models over six periods (Today,
+  Yesterday, Current Week, Previous Week, Current Month, Previous Month;
+  default Today) using
+  seven quantitative metrics (total tokens, request count, cache read rate,
+  TTFT average, latency average, peak TPM, peak RPM; default total tokens).
+  Models served through different providers under one alias appear once with
+  the combined totals, and the row lists the contributing providers. The
+  leaderboard is admin-only, read-only, and metadata-only: it never returns
+  prompts, bodies, headers, or credentials, and it never queries the archive.
 - **UC-10 — Stay current.** As an admin, I see a notification when a newer
   release is available (hidden for dev builds).
 - **UC-11 — Data safety.** As an admin, daily backups and the 90-day →

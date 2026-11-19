@@ -9,7 +9,7 @@
 
 **Policy (Phase 2.24, planned):** Model Test Failure Telegram Notification (`internal/telegram/` + `web/src/features/model-test/`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
 
-**Policy (Phase 2.25, planned):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go`, `web/src/features/model-ranking/`, and the single mount point in `web/src/pages/UsagePage.tsx`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
+**Policy (Phase 2.25):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go`, `web/src/features/model-ranking/`, and the single mount point in `web/src/pages/UsagePage.tsx`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md §9. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
 
 ---
 
@@ -201,7 +201,7 @@
   - **Execution plan:** see [Phase 2.24 — Model Test Failure Telegram
     Notification](#phase-224--model-test-failure-telegram-notification-execution-plan).
 
-- **2.25 Model Ranking on `/ranking`.** ⬜ (planned)
+- **2.25 Model Ranking on `/ranking`.** ✅ (implemented 2026-11-19)
   - **Objective:** Add a Model leaderboard next to the existing API Key
     leaderboard on `/ranking`, ranked over a user-selected period
     (Today, Yesterday, Current Week, Last Week, Current Month, Last Month;
@@ -222,20 +222,20 @@
     OQ-MR-1, OQ-MR-2, OQ-MR-4, and OQ-MR-5 below must be settled before the
     metric set, the `overall` label, and the calendar timezone are final.
   - **Acceptance Criteria:**
-    - [ ] `/ranking` shows two distinct leaderboards: API Key ranking and
+    - [x] `/ranking` shows two distinct leaderboards: API Key ranking and
       Model ranking, each with its own period selector.
-    - [ ] The model selector offers exactly Today, Yesterday, Current Week,
+    - [x] The model selector offers exactly Today, Yesterday, Current Week,
       Last Week, Current Month, Last Month, defaulting to Today.
-    - [ ] Models that share an alias across providers appear once with the
+    - [x] Models that share an alias across providers appear once with the
       combined totals of every provider.
-    - [ ] Ranked values match a direct aggregation of `usage_events` for the
+    - [x] Ranked values match a direct aggregation of `usage_events` for the
       same window.
-    - [ ] Loading, empty, stale, and error states are handled without breaking
+    - [x] Loading, empty, stale, and error states are handled without breaking
       the API Key leaderboard.
-    - [ ] The endpoint is admin-only, returns no prompts, bodies, headers, or
+    - [x] The endpoint is admin-only, returns no prompts, bodies, headers, or
       credentials, and validates its two query parameters.
-    - [ ] i18n keys exist in en, zh, and zh-TW.
-    - [ ] The feature is recorded in `docs/MERGE-PRESERVATION.md` and
+    - [x] i18n keys exist in en, zh, and zh-TW.
+    - [x] The feature is recorded in `docs/MERGE-PRESERVATION.md` and
       `docs/ARCHITECTURE.md`.
   - **Execution plan:** see [Phase 2.25 — Model Ranking for the Ranking
     Page](#phase-225--model-ranking-for-the-ranking-page-execution-plan).
@@ -1076,8 +1076,10 @@ keys) over a selected period, folding the same model served through different
 providers under its alias so a model used through several providers accumulates
 one combined value.
 
-**Status:** ⬜ Planned — not implemented. Nothing in this phase is delivered;
-this section is the implementation contract.
+**Status:** ✅ Implemented (2026-11-19) on the `feature/model-ranking-*`
+branches; the integration branch is verified but not merged into `main`. This
+section remains the implementation contract, and the feature is protected in
+`docs/MERGE-PRESERVATION.md` §9.
 
 **Evidence used for this plan**
 
@@ -1525,6 +1527,14 @@ this section is the implementation contract.
   baseline and matches Live Flow. Case-insensitive or punctuation-normalized
   matching would merge more variants but risks false merges. If widening is
   wanted, the card should disclose which real names were merged.
+
+**Resolutions (2026-11-19, baseline accepted):** OQ-MR-1 — the seven
+quantitative metrics with `total_tokens` default; OQ-MR-2 — no model `overall`
+score; OQ-MR-3 — admin-only, no viewer-scoped model card; OQ-MR-4 — model
+ranking follows the project `TZ` while the existing key ranking is unchanged;
+OQ-MR-5 — every usage event (matching the API-key ranking); OQ-MR-6 — exact
+`TRIM` alias matching only. REC-015 ... REC-022 remain pending review and are
+not implemented.
 
 ---
 

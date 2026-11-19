@@ -63,6 +63,11 @@ internal/api ────── Gin router, handlers, auth middleware, DTO mappi
         │                          offline subscription resolvers (claude /
         │                          codex / antigravity plan classification)
         ├── internal/ranking ───── local and community ranking (local by default)
+        ├── internal/modelranking ─ Model Ranking feature domain (self-contained:
+        │                          six local-calendar periods, alias-grouped
+        │                          aggregation over usage_events, seven
+        │                          quantitative metrics; HTTP surface in
+        │                          internal/modelranking/httpapi)
         ├── internal/modeltest ─── bounded regular/streaming CPA model probes;
         │                          HTTP registration in internal/modeltest/httpapi
         ├── internal/telegram ──── model-test failure Telegram notifications
@@ -364,6 +369,20 @@ Key invariants:
   chip shows provider/model/dim counters sourced from the GNN response meta
   block. Node and edge features support future advanced analytics
   (embeddings, structural learning, prediction).
+- **Model Ranking on `/ranking` (Phase 2.25)** is a self-contained feature
+  domain. The backend is `internal/modelranking/` (six half-open local-calendar
+  periods resolved with `timeutil.NormalizeStorageTime`, alias-grouped
+  aggregation, seven
+  quantitative metrics, deterministic ordering, and a 30-second in-memory read
+  cache) plus `internal/modelranking/httpapi/` registering admin-only
+  `GET /api/v1/model-ranking/leaderboards`. The SQL lives in
+  `internal/repository/model_ranking.go` and groups by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)` on the reader pool, with a
+  1,000-candidate safety bound and five-minute peak buckets. The frontend
+  `web/src/features/model-ranking/` renders exactly one `ModelRankingSection`
+  card with its own period and metric selectors immediately after
+  `RankingPage` in `UsagePage.tsx`. There is no schema change, no background
+  runner, and no archive access; the API-key ranking is untouched.
 - Credentials surface **provider subscription badges**: `QuotaRow` has no
   per-row `planType` (removed upstream); instead the quota check response
   carries a top-level `subscription` (`UsageSubscriptionInfo`), which

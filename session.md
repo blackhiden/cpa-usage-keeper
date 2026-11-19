@@ -1,5 +1,42 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.25 Model Ranking on `/ranking`
+
+**Date:** 2026-11-19
+**Status:** Implemented on three branches; integration verified; not merged into `main`
+
+- Branched from `main` `dc8e0d3b`: `feature/model-ranking-backend`
+  (`a097d4d8`, `../cpauk-model-ranking-backend`),
+  `feature/model-ranking-frontend` (`7b2252bf`,
+  `../cpauk-model-ranking-frontend`), and
+  `feature/model-ranking-integration` (`../cpauk-model-ranking-integration`,
+  merges both locally and carries the documentation). The pre-existing
+  `feature/model-ranking` branch/worktree at `5a2b462e` was left untouched.
+- Baseline decisions accepted: OQ-MR-1 seven quantitative metrics with
+  `total_tokens` default; OQ-MR-2 no model `overall`; OQ-MR-3 admin-only;
+  OQ-MR-4 project `TZ` for model ranking while the existing key ranking is
+  unchanged; OQ-MR-5 every usage event; OQ-MR-6 exact `TRIM` alias matching.
+  REC-015...REC-022 remain pending and unimplemented.
+- Backend: `internal/modelranking/` (six half-open periods, metric parity with
+  `internal/ranking/local_leaderboard.go`, 30 s cache), repository aggregation
+  in `internal/repository/model_ranking.go` grouped by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)` on the reader pool with a
+  1,000-candidate cap, and admin-only
+  `GET /api/v1/model-ranking/leaderboards`.
+- Frontend: `web/src/features/model-ranking/` (feature-local types/API/hook/
+  formatting, `ModelRankingSection`), one mount after `RankingPage` in
+  `UsagePage.tsx`, and the `model_ranking` i18n namespace for en/zh/zh-TW.
+- Validation: full `go test ./cmd/... ./internal/...` on the backend lane;
+  frontend 232 files / 1,918 passed / 2 skipped, plus typecheck, lint, and
+  build; the merged integration branch repeats the focused suites and the full
+  frontend suite, and `make verify` passed (exit 0) including `npm ci`, all
+  frontend checks, and the production build.
+- Limitation: one Cline instance was available, so the two lanes were
+  implemented sequentially inside isolated worktrees (Phase 2.21 Option B).
+  `AGENT_INSTRUCTIONS.md` / `INITIAL_PROMPT.md` exist in each worktree for
+  independent agents. No real-browser visual check was performed; component and
+  `UsagePage` composition tests cover rendering in the happy-dom environment.
+
 ## Session: Admin Settings Request Timeout raised to 600 seconds
 
 **Date:** 2026-11-18
