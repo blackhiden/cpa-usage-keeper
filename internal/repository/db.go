@@ -454,7 +454,7 @@ func usageEventAggregationsCaughtUp(tx *gorm.DB) (bool, error) {
 		var modelCheckpoint entities.ModelRankingAggregationCheckpoint
 		if err := tx.Where("name = ?", "model_ranking").Take(&modelCheckpoint).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return false, nil
+				return true, nil
 			}
 			return false, fmt.Errorf("load model ranking archive watermark: %w", err)
 		}

@@ -440,7 +440,7 @@ func (r *UsageAggregationRunner) runRollupsTurn(ctx context.Context, writeDB *go
 	}
 	modelCursor, err := repository.LoadModelRankingAggregationCursor(ctx, r.db)
 	if err != nil {
-		return false, false, false, err
+		modelCursor = 0
 	}
 	snapshot, err := repository.LoadUsageAggregationCheckpointSnapshot(ctx, r.db)
 	if err != nil {
@@ -449,7 +449,7 @@ func (r *UsageAggregationRunner) runRollupsTurn(ctx context.Context, writeDB *go
 	if snapshot.OverviewCursor >= targetEventID && snapshot.ActivityCursor >= targetEventID && snapshot.LatencyCursor >= targetEventID && modelCursor >= targetEventID {
 		return false, false, true, nil
 	}
-	if snapshot.Equal() {
+	if snapshot.Equal() && modelCursor == snapshot.OverviewCursor {
 		return r.runSharedRollupsPage(ctx, writeDB, snapshot.OverviewCursor, targetEventID, now, modelCursor)
 	}
 	processed, deferred, reached, err := r.runFallbackRollupsPages(ctx, writeDB, snapshot, targetEventID, now)
