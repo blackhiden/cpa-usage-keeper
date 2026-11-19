@@ -5,7 +5,7 @@
 ## Session: Phase 2.25 expansion — viewer scope and REC-015…REC-022
 
 **Date:** 2026-11-19
-**Status:** Backend/frontend lanes complete and merged into integration; main merge pending
+**Status:** Merged into `main` (expansion merge commit `93746bac`)
 
 - New lanes: `feature/model-ranking-expansion-backend` (`be0c6b22`,
   `d556bfdb`) and `feature/model-ranking-expansion-frontend` (`1d0a87c2`),

@@ -1079,9 +1079,8 @@ keys) over a selected period, folding the same model served through different
 providers under its alias so a model used through several providers accumulates
 one combined value.
 
-**Status:** ✅ Expanded implementation complete on the integration branch;
-original Phase 2.25 was merged into `main` at `676c2bda`. This expansion is
-pending a separate merge approval and is protected in
+**Status:** ✅ Expanded implementation merged into `main` at `93746bac`
+(2026-11-19; original Phase 2.25 was `676c2bda`). The feature is protected in
 `docs/MERGE-PRESERVATION.md` §9.
 
 **Evidence used for this plan**
