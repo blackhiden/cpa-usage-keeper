@@ -19,6 +19,7 @@ import (
 	"cpa-usage-keeper/internal/gnn"
 	"cpa-usage-keeper/internal/liveflow"
 	"cpa-usage-keeper/internal/logging"
+	"cpa-usage-keeper/internal/modelranking"
 	"cpa-usage-keeper/internal/modeltest"
 	"cpa-usage-keeper/internal/oidc"
 	"cpa-usage-keeper/internal/poller"
@@ -144,6 +145,12 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 	if err != nil {
 		recentUsageCache.Close()
 		return nil, fmt.Errorf("initialize local ranking runner: %w", err)
+	}
+	// Model Ranking is read-only and has no runner; construction must not block startup.
+	modelRankingService, err := modelranking.NewService(db)
+	if err != nil {
+		recentUsageCache.Close()
+		return nil, fmt.Errorf("initialize model ranking service: %w", err)
 	}
 	pricingSnapshot, err := repository.LoadPricingSnapshot(context.Background(), db)
 	if err != nil {
@@ -337,6 +344,8 @@ func buildReadyApp(cfg config.Config, db, readDB *gorm.DB, logCloser io.Closer, 
 				RequestLogs:        requestLogService,
 				// Local ranking is enabled (fork feature)
 				LocalRanking: localRankingService,
+				// Model Ranking is admin-only (Phase 2.25 fork feature)
+				ModelRanking: modelRankingService,
 				// Community ranking is disabled but code preserved
 				// Ranking:            rankingService,
 				// Provider Model GNN is a permanent fork feature
