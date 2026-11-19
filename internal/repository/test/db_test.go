@@ -876,6 +876,9 @@ func TestCleanupStorageDefersUsageEventsUntilIdentityCatchUp(t *testing.T) {
 	if err := db.Create(&checkpoints).Error; err != nil {
 		t.Fatalf("seed global aggregation checkpoints: %v", err)
 	}
+	if db.Migrator().HasTable(&entities.ModelRankingAggregationCheckpoint{}) {
+		_ = db.Create(&entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", LastAggregatedUsageEventID: events[1].ID, CreatedAt: now, UpdatedAt: now}).Error
+	}
 	if err := db.Create(&entities.UsageIdentity{
 		Name:                       "Auth 1",
 		AuthType:                   entities.UsageIdentityAuthTypeCredential,
