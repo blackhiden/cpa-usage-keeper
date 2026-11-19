@@ -43,6 +43,13 @@ const response = (overrides: Partial<ModelRankingResponse> = {}): ModelRankingRe
     cache_read_tokens: 50,
     total_tokens: 100,
     value: 100,
+    cost_usd: 0.125,
+    unavailable_cost_count: 0,
+    provider_contributions: [
+      { provider: 'openai', request_count: 2, total_tokens: 70 },
+      { provider: 'azure', request_count: 1, total_tokens: 30 },
+    ],
+    trend: { change: 25, percent: 33.3, previous_value: 75, available: true },
   }],
   ...overrides,
 });
@@ -85,9 +92,11 @@ describe('ModelRankingSection', () => {
     expect(metricSelect().getAttribute('data-model-ranking-metric')).toBe('total_tokens');
     expect(container.querySelectorAll('[data-model-ranking-row]')).toHaveLength(1);
     expect(container.querySelector('[data-model-ranking-row] strong')?.textContent).toBe('gpt-5');
-    expect(Array.from(container.querySelectorAll('[data-model-ranking-provider]'), (node) => node.textContent)).toEqual(['openai', 'azure']);
+    expect(Array.from(container.querySelectorAll('[data-model-ranking-provider]'), (node) => node.textContent?.split(':')[0])).toEqual(['openai', 'azure']);
     expect(container.querySelector('[data-model-ranking-updated-at]')?.textContent).toContain('Updated');
-    expect(api.fetchModelRankingLeaderboard).toHaveBeenCalledWith('today', 'total_tokens', expect.any(AbortSignal));
+    expect(api.fetchModelRankingLeaderboard).toHaveBeenCalledWith('today', 'total_tokens', expect.any(AbortSignal), '', false);
+    expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('$0.1250');
+    expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('33.3%');
   });
 
   it('offers exactly six periods and persists a period change', async () => {
@@ -96,7 +105,7 @@ describe('ModelRankingSection', () => {
     expect(optionTexts()).toEqual(['Today', 'Yesterday', 'Current week', 'Last week', 'Current month', 'Last month']);
     const lastWeek = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((node) => node.textContent === 'Last week')!;
     await act(async () => lastWeek.click());
-    expect(api.fetchModelRankingLeaderboard).toHaveBeenLastCalledWith('previous_week', 'total_tokens', expect.any(AbortSignal));
+    expect(api.fetchModelRankingLeaderboard).toHaveBeenLastCalledWith('previous_week', 'total_tokens', expect.any(AbortSignal), '', false);
     expect(localStorage.getItem(MODEL_RANKING_PERIOD_STORAGE_KEY)).toBe('previous_week');
     expect(periodSelect().getAttribute('data-model-ranking-period')).toBe('previous_week');
   });
@@ -104,11 +113,11 @@ describe('ModelRankingSection', () => {
   it('switches the metric without touching the period', async () => {
     await render();
     const triggers = container.querySelectorAll<HTMLButtonElement>('[data-model-ranking-controls] button');
-    await act(async () => triggers[1].click());
-    expect(optionTexts()).toEqual(['Total tokens', 'Request count', 'Cache read rate', 'Average TTFT', 'Average latency', 'Peak TPM', 'Peak RPM']);
+    await act(async () => triggers[2].click());
+    expect(optionTexts()).toEqual(['Total tokens', 'Request count', 'Cache read rate', 'Average TTFT', 'Average latency', 'Peak TPM', 'Peak RPM', 'Overall score']);
     const requests = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((node) => node.textContent === 'Request count')!;
     await act(async () => requests.click());
-    expect(api.fetchModelRankingLeaderboard).toHaveBeenLastCalledWith('today', 'request_count', expect.any(AbortSignal));
+    expect(api.fetchModelRankingLeaderboard).toHaveBeenLastCalledWith('today', 'request_count', expect.any(AbortSignal), '', false);
     expect(metricSelect().getAttribute('data-model-ranking-metric')).toBe('request_count');
     expect(container.querySelector('thead')?.textContent).toContain('Requests');
   });
@@ -117,7 +126,7 @@ describe('ModelRankingSection', () => {
     localStorage.setItem(MODEL_RANKING_PERIOD_STORAGE_KEY, 'previous_month');
     await render();
     expect(periodSelect().getAttribute('data-model-ranking-period')).toBe('previous_month');
-    expect(api.fetchModelRankingLeaderboard).toHaveBeenCalledWith('previous_month', 'total_tokens', expect.any(AbortSignal));
+    expect(api.fetchModelRankingLeaderboard).toHaveBeenCalledWith('previous_month', 'total_tokens', expect.any(AbortSignal), '', false);
   });
 
   it('renders the empty state for a period without model usage', async () => {
@@ -149,5 +158,32 @@ describe('ModelRankingSection', () => {
     const targets = network.mock.calls.map((call) => String(call[0]));
     expect(targets.every((target) => !target.includes('/ranking/local/leaderboards'))).toBe(true);
     expect(targets).toHaveLength(0);
+  });
+
+  it('filters the model board by a selected provider', async () => {
+    await render();
+    const triggers = container.querySelectorAll<HTMLButtonElement>('[data-model-ranking-controls] button');
+    await act(async () => triggers[1].click());
+    expect(optionTexts()).toContain('openai');
+    const provider = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((node) => node.textContent === 'openai')!;
+    await act(async () => provider.click());
+    expect(api.fetchModelRankingLeaderboard).toHaveBeenLastCalledWith('today', 'total_tokens', expect.any(AbortSignal), 'openai', false);
+  });
+
+  it('shows overall score explanation and unavailable costs', async () => {
+    api.fetchModelRankingLeaderboard.mockResolvedValue(response({
+      metric: 'overall',
+      score_explanation: { version: 1, texts: { en: 'Normalized model score' } },
+      entries: [{ ...response().entries[0], value: 80, unavailable_cost_count: 2 }],
+    }));
+    localStorage.setItem(MODEL_RANKING_PERIOD_STORAGE_KEY, 'today');
+    await render();
+    // Switch the metric to overall, which is the final option.
+    const triggers = container.querySelectorAll<HTMLButtonElement>('[data-model-ranking-controls] button');
+    await act(async () => triggers[2].click());
+    const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((node) => node.textContent === 'Overall score')!;
+    await act(async () => option.click());
+    expect(container.querySelector('[data-model-ranking-overall-explanation]')?.textContent).toContain('Normalized model score');
+    expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('unavailable');
   });
 });

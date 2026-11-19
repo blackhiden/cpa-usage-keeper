@@ -17,6 +17,12 @@ import styles from './ModelRankingSection.module.scss';
 
 const DEFAULT_METRIC: ModelRankingMetric = 'total_tokens';
 
+export interface ModelRankingSectionProps {
+  viewerScope?: boolean;
+  linkedPeriod?: ModelRankingPeriod;
+  onPeriodChange?: (period: ModelRankingPeriod) => void;
+}
+
 const METRIC_OPTIONS: ReadonlyArray<{ value: ModelRankingMetric; labelKey: string; triggerLabelKey: string }> = [
   { value: 'total_tokens', labelKey: 'model_ranking.metric_total_tokens', triggerLabelKey: 'model_ranking.metric_short_total_tokens' },
   { value: 'request_count', labelKey: 'model_ranking.metric_request_count', triggerLabelKey: 'model_ranking.metric_short_request_count' },
@@ -25,6 +31,7 @@ const METRIC_OPTIONS: ReadonlyArray<{ value: ModelRankingMetric; labelKey: strin
   { value: 'latency_average', labelKey: 'model_ranking.metric_latency_average', triggerLabelKey: 'model_ranking.metric_short_latency_average' },
   { value: 'peak_tpm', labelKey: 'model_ranking.metric_peak_tpm', triggerLabelKey: 'model_ranking.metric_short_peak_tpm' },
   { value: 'peak_rpm', labelKey: 'model_ranking.metric_peak_rpm', triggerLabelKey: 'model_ranking.metric_short_peak_rpm' },
+  { value: 'overall', labelKey: 'model_ranking.metric_overall', triggerLabelKey: 'model_ranking.metric_short_overall' },
 ];
 
 const resolveStorage = (): Storage | undefined => (typeof window === 'undefined' ? undefined : window.localStorage);
@@ -41,15 +48,23 @@ const formatGeneratedAt = (value: string, language: string): string => {
 // ModelRankingSection renders its own leaderboard card on /ranking. It owns its
 // period and metric selectors so the API-key leaderboard is never reloaded or
 // reset by a model-period change.
-export function ModelRankingSection() {
+export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPeriodChange }: ModelRankingSectionProps) {
   const { t, i18n } = useTranslation();
   const [period, setPeriod] = useState<ModelRankingPeriod>(() => readStoredModelRankingPeriod(resolveStorage()));
   const [metric, setMetric] = useState<ModelRankingMetric>(DEFAULT_METRIC);
+  const [provider, setProvider] = useState('');
+  const [periodsLinked, setPeriodsLinked] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('cpa-usage-keeper-model-ranking-link-periods') === 'true'; } catch { return false; }
+  });
+  const effectivePeriod = periodsLinked && linkedPeriod ? linkedPeriod : period;
   const { leaderboard, loading, error, refresh } = useModelRankingData({
     enabled: true,
-    period,
+    period: effectivePeriod,
     metric,
+    provider,
+    viewerScope,
   });
+  const displayLeaderboard = leaderboard;
 
   const periodOptions = useMemo(
     () => MODEL_RANKING_PERIOD_OPTIONS.map((option) => ({
@@ -67,15 +82,26 @@ export function ModelRankingSection() {
     })),
     [t],
   );
-  const currentPeriodLabel = periodOptions.find((option) => option.value === period)?.triggerLabel ?? period;
+  const currentPeriodLabel = periodOptions.find((option) => option.value === effectivePeriod)?.triggerLabel ?? effectivePeriod;
   const currentMetricLabel = metricOptions.find((option) => option.value === metric)?.triggerLabel ?? metric;
-  const rows = useMemo(() => leaderboard?.entries.slice(0, 100) ?? [], [leaderboard]);
+  const rows = useMemo(() => displayLeaderboard?.entries.slice(0, 100) ?? [], [displayLeaderboard]);
 
   const handlePeriodChange = useCallback((value: string) => {
-    const next = isModelRankingPeriod(value) ? value : MODEL_RANKING_DEFAULT_PERIOD;
+    const next = periodsLinked && linkedPeriod ? linkedPeriod : isModelRankingPeriod(value) ? value : MODEL_RANKING_DEFAULT_PERIOD;
     storeModelRankingPeriod(resolveStorage(), next);
     setPeriod(next);
+    onPeriodChange?.(next);
+  }, [linkedPeriod, onPeriodChange, periodsLinked]);
+
+  const handleLinkedChange = useCallback((checked: boolean) => {
+    setPeriodsLinked(checked);
+    try { window.localStorage.setItem('cpa-usage-keeper-model-ranking-link-periods', String(checked)); } catch { /* best-effort */ }
   }, []);
+
+  const providerOptions = useMemo(() => {
+    const providers = [...new Set([provider, ...(displayLeaderboard?.entries ?? []).flatMap((entry) => entry.providers)])].filter(Boolean).sort();
+    return [{ value: '', label: t('model_ranking.provider_all'), triggerLabel: t('model_ranking.provider_all') }, ...providers.map((value) => ({ value, label: value }))];
+  }, [displayLeaderboard, provider, t]);
 
   const handleMetricChange = useCallback((value: string) => {
     if (isMetric(value)) setMetric(value);
@@ -87,9 +113,11 @@ export function ModelRankingSection() {
         <h2 className={`${styles.title} keeper-card-title`} data-model-ranking-title>
           {t('model_ranking.title')}
         </h2>
+        {viewerScope ? <span className={styles.scopeLabel} data-model-ranking-viewer-scope>{t('model_ranking.viewer_scope')}</span> : null}
+        {metric === 'overall' && leaderboard?.score_explanation?.texts?.[i18n.language as 'en'|'zh'|'zh-TW'] ? <p className={styles.explanation} data-model-ranking-overall-explanation>{leaderboard.score_explanation.texts[i18n.language as 'en'|'zh'|'zh-TW']}</p> : null}
         <div className={styles.controls} data-model-ranking-controls>
           <Select
-            value={period}
+            value={effectivePeriod}
             options={periodOptions}
             onChange={handlePeriodChange}
             className={styles.periodSelect}
@@ -98,6 +126,8 @@ export function ModelRankingSection() {
             fullWidth={false}
             dataAttributes={{ 'data-model-ranking-period': period }}
           />
+          {!viewerScope ? <label className={styles.linkPeriods}><input type="checkbox" checked={periodsLinked} onChange={(event) => handleLinkedChange(event.currentTarget.checked)} data-model-ranking-link-periods />{t('model_ranking.link_periods')}</label> : null}
+          <Select value={provider} options={providerOptions} onChange={setProvider} ariaLabel={t('model_ranking.provider_filter')} dropdownMinWidth={180} fullWidth={false} dataAttributes={{ 'data-model-ranking-provider-filter': provider || 'all' }} />
           <Select
             value={metric}
             options={metricOptions}
@@ -111,24 +141,24 @@ export function ModelRankingSection() {
           />
         </div>
       </header>
-      {leaderboard ? (
+      {displayLeaderboard ? (
         <div className={styles.meta}>
-          {leaderboard.stale ? (
+          {displayLeaderboard.stale ? (
             <span className={styles.staleBadge} data-model-ranking-stale>
-              {t('model_ranking.stale')} · {leaderboard.period_key}
+              {t('model_ranking.stale')} · {displayLeaderboard.period_key}
             </span>
           ) : null}
           <span data-model-ranking-updated-at>
-            {t('model_ranking.updated_at', { time: formatGeneratedAt(leaderboard.generated_at, i18n.language) })}
+            {t('model_ranking.updated_at', { time: formatGeneratedAt(displayLeaderboard.generated_at, i18n.language) })}
           </span>
         </div>
       ) : null}
-      {loading && !leaderboard ? (
+      {loading && !displayLeaderboard ? (
         <div className={styles.loadingState}>
           <LoadingSpinner size={20} />
           <span>{t('model_ranking.loading')}</span>
         </div>
-      ) : error && !leaderboard ? (
+      ) : error && !displayLeaderboard ? (
         <div className={styles.errorState} role="alert" data-model-ranking-error>
           <p>{t('model_ranking.error_generic')}</p>
           <Button variant="secondary" appearance="action" onClick={() => void refresh()}>
@@ -149,6 +179,8 @@ export function ModelRankingSection() {
                 <th>{t('model_ranking.model')}</th>
                 <th>{t('model_ranking.providers')}</th>
                 <th className={styles.numberCell}>{t(`model_ranking.metric_short_${metric}`)}</th>
+                <th className={styles.numberCell}>{t('model_ranking.cost')}</th>
+                <th className={styles.numberCell}>{t('model_ranking.trend')}</th>
               </tr>
             </thead>
             <tbody>
@@ -163,9 +195,9 @@ export function ModelRankingSection() {
                   <td>
                     <div className={styles.providers}>
                       {entry.providers.length > 0
-                        ? entry.providers.map((provider) => (
-                          <span className={styles.providerBadge} key={provider} data-model-ranking-provider>
-                            {provider}
+                        ? (entry.provider_contributions ?? entry.providers.map((name) => ({ provider: name, request_count: 0, total_tokens: 0 }))).map((share) => (
+                          <span className={styles.providerBadge} key={share.provider} data-model-ranking-provider>
+                            {share.provider}: {share.request_count} {t('model_ranking.requests_short')} · {share.total_tokens} {t('model_ranking.tokens_short')}
                           </span>
                         ))
                         : <span className={styles.noProvider}>—</span>}
@@ -174,6 +206,8 @@ export function ModelRankingSection() {
                   <td className={`${styles.numberCell} ${styles.valueCell}`.trim()}>
                     {formatModelRankingValue(metric, entry)}
                   </td>
+                  <td className={styles.numberCell}>{(entry.unavailable_cost_count ?? 0) > 0 ? t('model_ranking.cost_partial', { cost: (entry.cost_usd ?? 0).toFixed(4), count: entry.unavailable_cost_count }) : `$${(entry.cost_usd ?? 0).toFixed(4)}`}</td>
+                  <td className={styles.numberCell}>{entry.trend?.available ? t('model_ranking.trend_change', { change: entry.trend.change, percent: entry.trend.percent?.toFixed(1) ?? '—' }) : t('model_ranking.trend_unavailable')}</td>
                 </tr>
               ))}
             </tbody>

@@ -16,6 +16,7 @@ export const MODEL_RANKING_METRICS = [
   'latency_average',
   'peak_tpm',
   'peak_rpm',
+  'overall',
 ] as const;
 export type ModelRankingMetric = (typeof MODEL_RANKING_METRICS)[number];
 
@@ -32,6 +33,10 @@ export interface ModelRankingEntry {
   value: number;
   rate_numerator?: number;
   rate_denominator?: number;
+  cost_usd?: number;
+  unavailable_cost_count?: number;
+  provider_contributions?: { provider: string; request_count: number; total_tokens: number }[];
+  trend?: { change: number; percent?: number; previous_value: number; available: boolean };
 }
 
 export interface ModelRankingResponse {
@@ -48,4 +53,5 @@ export interface ModelRankingResponse {
    * and the last successful board stays visible. The API never sends it.
    */
   stale?: boolean;
+  score_explanation?: { version: number; texts: Partial<Record<'en'|'zh'|'zh-TW',string>> };
 }
