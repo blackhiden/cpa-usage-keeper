@@ -73,6 +73,39 @@ func ModelRankingRollupCheckpoint(ctx context.Context, db *gorm.DB) (int64, erro
 	return checkpoint.LastAggregatedUsageEventID, nil
 }
 
+type ModelRankingBackfillResult struct {
+	ProcessedEvents int64
+	CheckpointID    int64
+	CaughtUp        bool
+}
+
+// BackfillModelRankingRollups advances at most maxPages persisted rollup pages.
+// Repeated calls resume from the same checkpoint used by the live aggregation
+// runner; each page is transactional and bounded to modelRankingRollupBatchSize.
+func BackfillModelRankingRollups(ctx context.Context, db *gorm.DB, now time.Time, maxPages int) (ModelRankingBackfillResult, error) {
+	if db == nil || maxPages <= 0 {
+		return ModelRankingBackfillResult{}, fmt.Errorf("database and positive page limit are required")
+	}
+	result := ModelRankingBackfillResult{}
+	for page := 0; page < maxPages; page++ {
+		processed, caught, err := AggregateModelRankingPage(ctx, db, now)
+		if err != nil {
+			return result, err
+		}
+		result.ProcessedEvents += int64(processed)
+		cursor, err := ModelRankingRollupCheckpoint(ctx, db)
+		if err != nil {
+			return result, err
+		}
+		result.CheckpointID = cursor
+		if caught {
+			result.CaughtUp = true
+			return result, nil
+		}
+	}
+	return result, nil
+}
+
 // AggregateModelRankingPage commits all model rollup rows and the matching
 // cursor together. Replaying a page after failure cannot double count it.
 func AggregateModelRankingPage(ctx context.Context, db *gorm.DB, now time.Time) (int, bool, error) {

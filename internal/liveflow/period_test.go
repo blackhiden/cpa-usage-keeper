@@ -23,10 +23,10 @@ func TestResolvePeriodWindow(t *testing.T) {
 	now := time.Date(2026, 11, 16, 15, 30, 0, 0, time.Local)
 
 	tests := []struct {
-		period      Period
-		wantStart   string
-		wantEnd     string
-		wantKey     string
+		period    Period
+		wantStart string
+		wantEnd   string
+		wantKey   string
 	}{
 		{PeriodToday, "2026-11-16T00:00:00", "2026-11-17T00:00:00", "2026-11-16"},
 		{PeriodYesterday, "2026-11-15T00:00:00", "2026-11-16T00:00:00", "2026-11-15"},
