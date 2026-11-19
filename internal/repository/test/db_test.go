@@ -876,6 +876,9 @@ func TestCleanupStorageDefersUsageEventsUntilIdentityCatchUp(t *testing.T) {
 	if err := db.Create(&checkpoints).Error; err != nil {
 		t.Fatalf("seed global aggregation checkpoints: %v", err)
 	}
+	if db.Migrator().HasTable(&entities.ModelRankingAggregationCheckpoint{}) {
+		_ = db.Create(&entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", LastAggregatedUsageEventID: events[1].ID, CreatedAt: now, UpdatedAt: now}).Error
+	}
 	if err := db.Create(&entities.UsageIdentity{
 		Name:                       "Auth 1",
 		AuthType:                   entities.UsageIdentityAuthTypeCredential,
@@ -922,6 +925,11 @@ func seedCaughtUpLatencyCheckpoint(t *testing.T, db *gorm.DB, now time.Time) {
 	}
 	if err := db.Create(&checkpoint).Error; err != nil {
 		t.Fatalf("seed caught-up latency checkpoint: %v", err)
+	}
+	if db.Migrator().HasTable(&entities.ModelRankingAggregationCheckpoint{}) {
+		if err := db.Create(&entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", LastAggregatedUsageEventID: maxEventID, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+			t.Fatalf("seed model ranking checkpoint: %v", err)
+		}
 	}
 }
 

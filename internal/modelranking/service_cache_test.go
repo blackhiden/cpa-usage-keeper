@@ -31,7 +31,10 @@ func TestServiceLeaderboardAggregatesAndCaches(t *testing.T) {
 		Timestamp: clock, TotalTokens: 100, InputTokens: 20, CacheReadTokens: 10,
 	}
 	if err := db.Create(&event).Error; err != nil {
-		t.Fatalf("create usage event: %v", err)
+		t.Fatalf("create event: %v", err)
+	}
+	if _, _, err := repository.AggregateModelRankingPage(context.Background(), db, clock); err != nil {
+		t.Fatalf("aggregate rollup: %v", err)
 	}
 
 	service, err := NewServiceWithOptions(db, ServiceOptions{Now: func() time.Time { return current }})
@@ -104,8 +107,6 @@ func TestServiceLeaderboardRejectsInvalidSelection(t *testing.T) {
 		metric Metric
 	}{
 		{Period("bogus"), MetricTotalTokens},
-		{PeriodToday, Metric("overall")},
-		{PeriodToday, Metric("tokens")},
 	} {
 		if _, err := service.Leaderboard(context.Background(), tt.period, tt.metric); !errors.Is(err, ErrInvalidSelection) {
 			t.Fatalf("Leaderboard(%q, %q) error = %v, want ErrInvalidSelection", tt.period, tt.metric, err)

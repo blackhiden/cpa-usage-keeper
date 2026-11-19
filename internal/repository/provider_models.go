@@ -186,4 +186,3 @@ func applyProviderModelAggregateSort(query *gorm.DB, sort string, expressions pr
 		return query.Order(expressions.TotalRequests + " DESC").Order(expressions.Model + " ASC")
 	}
 }
-
