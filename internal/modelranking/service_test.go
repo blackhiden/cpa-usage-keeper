@@ -29,10 +29,10 @@ func fullModelRankingRow() dto.ModelRankingRow {
 func TestModelMetricValueMatchesRankingFormulas(t *testing.T) {
 	row := fullModelRankingRow()
 	tests := []struct {
-		metric      Metric
-		wantValue   int64
-		wantNum     int64
-		wantDen     int64
+		metric    Metric
+		wantValue int64
+		wantNum   int64
+		wantDen   int64
 	}{
 		{MetricTotalTokens, 100, 0, 0},
 		{MetricRequestCount, 2, 0, 0},
@@ -50,6 +50,17 @@ func TestModelMetricValueMatchesRankingFormulas(t *testing.T) {
 		if value != tt.wantValue || numerator != tt.wantNum || denominator != tt.wantDen {
 			t.Fatalf("%s = (%d, %d, %d), want (%d, %d, %d)", tt.metric, value, numerator, denominator, tt.wantValue, tt.wantNum, tt.wantDen)
 		}
+	}
+}
+
+func TestModelOverallScoreHasDeterministicPopulationRanking(t *testing.T) {
+	rows := []dto.ModelRankingRow{
+		{Model: "small", RequestCount: 10, SuccessCount: 8, FailureCount: 2, InputTokens: 100, CacheReadTokens: 30, TotalTokens: 100, TTFTSumMS: 1000, TTFTSampleCount: 10, LatencySumMS: 10000, LatencySampleCount: 10, Peak5MRequestCount: 3, Peak5MTotalTokens: 40},
+		{Model: "large", RequestCount: 100, SuccessCount: 98, FailureCount: 2, InputTokens: 1000, CacheReadTokens: 700, TotalTokens: 10000, TTFTSumMS: 2000, TTFTSampleCount: 100, LatencySumMS: 20000, LatencySampleCount: 100, Peak5MRequestCount: 20, Peak5MTotalTokens: 2000},
+	}
+	entries := buildModelOverallEntries(rows)
+	if len(entries) != 2 || entries[0].Model != "large" || entries[0].Value <= entries[1].Value {
+		t.Fatalf("overall ranking=%+v", entries)
 	}
 }
 

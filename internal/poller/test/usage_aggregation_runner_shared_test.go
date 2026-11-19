@@ -148,8 +148,8 @@ func TestUsageAggregationRunnerFallbackCatchesUpEachCursorThenRestoresSharedRead
 	if result.Kind != poller.UsageAggregationKindRollups || !result.Processed {
 		t.Fatalf("unexpected fallback result: %+v", result)
 	}
-	if got := eventPageQueries.Load(); got != 3 {
-		t.Fatalf("expected three independent fallback page queries, got %d", got)
+	if got := eventPageQueries.Load(); got != 4 {
+		t.Fatalf("expected three legacy plus one model fallback page query, got %d", got)
 	}
 	for _, name := range []entities.UsageAggregationCheckpointName{
 		entities.UsageAggregationCheckpointOverview,
@@ -176,7 +176,7 @@ func TestUsageAggregationRunnerFallbackCatchesUpEachCursorThenRestoresSharedRead
 	if _, err := runner.RunOnce(context.Background()); err != nil {
 		t.Fatalf("run restored shared rollups turn: %v", err)
 	}
-	if got := eventPageQueries.Load(); got != 4 {
+	if got := eventPageQueries.Load(); got != 5 {
 		t.Fatalf("expected one shared query after fallback recovery, total=%d", got)
 	}
 }

@@ -438,20 +438,29 @@ func (r *UsageAggregationRunner) runRollupsTurn(ctx context.Context, writeDB *go
 	if !activeRound {
 		return false, false, true, nil
 	}
+	modelCursor, err := repository.LoadModelRankingAggregationCursor(ctx, r.db)
+	if err != nil {
+		return false, false, false, err
+	}
 	snapshot, err := repository.LoadUsageAggregationCheckpointSnapshot(ctx, r.db)
 	if err != nil {
 		return false, false, false, err
 	}
-	if snapshot.OverviewCursor >= targetEventID && snapshot.ActivityCursor >= targetEventID && snapshot.LatencyCursor >= targetEventID {
+	if snapshot.OverviewCursor >= targetEventID && snapshot.ActivityCursor >= targetEventID && snapshot.LatencyCursor >= targetEventID && modelCursor >= targetEventID {
 		return false, false, true, nil
 	}
 	if snapshot.Equal() {
-		return r.runSharedRollupsPage(ctx, writeDB, snapshot.OverviewCursor, targetEventID, now)
+		return r.runSharedRollupsPage(ctx, writeDB, snapshot.OverviewCursor, targetEventID, now, modelCursor)
 	}
-	return r.runFallbackRollupsPages(ctx, writeDB, snapshot, targetEventID, now)
+	processed, deferred, reached, err := r.runFallbackRollupsPages(ctx, writeDB, snapshot, targetEventID, now)
+	if err != nil || deferred {
+		return processed, deferred, false, err
+	}
+	count, caught, err := repository.AggregateModelRankingPage(ctx, r.db, now)
+	return processed || count > 0, deferred, reached && caught, err
 }
 
-func (r *UsageAggregationRunner) runSharedRollupsPage(ctx context.Context, writeDB *gorm.DB, cursor, targetEventID int64, now time.Time) (bool, bool, bool, error) {
+func (r *UsageAggregationRunner) runSharedRollupsPage(ctx context.Context, writeDB *gorm.DB, cursor, targetEventID int64, now time.Time, modelCursor int64) (bool, bool, bool, error) {
 	events, err := repository.LoadUsageAggregationEventPage(ctx, r.db, cursor, targetEventID, usageAggregationEventPageSize)
 	if err != nil {
 		return false, false, false, err
@@ -459,10 +468,15 @@ func (r *UsageAggregationRunner) runSharedRollupsPage(ctx context.Context, write
 	if len(events) == 0 {
 		return false, false, false, fmt.Errorf("shared usage aggregation page is empty before target %d from cursor %d", targetEventID, cursor)
 	}
+	nextCursor := events[len(events)-1].ID
 
 	// 三类纯计算复用同一份只读事件；各自错误只跳过自己，成功结果仍可用独立事务提交。
 	// 三类聚合共享同一实际事件页终点；Overview 费用缺失不能把其它独立水位误推到 0。
-	nextCursor := events[len(events)-1].ID
+	if modelCursor == cursor {
+		if err := repository.ApplyModelRankingAggregationPage(ctx, writeDB, cursor, nextCursor, events, now); err != nil {
+			return false, false, false, err
+		}
+	}
 	overviewHourly, overviewDaily, _, overviewErr := overview.BuildRows(events)
 	activityRows, activityErr := activity.BuildRows(events, now)
 	latencyRows, latencyErr := latency.BuildRows(events, now)

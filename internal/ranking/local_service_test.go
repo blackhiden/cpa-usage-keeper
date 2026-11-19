@@ -12,7 +12,7 @@ import (
 )
 
 func TestLocalLeaderboardBuildsMissingTodaySnapshotForCurrentMonth(t *testing.T) {
-	now := time.Date(2026, 10, 22, 19, 30, 0, 0, localRankingPeriodLocation)
+	now := time.Date(2026, 10, 22, 19, 30, 0, 0, time.Local)
 	db, err := repository.OpenDatabase(config.Config{SQLitePath: filepath.Join(t.TempDir(), "ranking.db")})
 	if err != nil {
 		t.Fatalf("open database: %v", err)

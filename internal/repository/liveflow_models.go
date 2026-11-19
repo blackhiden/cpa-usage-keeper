@@ -99,7 +99,7 @@ func fillLiveFlowModelSources(ctx context.Context, rows []dto.LiveFlowModel, db 
 	var sources []sourceRow
 	query := db.WithContext(ctx).Clauses(dbresolver.Read).
 		Table("usage_events AS event").
-		Select(displayName + " AS model, event.model AS source").
+		Select(displayName+" AS model, event.model AS source").
 		Where("event.timestamp >= ? AND event.timestamp < ?", start, end).
 		Where("event.model <> ''").
 		Where("event.generate IS NULL OR event.generate = ?", true).
