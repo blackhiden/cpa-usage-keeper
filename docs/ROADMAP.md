@@ -9,7 +9,7 @@
 
 **Policy (Phase 2.24, planned):** Model Test Failure Telegram Notification (`internal/telegram/` + `web/src/features/model-test/`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
 
-**Policy (Phase 2.25):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go`, `web/src/features/model-ranking/`, and the single mount point in `web/src/pages/UsagePage.tsx`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md §9. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
+**Policy (Phase 2.25):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go` and `model_ranking_rollup.go`, `web/src/features/model-ranking/`, and mounts in `UsagePage.tsx` and `KeyRankingPage.tsx`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md §9. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
 
 ---
 
@@ -109,8 +109,10 @@
     `usage_events`, one new endpoint, one integration point in
     `web/src/features/usage/LiveFlowPanel.tsx`, i18n in en/zh/zh-TW,
     `docs/MERGE-PRESERVATION.md` protection entry.
-  - **Dependencies:** none (reads existing `usage_events`; no schema change
-    required by the baseline plan).
+  - **Dependencies:** usage-event ingestion plus the additive model-ranking
+    rollup migration/checkpoint and serial aggregation pipeline. The repository
+    exposes bounded resume via `BackfillModelRankingRollups(ctx, db, now,
+    maxPages)`.
   - **Acceptance Criteria:**
     - [ ] A model node stays visible for the whole selected period and after a
       browser refresh.
@@ -215,12 +217,12 @@
     `internal/repository/model_ranking.go`, frontend
     `web/src/features/model-ranking/`), one read-only endpoint, one mount point
     in `web/src/pages/UsagePage.tsx`, i18n in en/zh/zh-TW,
-    `docs/MERGE-PRESERVATION.md` protection entry. No schema change and no new
-    background runner in the baseline.
-  - **Dependencies:** none for the baseline (reads existing `usage_events`
-    columns `model`, `model_alias`, `provider`, token/latency columns).
-    OQ-MR-1, OQ-MR-2, OQ-MR-4, and OQ-MR-5 below must be settled before the
-    metric set, the `overall` label, and the calendar timezone are final.
+    `docs/MERGE-PRESERVATION.md` protection entry. The expansion adds an
+    additive rollup schema, a checkpointed serial pipeline, and a viewer-scoped
+    route on `/key-ranking`.
+  - **Dependencies:** usage-event ingestion, model-ranking rollups/checkpoint,
+    and the existing single-writer aggregation scheduler. OQ-MR-1 through
+    OQ-MR-5 are settled by the expansion decisions below.
   - **Acceptance Criteria:**
     - [x] `/ranking` shows two distinct leaderboards: API Key ranking and
       Model ranking, each with its own period selector.
@@ -232,7 +234,8 @@
       same window.
     - [x] Loading, empty, stale, and error states are handled without breaking
       the API Key leaderboard.
-    - [x] The endpoint is admin-only, returns no prompts, bodies, headers, or
+    - [x] The global endpoint is admin-only and the viewer endpoint is strictly
+      session-scoped; neither returns prompts, bodies, headers, or
       credentials, and validates its two query parameters.
     - [x] i18n keys exist in en, zh, and zh-TW.
     - [x] The feature is recorded in `docs/MERGE-PRESERVATION.md` and
@@ -1076,9 +1079,10 @@ keys) over a selected period, folding the same model served through different
 providers under its alias so a model used through several providers accumulates
 one combined value.
 
-**Status:** ✅ Implemented and merged into `main` (2026-11-19, merge commit
-`676c2bda`). This section remains the implementation contract, and the feature
-is protected in `docs/MERGE-PRESERVATION.md` §9.
+**Status:** ✅ Expanded implementation complete on the integration branch;
+original Phase 2.25 was merged into `main` at `676c2bda`. This expansion is
+pending a separate merge approval and is protected in
+`docs/MERGE-PRESERVATION.md` §9.
 
 **Evidence used for this plan**
 
@@ -1175,11 +1179,11 @@ is protected in `docs/MERGE-PRESERVATION.md` §9.
   after `<RankingPage … />` inside the existing `activeTab === 'ranking'`
   block). `web/src/features/ranking/` and `internal/ranking/` are not modified,
   so the API-key leaderboard keeps its behavior and its merge surface.
-- **Read model, not a new pipeline.** Rows are aggregated on demand from
-  `usage_events` for the selected window, following the
-  `ListLiveFlowModels` precedent. No new table, no migration, no background
-  runner, and `usage_events_archive` is never queried. All six periods fall
-  inside the 90-day hot retention, so no archive access is required.
+- **Rollup-backed read model.** The normal read path uses the additive
+  `model_ranking_period_stats` rollup maintained by the serial usage
+  aggregation runner and `model_ranking_aggregation_checkpoints`. Raw
+  `usage_events` remains the source for bounded backfill/rebuild; online ranking
+  never queries `usage_events_archive`.
 - **SQL stays in `internal/repository`.** Add
   `internal/repository/model_ranking.go` plus a DTO in
   `internal/repository/dto/model_ranking.go`, matching
@@ -1197,9 +1201,9 @@ is protected in `docs/MERGE-PRESERVATION.md` §9.
 - **Metric vocabulary.** The domain defines its own metric type with the same
   wire strings as `ranking.LeaderboardMetric`, and a unit test asserts string
   parity. This keeps the domain import-free of `internal/ranking` while
-  preventing silent drift. The baseline exposes the seven quantitative metrics
-  (`total_tokens` default); `overall` for models depends on OQ-MR-2 and is not
-  part of the mandatory scope.
+  preventing silent drift. The expansion exposes the seven quantitative
+  metrics plus a model-population `overall` score (`total_tokens` remains the
+  default).
 - **Period resolution.** `internal/modelranking/period.go` resolves the six
   periods as half-open `[Start, End)` local-calendar windows using
   `timeutil.NormalizeStorageTime`, ISO Monday→Sunday weeks, `AddDate` month
@@ -1527,13 +1531,17 @@ is protected in `docs/MERGE-PRESERVATION.md` §9.
   matching would merge more variants but risks false merges. If widening is
   wanted, the card should disclose which real names were merged.
 
-**Resolutions (2026-11-19, baseline accepted):** OQ-MR-1 — the seven
-quantitative metrics with `total_tokens` default; OQ-MR-2 — no model `overall`
-score; OQ-MR-3 — admin-only, no viewer-scoped model card; OQ-MR-4 — model
-ranking follows the project `TZ` while the existing key ranking is unchanged;
-OQ-MR-5 — every usage event (matching the API-key ranking); OQ-MR-6 — exact
-`TRIM` alias matching only. REC-015 ... REC-022 remain pending review and are
-not implemented.
+**Resolutions (2026-11-19 expansion):** OQ-MR-1 remains the quantitative
+metrics with `total_tokens` default; OQ-MR-2 now supports a model-level
+`overall` score with model-population explanation; OQ-MR-3 now exposes a
+strictly viewer-scoped card on `/key-ranking`; OQ-MR-4 uses project `TZ` for
+both rankings; OQ-MR-5 remains every usage event; OQ-MR-6 remains exact `TRIM`
+alias matching.
+
+**Recommendations:** REC-015 through REC-022 are implemented in this expansion:
+checkpointed rollups, shared overall scoring, provider filtering/contributions,
+viewer-scoped ranking, optional linked periods, predecessor trends, unified TZ,
+and cost/unavailable-cost columns.
 
 ---
 

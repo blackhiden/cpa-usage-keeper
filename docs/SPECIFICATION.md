@@ -144,8 +144,18 @@ keys that are synchronized from CPA itself.
   TTFT average, latency average, peak TPM, peak RPM; default total tokens).
   Models served through different providers under one alias appear once with
   the combined totals, and the row lists the contributing providers. The
-  leaderboard is admin-only, read-only, and metadata-only: it never returns
-  prompts, bodies, headers, or credentials, and it never queries the archive.
+  leaderboard is read-only and metadata-only: it never returns prompts,
+  bodies, headers, or credentials, and it never queries the archive. The admin
+  view supports provider filtering and contribution shares, estimated cost with
+  an unavailable state, a model-population overall score, previous-period
+  trends, and an optional period-link control.
+- **UC-9b — Viewer-scoped model ranking.** As an API-key viewer, I open
+  `/key-ranking` and see a model leaderboard derived only from my authenticated
+  session's API group. The server derives the scope from the session-bound CPA
+  key; client-provided API key IDs or scope fields are rejected and the global
+  admin route is forbidden to viewers. The viewer card supports the same
+  quantitative metrics, overall score, provider filter, trend, and cost state,
+  but never exposes another key's model totals.
 - **UC-10 — Stay current.** As an admin, I see a notification when a newer
   release is available (hidden for dev builds).
 - **UC-11 — Data safety.** As an admin, daily backups and the 90-day →

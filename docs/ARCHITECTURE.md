@@ -373,16 +373,18 @@ Key invariants:
   domain. The backend is `internal/modelranking/` (six half-open local-calendar
   periods resolved with `timeutil.NormalizeStorageTime`, alias-grouped
   aggregation, seven
-  quantitative metrics, deterministic ordering, and a 30-second in-memory read
-  cache) plus `internal/modelranking/httpapi/` registering admin-only
-  `GET /api/v1/model-ranking/leaderboards`. The SQL lives in
-  `internal/repository/model_ranking.go` and groups by
-  `COALESCE(NULLIF(TRIM(model_alias), ''), model)` on the reader pool, with a
-  1,000-candidate safety bound and five-minute peak buckets. The frontend
-  `web/src/features/model-ranking/` renders exactly one `ModelRankingSection`
-  card with its own period and metric selectors immediately after
-  `RankingPage` in `UsagePage.tsx`. There is no schema change, no background
-  runner, and no archive access; the API-key ranking is untouched.
+  quantitative metrics, deterministic ordering, model-population overall
+  scoring, provider/cost/trend projection, and scoped read caching) plus
+  `internal/modelranking/httpapi/` registering global admin and own-key viewer
+  routes. `internal/repository/model_ranking_rollup.go` owns the additive
+  `model_ranking_period_stats` and checkpoint read/write path; the existing
+  serial usage aggregation runner shares its event pages when cursors align and
+  commits rollups with the cursor. The reader uses alias grouping
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, provider contributions and
+  cost availability. `web/src/features/model-ranking/` renders cards on both
+  `/ranking` and `/key-ranking`; viewer scope is derived from the session and
+  never supplied by the browser. API-key ranking calendars use project `TZ` and
+  stale local snapshots are reset when the saved period timezone changes.
 - Credentials surface **provider subscription badges**: `QuotaRow` has no
   per-row `planType` (removed upstream); instead the quota check response
   carries a top-level `subscription` (`UsageSubscriptionInfo`), which
