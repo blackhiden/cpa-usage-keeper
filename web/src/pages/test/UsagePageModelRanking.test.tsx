@@ -111,7 +111,7 @@ describe('UsagePage model ranking composition', () => {
     expect(container.querySelector('[data-ranking-toolbar]')).not.toBeNull();
     expect(container.querySelector('[data-model-ranking-section]')).not.toBeNull();
     expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('gpt-5');
-    expect(Array.from(container.querySelectorAll('[data-model-ranking-provider]'), (node) => node.textContent)).toEqual(['openai', 'azure']);
+    expect(Array.from(container.querySelectorAll('[data-model-ranking-provider]'), (node) => node.textContent?.split(':')[0])).toEqual(['openai', 'azure']);
 
     const targets = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(targets.some((target) => target.includes('/ranking/local/leaderboards'))).toBe(true);

@@ -17,9 +17,13 @@ export const fetchModelRankingLeaderboard = async (
   period: ModelRankingPeriod,
   metric: ModelRankingMetric,
   signal?: AbortSignal,
+  provider = '',
+  viewerScope = false,
 ): Promise<ModelRankingResponse> => {
   const query = new URLSearchParams({ period, metric });
-  const response = await apiFetch(apiPath(`/model-ranking/leaderboards?${query.toString()}`), {
+  if (provider) query.set('provider', provider);
+  const path = viewerScope ? '/key-model-ranking/leaderboards' : '/model-ranking/leaderboards';
+  const response = await apiFetch(apiPath(`${path}?${query.toString()}`), {
     credentials: 'include',
     cache: 'no-store',
     signal,
