@@ -36,22 +36,36 @@ RUN --mount=type=cache,target=/go/pkg/mod \
             -o /out/cpa-usage-keeper ./cmd/server/main.go
 
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim
+ENV TZ="Asia/Jakarta"
+SHELL ["/bin/bash", "-c"]
+RUN set -eux; \
+    [ ! -f /etc/localtime ] && ln -s /usr/share/zoneinfo/$TZ /etc/localtime; \
+    echo $TZ > /etc/timezone; \
+    apt-get update
 WORKDIR /
 RUN set -eux; \
-    apt update; \
     apt install -y --no-install-recommends \
-    ca-certificates \
-    tzdata \
-    gosu \
-    wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -s /bin/bash -d /app -m app \
-    && mkdir -p /data \
-    && chown -R app:app /data
+        ca-certificates \
+        tzdata \
+        gosu \
+        wget; \
+	apt-mark showmanual > /savedAptMark.txt
+
+RUN set -eux; \
+    useradd -r -s /bin/bash -d /app -m app \
+    mkdir -p /data \
+    chown -R app:app /data
 COPY --from=go-builder /out/cpa-usage-keeper /app/cpa-usage-keeper
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN set -eux; \
+    sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh; \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN set -eux; \
+    apt-mark auto '.*' > /dev/null ;\
+	apt-mark manual $(cat /savedAptMark.txt) > /dev/null; \
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 VOLUME ["/data"]
 EXPOSE 8080
 # 先去除前缀外围的空格、tab 与换行；路径规范化由就绪路由处理。
