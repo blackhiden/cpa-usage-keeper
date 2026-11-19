@@ -109,8 +109,10 @@
     `usage_events`, one new endpoint, one integration point in
     `web/src/features/usage/LiveFlowPanel.tsx`, i18n in en/zh/zh-TW,
     `docs/MERGE-PRESERVATION.md` protection entry.
-  - **Dependencies:** existing usage-event ingestion, additive model-ranking
-    rollup migration/checkpoint, and the serial aggregation runner.
+  - **Dependencies:** usage-event ingestion plus the additive model-ranking
+    rollup migration/checkpoint and serial aggregation pipeline. The repository
+    exposes bounded resume via `BackfillModelRankingRollups(ctx, db, now,
+    maxPages)`.
   - **Acceptance Criteria:**
     - [ ] A model node stays visible for the whole selected period and after a
       browser refresh.

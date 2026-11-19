@@ -50,6 +50,12 @@ the prior three-checkpoint behavior. The API-key ranking period state records
 the project timezone and clears stale local snapshots when `TZ` changes so the
 next aggregation settles them under the new calendar.
 
+`repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` provides a
+bounded, resumable backfill entry point. It reports processed events, the last
+committed checkpoint and whether it is caught up; rerunning resumes from that
+cursor. The live single-writer usage runner performs the same incremental page
+work and shares the reader page when its cursor matches the existing rollups.
+
 ## Migration and operational rules
 
 - Migrations are forward-only and recorded in `schema_migrations`.

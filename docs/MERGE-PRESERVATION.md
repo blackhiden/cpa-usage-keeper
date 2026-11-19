@@ -119,6 +119,11 @@ authenticated viewer's API group.
   `internal/repository/dto/model_ranking.go` (reader-pool aggregation and
   checkpointed rollup over `usage_events`, grouped by
   `COALESCE(NULLIF(TRIM(model_alias), ''), model)`).
+- **Schema/pipeline:** migration `20261119_model_ranking_rollups` adds
+  `model_ranking_period_stats` and the checkpoint table; the existing serial
+  usage aggregation runner commits rollup pages and the model cursor atomically.
+  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` is the
+  bounded resumable recovery/backfill entry point.
 - **Frontend:** `web/src/features/model-ranking/` (types, period helpers,
   formatting, API client, data hook, `ModelRankingSection` + styles).
 - **Routes:** global admin `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>` and viewer-scoped `GET /api/v1/key-model-ranking/leaderboards?period=<value>&metric=<value>`

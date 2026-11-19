@@ -16,6 +16,8 @@
 - REC-015 adds `model_ranking_period_stats`, a checkpoint and replay-safe page
   aggregation integrated with the existing serial usage runner. Rollups store
   global and API-group scopes, provider shares, costs and unavailable counts.
+  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` exposes
+  bounded resumable recovery using the same cursor.
 - REC-016 shares the overall-score math through `internal/rankingmath`; model
   explanations identify model-population normalization. REC-017/019/020/022
   are implemented in the admin/viewer cards. REC-021 moves API-key periods to
