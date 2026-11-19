@@ -50,10 +50,9 @@ RUN set -eux; \
         gosu \
         wget; \
 	apt-mark showmanual > /savedAptMark.txt
-
 RUN set -eux; \
-    useradd -r -s /bin/bash -d /app -m app \
-    mkdir -p /data \
+    useradd -r -s /bin/bash -d /app -m app; \
+    mkdir -p /data; \
     chown -R app:app /data
 COPY --from=go-builder /out/cpa-usage-keeper /app/cpa-usage-keeper
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
