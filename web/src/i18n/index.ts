@@ -1267,6 +1267,8 @@ const resources = {
         period_trigger_current_month: 'This month',
         period_trigger_previous_month: 'Last month',
         metric_label: 'Ranking metric',
+        metric_overall: 'Overall score',
+        metric_short_overall: 'Overall',
         metric_total_tokens: 'Total tokens',
         metric_request_count: 'Request count',
         metric_cache_read_rate: 'Cache read rate',
@@ -1290,7 +1292,18 @@ const resources = {
         empty_title: 'No model usage in this period',
         empty_description: 'Switch to another period or wait for new requests.',
         error_generic: 'Could not load the model ranking.',
-        retry: 'Retry'
+        retry: 'Retry',
+        provider_all: 'All providers',
+        provider_filter: 'Filter provider',
+        link_periods: 'Link periods to API Key ranking',
+        cost: 'Estimated cost',
+        cost_partial: '${{cost}} + {{count}} unavailable',
+        trend: 'Previous period',
+        trend_change: '{{change}} ({{percent}}%)',
+        trend_unavailable: 'No comparison',
+        requests_short: 'requests',
+        tokens_short: 'tokens',
+        viewer_scope: 'Scoped to your API key'
       }
     }
   },
@@ -2544,6 +2557,8 @@ const resources = {
         period_trigger_current_month: '本月',
         period_trigger_previous_month: '上月',
         metric_label: '排行指标',
+        metric_overall: '综合评分',
+        metric_short_overall: '综合',
         metric_total_tokens: '总 Token 数',
         metric_request_count: '请求数',
         metric_cache_read_rate: '缓存读取率',
@@ -2567,7 +2582,18 @@ const resources = {
         empty_title: '该周期内没有模型使用记录',
         empty_description: '切换到其他周期或等待新的请求。',
         error_generic: '无法加载模型排行。',
-        retry: '重试'
+        retry: '重试',
+        provider_all: '全部供应商',
+        provider_filter: '筛选供应商',
+        link_periods: '与 API Key 排行联动周期',
+        cost: '估算费用',
+        cost_partial: '${{cost}} + {{count}} 项不可用',
+        trend: '上期变化',
+        trend_change: '{{change}} ({{percent}}%)',
+        trend_unavailable: '无可比较数据',
+        requests_short: '请求',
+        tokens_short: '令牌',
+        viewer_scope: '仅显示此 API Key 的用量'
       }
     }
   },
@@ -3821,6 +3847,8 @@ const resources = {
         period_trigger_current_month: '本月',
         period_trigger_previous_month: '上月',
         metric_label: '排行指標',
+        metric_overall: '綜合評分',
+        metric_short_overall: '綜合',
         metric_total_tokens: '總 Token 數',
         metric_request_count: '請求數',
         metric_cache_read_rate: '快取讀取率',
@@ -3844,7 +3872,18 @@ const resources = {
         empty_title: '該週期內沒有模型使用紀錄',
         empty_description: '切換到其他週期或等待新的請求。',
         error_generic: '無法載入模型排行。',
-        retry: '重試'
+        retry: '重試',
+        provider_all: '所有提供商',
+        provider_filter: '篩選提供商',
+        link_periods: '與 API Key 排行連動週期',
+        cost: '估算費用',
+        cost_partial: '${{cost}} + {{count}} 項不可用',
+        trend: '上期變化',
+        trend_change: '{{change}} ({{percent}}%)',
+        trend_unavailable: '無可比較資料',
+        requests_short: '請求',
+        tokens_short: 'Token',
+        viewer_scope: '僅顯示此 API Key 的用量'
       }
     }
   }

@@ -2201,7 +2201,11 @@ export function UsagePage({ onAuthRequired }: { onAuthRequired?: () => void }) {
                   onMetricChange={setRankingMetric}
                 />
                 {/* Model Ranking owns its selectors; the API-key card is independent. */}
-                <ModelRankingSection />
+                <ModelRankingSection linkedPeriod={rankingPeriod} onPeriodChange={(period) => {
+                  try {
+                  if (window.localStorage.getItem('cpa-usage-keeper-model-ranking-link-periods') === 'true' && (period === 'today' || period === 'yesterday' || period === 'current_month' || period === 'previous_month')) setRankingPeriod(period);
+                  } catch { /* persistence is best-effort */ }
+                }} />
               </>
             )}
 

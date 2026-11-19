@@ -16,6 +16,7 @@ import type {
   RankingScope,
 } from '@/features/ranking/types';
 import type { AuthSessionAPIKeySummary } from '@/lib/types';
+import { ModelRankingSection } from '@/features/model-ranking/ModelRankingSection';
 import shellStyles from '@/features/key-viewer/KeyViewerShell.module.scss';
 import rankingStyles from '@/features/ranking/RankingPage.module.scss';
 
@@ -195,6 +196,7 @@ export function KeyRankingPage({ apiKey, onNavigate, onAuthRequired }: KeyRankin
             ) : null
           )}
         </article>
+        <ModelRankingSection viewerScope />
       </section>
     </KeyViewerShell>
   );

@@ -16,14 +16,15 @@ export interface UseModelRankingDataOptions {
   enabled: boolean;
   period: ModelRankingPeriod;
   metric: ModelRankingMetric;
+  provider?: string;
+  viewerScope?: boolean;
   onAuthRequired?: () => void;
   onBackgroundRefreshError?: (error: unknown) => void;
   api?: ModelRankingDataAPI;
 }
 
-const defaultAPI: ModelRankingDataAPI = { leaderboard: fetchModelRankingLeaderboard };
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
-const leaderboardKey = (period: ModelRankingPeriod, metric: ModelRankingMetric) => `${period}:${metric}`;
+const leaderboardKey = (period: ModelRankingPeriod, metric: ModelRankingMetric, provider: string, viewerScope: boolean) => `${viewerScope ? 'viewer' : 'admin'}:${provider}:${period}:${metric}`;
 
 // useModelRankingData maintains the read-only model leaderboard only. It aborts
 // stale requests, caches per period:metric, keeps the last board visible when a
@@ -32,9 +33,11 @@ export function useModelRankingData({
   enabled,
   period,
   metric,
+  provider = '',
+  viewerScope = false,
   onAuthRequired,
   onBackgroundRefreshError,
-  api = defaultAPI,
+  api,
 }: UseModelRankingDataOptions) {
   const [leaderboard, setLeaderboard] = useState<ModelRankingResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,7 +55,7 @@ export function useModelRankingData({
     const controller = new AbortController();
     controllerRef.current = controller;
     const generation = ++generationRef.current;
-    const key = leaderboardKey(nextPeriod, nextMetric);
+    const key = leaderboardKey(nextPeriod, nextMetric, provider, viewerScope);
     const cachedBoard = cacheRef.current.get(key) ?? null;
     if (!silent) {
       setLoading(true);
@@ -62,7 +65,9 @@ export function useModelRankingData({
       setLeaderboard((current) => cachedBoard ?? current);
     }
     try {
-      const board = await api.leaderboard(nextPeriod, nextMetric, controller.signal);
+      const board = api
+        ? await api.leaderboard(nextPeriod, nextMetric, controller.signal)
+        : await fetchModelRankingLeaderboard(nextPeriod, nextMetric, controller.signal, provider, viewerScope);
       if (generationRef.current === generation) {
         cacheRef.current.set(key, board);
         setLeaderboard(board);
@@ -86,7 +91,7 @@ export function useModelRankingData({
       if (controllerRef.current === controller) controllerRef.current = null;
       if (generationRef.current === generation) setLoading(false);
     }
-  }, [api, onAuthRequired, onBackgroundRefreshError]);
+  }, [api, onAuthRequired, onBackgroundRefreshError, provider, viewerScope]);
 
   const refresh = useCallback(
     () => loadLeaderboard(period, metric),
