@@ -83,24 +83,6 @@ func TestModelRankingRouteIsAdminOnly(t *testing.T) {
 	}
 }
 
-func TestKeyModelRankingRouteUsesSessionScope(t *testing.T) {
-	stub := &modelRankingProviderStub{}
-	_, viewerToken, router := newModelRankingRouter(t, stub)
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, modelRankingRequest("/api/v1/key-model-ranking/leaderboards?period=today&metric=total_tokens", viewerToken))
-	if response.Code != http.StatusOK {
-		t.Fatalf("viewer model ranking status=%d body=%s", response.Code, response.Body.String())
-	}
-	if stub.lastOptions.ScopeKey != "sk-viewer123456" {
-		t.Fatalf("provider scope=%q", stub.lastOptions.ScopeKey)
-	}
-	response = httptest.NewRecorder()
-	router.ServeHTTP(response, modelRankingRequest("/api/v1/key-model-ranking/leaderboards?period=today&metric=total_tokens&scope_key=other", viewerToken))
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("scope override status=%d", response.Code)
-	}
-}
-
 func TestKeyModelRankingRouteScopesFromAuthenticatedViewer(t *testing.T) {
 	stub := &modelRankingProviderStub{}
 	_, viewerToken, router := newModelRankingRouter(t, stub)
@@ -121,6 +103,22 @@ func TestKeyModelRankingRouteScopesFromAuthenticatedViewer(t *testing.T) {
 	router.ServeHTTP(attack, modelRankingRequest("/api/v1/key-model-ranking/leaderboards?period=today&metric=total_tokens&scope_key=other", viewerToken))
 	if attack.Code != http.StatusBadRequest {
 		t.Fatalf("client scope override status=%d", attack.Code)
+	}
+}
+
+func TestKeyModelRankingRouteScopesPerViewerAndProviderFilter(t *testing.T) {
+	first := &modelRankingProviderStub{}
+	_, token, router := newModelRankingRouter(t, first)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, modelRankingRequest("/api/v1/key-model-ranking/leaderboards?period=today&metric=request_count&provider=openai", token))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	if first.lastOptions.ScopeKey != "sk-viewer123456" || first.lastOptions.Provider != "openai" {
+		t.Fatalf("options=%+v", first.lastOptions)
+	}
+	if first.lastOptions.ScopeKey == "" {
+		t.Fatal("viewer scope must be derived from authenticated session")
 	}
 }
 
