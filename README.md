@@ -365,6 +365,7 @@ docker compose up -d cpa-usage-keeper
 - Check that CPA usage statistics are enabled: `observability.usage.usage-statistics-enabled` must be `true` in v8 configurations, or the top-level `usage-statistics-enabled` in legacy configurations.
 - Ensure Keeper can reach `CPA_BASE_URL` and that `CPA_MANAGEMENT_KEY` matches the CPA management key.
 - Check that CPA has received new model requests. If data is still missing, use the log command above to look for connection or authentication errors.
+- Check the clock when **today** views and the API-key leaderboard stay empty while older periods have data: compare `docker exec <container> date -u` with an external UTC reference (see [Timezone And Request Behavior](#timezone-and-request-behavior)). A host clock offset by a whole timezone moves the Today window away from the events CPA sends, and every Keeper-generated timestamp then shows a future time.
 
 ### Docker (CPA Already Runs On The Host)
 
@@ -552,6 +553,15 @@ Completed logins use the existing `AUTH_SESSION_TTL` and show **OIDC login** in 
 | `TZ` | No | `Asia/Shanghai` | Timezone used for statistics and display; Today, daily totals, page timestamps, log timestamps, and daily cleanup are calculated in this timezone |
 | `REQUEST_TIMEOUT` | No | `30s` | Timeout for CPA HTTP requests and Redis queue operations |
 | `TLS_SKIP_VERIFY` | No | `false` | Skip TLS certificate verification for CPA HTTPS and Redis queue TLS; enable only with self-signed certificates |
+
+`TZ` only decides how instants are labeled and where calendar boundaries fall; it never changes instants. Keeper trusts the container clock, so keep the host NTP-synchronized. A host offset by a whole timezone (for example an RTC kept in local time while the system assumes UTC) still starts cleanly, but every Keeper-generated timestamp — log lines, **Updated …**, ranking snapshots — appears in the future, and the Today windows no longer contain the events CPA reported, which empties the API-key leaderboard and today's daily views until the clock is corrected. Compare the container clock with an external UTC reference instead of adjusting `TZ`:
+
+```bash
+docker exec <container> date -u
+curl -sI https://www.cloudflare.com | grep -i '^date:'
+```
+
+Both values must agree within seconds. Fix the host (`timedatectl status`, then `sudo timedatectl set-local-rtc 0` and `sudo timedatectl set-ntp true`); Keeper needs no restart, because the next aggregation rewrites today's snapshot and prunes the period rows that no longer belong to the current window.
 
 ### Credentials Quota Refresh
 

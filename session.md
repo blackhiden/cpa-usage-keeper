@@ -1,5 +1,54 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Future "Updated" Timestamp And Empty Today Board (Host Clock Skew)
+
+**Date:** 2026-11-19
+**Status:** Environmental, not a Keeper defect. No code change.
+
+### Symptom
+After the ranking recovery deploy (`3552c92b`) the page still showed
+`Updated Nov 20, 2026, 03:52` while the operator clock read `Nov 19, 21:06`, and
+`/ranking/local/leaderboards?period=today&metric=overall` returned
+`period_key: "2026-11-20"` with `entries: []`.
+
+### Root cause
+The deployment host clock is exactly one timezone ahead of real time (log lines
+`2026-11-20T04:27:00+07:00`, API `generated_at`
+`2026-11-20T04:28:19+07:00`, while the real instant was 21:2x WIB on Nov 19 —
+offset equals the `TZ` offset, the classic RTC-in-local-time / system-in-UTC
+double shift). Consequences: every Keeper-generated instant (logs,
+`generated_at`, snapshot rows) is 7 h in the future, `period_key` is a day
+ahead, and the Today window `[2026-11-20T00:00, now)` cannot contain the events
+CPA reports at real time, so the leaderboard is empty.
+
+### Evidence that this is the clock, not the code
+- `internal/ranking` serializes `Leaderboard.GeneratedAt` with Go's default
+  `time.Time` JSON encoding; a seeded DB reproduces
+  `"generated_at":"2026-11-19T20:52:00+07:00"` (correct instant, correct
+  offset) through both the entity read and the raw `Scan` in
+  `loadLocalRankingPopulation`. Timezone handling itself is sound.
+- The 7 h shift also appears in logrus lines, which never touch ranking code:
+  the shift is upstream of both, i.e. in the process clock.
+- `TZ` cannot shift an instant; it only relabels it, so the Dockerfile
+  `TZ`/`/etc/localtime` work cannot fix this.
+
+### Action
+- Documented the operational requirement (README "Timezone And Request
+  Behavior", "No Data After Startup?"; `docs/CONFIGURATION.md` `TZ`) — compare
+  `docker exec <container> date -u` with an external UTC reference, fix the
+  host clock (`timedatectl set-local-rtc 0`, `set-ntp true`).
+- No Keeper restart needed: the five-minute aggregation rewrites today's
+  snapshot and `pruneLocalRankingPeriodsTx` drops the stray `2026-11-20` rows;
+  the `last_settled_day`-ahead clamp from `3552c92b` self-heals the backwards
+  jump.
+- The earlier `M Dockerfile` question is resolved: the operator committed it as
+  `912ae81e` + `8812ded7`; the tree is clean.
+
+### Note for the next session
+An offset that is *exactly* a zone offset in log lines and API timestamps is
+always a host clock problem. Verify with `/etc/timezone`, `timedatectl` and a
+UTC reference before touching `TZ` or ranking code.
+
 ## Session: Local API-Key Ranking Recovery Fix
 
 **Date:** 2026-11-19
