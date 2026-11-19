@@ -19,6 +19,8 @@ const (
 	modelRankingRollupInsertSize = 100
 )
 
+const modelRankingEventProjectionColumns = "id, api_group_key, provider, model, model_alias, timestamp, failed, generate, latency_ms, ttft_ms, input_tokens, cache_read_tokens, total_tokens, cost_usd, cost_available"
+
 func EnsureModelRankingRollupCheckpoint(ctx context.Context, db *gorm.DB, now time.Time) error {
 	if db == nil {
 		return fmt.Errorf("database is nil")
@@ -86,7 +88,7 @@ func AggregateModelRankingPage(ctx context.Context, db *gorm.DB, now time.Time) 
 		return 0, false, fmt.Errorf("load model ranking checkpoint: %w", err)
 	}
 	if err := db.Clauses(dbresolver.Read).WithContext(ctx).Model(&entities.UsageEvent{}).
-		Select(entities.UsageAggregationEventProjectionColumns).
+		Select(modelRankingEventProjectionColumns).
 		Where("id > ?", checkpoint.LastAggregatedUsageEventID).
 		Order("id ASC").Limit(modelRankingRollupBatchSize).Find(&rows).Error; err != nil {
 		return 0, false, fmt.Errorf("load model ranking aggregation page: %w", err)

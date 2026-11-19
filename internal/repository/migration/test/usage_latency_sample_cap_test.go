@@ -95,13 +95,16 @@ func capRow(t *testing.T, id int64, count int, now time.Time) (entities.UsageLat
 func capMigrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := openUnmigratedTestDatabase(t)
-	if err := db.AutoMigrate(&entities.UsageLatencyStat{}, &entities.UsageAggregationCheckpoint{}); err != nil {
+	if err := db.AutoMigrate(&entities.UsageLatencyStat{}, &entities.UsageAggregationCheckpoint{}, &entities.ModelRankingAggregationCheckpoint{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := migration.MarkAllAsApplied(db); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Exec("DELETE FROM schema_migrations WHERE version = ?", latencySampleCapMigrationVersion).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", CreatedAt: time.Now(), UpdatedAt: time.Now()}).Error; err != nil {
 		t.Fatal(err)
 	}
 	return db

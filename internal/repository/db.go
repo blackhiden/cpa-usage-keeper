@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -452,20 +453,15 @@ func usageEventAggregationsCaughtUp(tx *gorm.DB) (bool, error) {
 	if tx.Migrator().HasTable(&entities.ModelRankingAggregationCheckpoint{}) {
 		var modelCheckpoint entities.ModelRankingAggregationCheckpoint
 		if err := tx.Where("name = ?", "model_ranking").Take(&modelCheckpoint).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, nil
+			}
 			return false, fmt.Errorf("load model ranking archive watermark: %w", err)
 		}
 		if modelCheckpoint.LastAggregatedUsageEventID < maxEventID {
 			return false, nil
 		}
 	}
-	var modelRankingCheckpoint entities.ModelRankingAggregationCheckpoint
-	if err := tx.Where("name = ?", "model_ranking").Take(&modelRankingCheckpoint).Error; err != nil {
-		return false, fmt.Errorf("load model ranking archive watermark: %w", err)
-	}
-	if modelRankingCheckpoint.LastAggregatedUsageEventID < maxEventID {
-		return false, nil
-	}
-
 	// Identity 没有全局 checkpoint；复用兼容追赶的同一 EXISTS 判断，但保持在当前 archive 事务内读取。
 	pendingIdentity, err := hasPendingUsageIdentityAggregation(tx)
 	if err != nil {
