@@ -12,7 +12,7 @@ import {
   readStoredModelRankingPeriod,
   storeModelRankingPeriod,
 } from './period';
-import { MODEL_RANKING_METRICS, type ModelRankingMetric, type ModelRankingPeriod, type ModelRankingResponse } from './types';
+import { MODEL_RANKING_METRICS, type ModelRankingMetric, type ModelRankingPeriod } from './types';
 import styles from './ModelRankingSection.module.scss';
 
 const DEFAULT_METRIC: ModelRankingMetric = 'total_tokens';
@@ -53,12 +53,10 @@ export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPerio
   const [period, setPeriod] = useState<ModelRankingPeriod>(() => readStoredModelRankingPeriod(resolveStorage()));
   const [metric, setMetric] = useState<ModelRankingMetric>(DEFAULT_METRIC);
   const [provider, setProvider] = useState('');
-  const [knownProviders, setKnownProviders] = useState<string[]>([]);
   const [periodsLinked, setPeriodsLinked] = useState<boolean>(() => {
     try { return window.localStorage.getItem('cpa-usage-keeper-model-ranking-link-periods') === 'true'; } catch { return false; }
   });
   const effectivePeriod = periodsLinked && linkedPeriod ? linkedPeriod : period;
-  const [lastLeaderboard, setLastLeaderboard] = useState<ModelRankingResponse | null>(null);
   const { leaderboard, loading, error, refresh } = useModelRankingData({
     enabled: true,
     period: effectivePeriod,
@@ -66,11 +64,7 @@ export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPerio
     provider,
     viewerScope,
   });
-  const displayLeaderboard = leaderboard ?? lastLeaderboard;
-  if (leaderboard && leaderboard !== lastLeaderboard) {
-    setLastLeaderboard(leaderboard);
-    setKnownProviders((current) => [...new Set([...current, ...leaderboard.entries.flatMap((entry) => entry.providers)])].sort());
-  }
+  const displayLeaderboard = leaderboard;
 
   const periodOptions = useMemo(
     () => MODEL_RANKING_PERIOD_OPTIONS.map((option) => ({
@@ -105,9 +99,9 @@ export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPerio
   }, []);
 
   const providerOptions = useMemo(() => {
-    const providers = [...new Set([...knownProviders, ...(displayLeaderboard?.entries ?? []).flatMap((entry) => entry.providers)])].sort();
+    const providers = [...new Set([provider, ...(displayLeaderboard?.entries ?? []).flatMap((entry) => entry.providers)])].filter(Boolean).sort();
     return [{ value: '', label: t('model_ranking.provider_all'), triggerLabel: t('model_ranking.provider_all') }, ...providers.map((value) => ({ value, label: value }))];
-  }, [displayLeaderboard, knownProviders, t]);
+  }, [displayLeaderboard, provider, t]);
 
   const handleMetricChange = useCallback((value: string) => {
     if (isMetric(value)) setMetric(value);

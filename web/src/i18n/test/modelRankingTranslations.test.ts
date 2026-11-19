@@ -16,6 +16,9 @@ const REQUIRED_KEYS = [
   'metric_short_peak_rpm',
   'rank', 'model', 'providers', 'updated_at', 'stale', 'loading',
   'empty_title', 'empty_description', 'error_generic', 'retry',
+  'metric_overall', 'metric_short_overall', 'provider_all', 'provider_filter',
+  'link_periods', 'cost', 'cost_partial', 'trend', 'trend_change',
+  'trend_unavailable', 'requests_short', 'tokens_short', 'viewer_scope',
 ];
 
 const bundle = (language: string) => i18n.getResourceBundle(language, 'translation').model_ranking;
