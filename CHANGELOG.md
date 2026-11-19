@@ -20,6 +20,14 @@ All notable changes to this project are documented here.
   previous-month day rows are retained as the month ledger so a day settled twice
   is not counted twice.
 
+- **Container `/etc/localtime` now follows `TZ`.** The runtime stage created the
+  zoneinfo symlink only `[ ! -f /etc/localtime ]`, which never fires on
+  `debian-slim` because the base image already ships that path. The image
+  therefore advertised `Asia/Jakarta` in `/etc/timezone` while `/etc/localtime`
+  stayed `Etc/UTC`. The symlink is now forced after `tzdata` is installed, so
+  every tool in the image agrees with the configured project zone (Go already
+  preferred `TZ`, which is why application timestamps were correct).
+
 
 ### Added
 

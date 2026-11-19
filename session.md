@@ -3,7 +3,8 @@
 ## Session: Future "Updated" Timestamp And Empty Today Board (Host Clock Skew)
 
 **Date:** 2026-11-19
-**Status:** Environmental, not a Keeper defect. No code change.
+**Status:** Fixed in the deployment (`miniserver`, `100.64.0.5`) — the host clock
+is resynced, NTP is installed, and the ranking recovered by itself.
 
 ### Symptom
 After the ranking recovery deploy (`3552c92b`) the page still showed
@@ -32,17 +33,42 @@ CPA reports at real time, so the leaderboard is empty.
 - `TZ` cannot shift an instant; it only relabels it, so the Dockerfile
   `TZ`/`/etc/localtime` work cannot fix this.
 
+### Remediation (2026-11-19, 22:00 WIB)
+`timedatectl` on `miniserver` reported the clock **6 h 48 m ahead** of a UTC
+reference with `System clock synchronized: no`, `NTP service: n/a`, no
+`systemd-timesyncd`, no `chrony`, and no `ntpdate`; the RTC held the same wrong
+value, so every reboot kept the offset. Steps taken:
+1. `date -u -s "@<reference epoch>"` from a verified reference instant
+   (container immediately followed: `22:00 WIB`).
+2. `apt-get install systemd-timesyncd util-linux-extra`, `timedatectl set-ntp
+   true`, `systemctl enable --now systemd-timesyncd` →
+   `System clock synchronized: yes`, `NTP service: active`.
+3. `hwclock -w` so the RTC carries the corrected time across reboots
+   (`hwclock` lives in `util-linux-extra` on Debian 13).
+4. `apt-get install sqlite3` for read-only inspection of
+   `/root/cpauk/keeper/app.db`.
+
+Verification: the 22:04 aggregation rewrote the day row
+`day|2026-11-19|8 keys|5900 requests|updated_at=2026-11-19T22:04:13+07:00`, so
+`/ranking` now shows *Updated Nov 19, 2026, 22:04* in WIB with a populated
+leaderboard. `ranking.local.period_state` stayed
+`{last_settled_day: 2026-11-19, period_timezone: Asia/Jakarta,
+period_offset_seconds: 25200}`, i.e. no zone fingerprint change was needed and
+the backwards jump needed no reset. Log lines written before the fix keep their
+future timestamps; new lines are correct.
+
 ### Action
+- Deployment: clock set, NTP + RTC persisted, `sqlite3` installed for
+  read-only DB forensics (see above).
+- Repo: `Dockerfile` now forces `ln -snf /usr/share/zoneinfo/$TZ /etc/localtime`
+  after `tzdata` is installed — the previous `[ ! -f /etc/localtime ]` guard
+  never fired on `debian-slim`, leaving `/etc/timezone` at `Asia/Jakarta` while
+  `localtime` stayed `Etc/UTC` (harmless for Go, which prefers `TZ`, but
+  inconsistent for anything else in the image).
 - Documented the operational requirement (README "Timezone And Request
-  Behavior", "No Data After Startup?"; `docs/CONFIGURATION.md` `TZ`) — compare
-  `docker exec <container> date -u` with an external UTC reference, fix the
-  host clock (`timedatectl set-local-rtc 0`, `set-ntp true`).
-- No Keeper restart needed: the five-minute aggregation rewrites today's
-  snapshot and `pruneLocalRankingPeriodsTx` drops the stray `2026-11-20` rows;
-  the `last_settled_day`-ahead clamp from `3552c92b` self-heals the backwards
-  jump.
+  Behavior", "No Data After Startup?"; `docs/CONFIGURATION.md` `TZ`).
 - The earlier `M Dockerfile` question is resolved: the operator committed it as
-  `912ae81e` + `8812ded7`; the tree is clean.
+  `912ae81e` + `8812ded7`.
 
 ### Note for the next session
 An offset that is *exactly* a zone offset in log lines and API timestamps is

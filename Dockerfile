@@ -39,7 +39,6 @@ FROM --platform=$BUILDPLATFORM debian:bookworm-slim
 ENV TZ="Asia/Jakarta"
 SHELL ["/bin/bash", "-c"]
 RUN set -eux; \
-    [ ! -f /etc/localtime ] && ln -s /usr/share/zoneinfo/$TZ /etc/localtime; \
     echo $TZ > /etc/timezone; \
     apt-get update
 WORKDIR /
@@ -49,6 +48,8 @@ RUN set -eux; \
         tzdata \
         gosu \
         wget; \
+    ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime; \
+    echo "$TZ" > /etc/timezone; \
 	apt-mark showmanual > /savedAptMark.txt
 RUN set -eux; \
     useradd -r -s /bin/bash -d /app -m app; \
