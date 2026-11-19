@@ -42,7 +42,9 @@ All notable changes to this project are documented here.
   (`ListModelRankingSpenders`), so this needs no new table, migration, or
   backfill, and the aggregation is cached with the board it belongs to. Labels
   reuse the API-key ranking's safe names (CPA key name → alias → masked key); an
-  unknown key renders masked and never raw.
+  unknown key renders masked and never raw. The column, its metric-driven leader
+  rule, and its masked-label contract are registered as a permanent,
+  merge-protected feature in `docs/MERGE-PRESERVATION.md` §10.
 
 - **Model Ranking Phase 2.25 expansion.** The model leaderboard now uses a
   checkpointed rollup, supports global admin and authenticated own-key viewer

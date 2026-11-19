@@ -3,7 +3,8 @@
 ## Session: Model Ranking "Top Spender" Column
 
 **Date:** 2026-11-19
-**Status:** Implemented and verified locally; not yet committed.
+**Status:** Committed (`ef0cbcb6 feat(model-ranking): add top spender column`);
+protected by `docs/MERGE-PRESERVATION.md` §10. Deploy spot check still open.
 
 ### Objective
 Add a `Top spender` column to the Model Ranking card that names the API key
@@ -36,6 +37,11 @@ which used each model most in the selected period.
   read, instead of serving a silently unlabeled board.
 - The column header carries a tooltip (`model_ranking.top_spender_hint`) so the
   metric dependency is discoverable without leaving the page.
+- **Protected feature.** The column, its per-metric leader rule, and its
+  masked-label contract are recorded as protected in
+  `docs/MERGE-PRESERVATION.md` §10 (with verification greps) and listed in
+  `AGENTS.md` §3, so an upstream merge cannot silently drop or re-point them at a
+  raw key.
 
 ### Verified
 - `go test ./internal/modelranking/... ./internal/repository/...` — unit coverage
