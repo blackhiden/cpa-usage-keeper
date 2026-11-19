@@ -2,6 +2,28 @@
 
 ## Session: Phase 2.25 Model Ranking on `/ranking`
 
+## Session: Phase 2.25 expansion — viewer scope and REC-015…REC-022
+
+**Date:** 2026-11-19
+**Status:** Backend/frontend lanes complete and merged into integration; main merge pending
+
+- New lanes: `feature/model-ranking-expansion-backend` (`be0c6b22`,
+  `d556bfdb`) and `feature/model-ranking-expansion-frontend` (`1d0a87c2`),
+  merged into integration as `e7a4ca57` and `294a747b`. Existing original
+  Phase 2.25 worktrees remain untouched.
+- OQ-MR-3 is resolved with `/key-model-ranking/leaderboards`; the route derives
+  scope from the authenticated API-key session and rejects client scope fields.
+- REC-015 adds `model_ranking_period_stats`, a checkpoint and replay-safe page
+  aggregation integrated with the existing serial usage runner. Rollups store
+  global and API-group scopes, provider shares, costs and unavailable counts.
+- REC-016 shares the overall-score math through `internal/rankingmath`; model
+  explanations identify model-population normalization. REC-017/019/020/022
+  are implemented in the admin/viewer cards. REC-021 moves API-key periods to
+  project `TZ` and clears stale snapshots when the state timezone changes.
+- Backend full Go suite passes after adding legacy fixture compatibility for the
+  optional model checkpoint. Frontend full suite passes: 232 files, 1,920 tests
+  passed and 2 skipped; lint, typecheck, and build pass.
+
 **Date:** 2026-11-19
 **Status:** Merged into `main` (merge commit `676c2bda`)
 

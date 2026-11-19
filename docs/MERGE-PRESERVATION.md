@@ -106,24 +106,28 @@ make verify
 default Today) with seven quantitative metrics (default `total_tokens`). The
 same model served through different providers under one alias collapses into a
 single row whose `providers[]` lists the contributors. The endpoint is
-admin-only because it aggregates usage across every API key.
+admin-only because it aggregates usage across every API key. `/key-ranking`
+also mounts a separate model card whose endpoint is strictly scoped to the
+authenticated viewer's API group.
 
 - **Backend:** `internal/modelranking/` (period resolution with project `TZ`,
-  metric projection, deterministic ordering, 30 s in-memory read cache),
+  metric projection including model overall score, provider/cost/trend fields,
+  deterministic ordering, scoped 30 s in-memory read cache),
   `internal/modelranking/httpapi/` (route registration),
   `internal/repository/model_ranking.go` +
-  `internal/repository/dto/model_ranking.go` (reader-pool aggregation over
-  `usage_events`, grouped by
-  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`; five-minute peak buckets;
-  1,000-candidate safety bound).
+  `internal/repository/model_ranking_rollup.go` +
+  `internal/repository/dto/model_ranking.go` (reader-pool aggregation and
+  checkpointed rollup over `usage_events`, grouped by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`).
 - **Frontend:** `web/src/features/model-ranking/` (types, period helpers,
   formatting, API client, data hook, `ModelRankingSection` + styles).
-- **Route:** admin-only `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>`
+- **Routes:** global admin `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>` and viewer-scoped `GET /api/v1/key-model-ranking/leaderboards?period=<value>&metric=<value>`
   with `Cache-Control: no-store`, `400 invalid_model_ranking_selection`, and
   `503 model_ranking_unavailable`.
-- **Mount point:** exactly one `<ModelRankingSection />` immediately after
+- **Mount points:** `<ModelRankingSection />` immediately after
   `<RankingPage />` inside `activeTab === 'ranking'` in
-  `web/src/pages/UsagePage.tsx`.
+  `web/src/pages/UsagePage.tsx`, and a viewer-scoped card in
+  `web/src/pages/KeyRankingPage.tsx`.
 - **Wiring:** `internal/api/router.go` (`OptionalProviders.ModelRanking` +
   `modelrankinghttpapi.RegisterRoutes(adminProtected, ...)`) and
   `internal/app/app.go` (`modelranking.NewService`, no runner).
@@ -131,9 +135,10 @@ admin-only because it aggregates usage across every API key.
   and zh-TW.
 - **Invariants:** metadata only — no prompts, request bodies, headers, or
   credentials; alias matching is exact after `TRIM`; the reader pool is used;
-  `usage_events_archive` is never queried; there is no schema change and no
-  background runner; the API-key ranking (`internal/ranking/`,
-  `web/src/features/ranking/`) is unchanged.
+  `usage_events_archive` is never queried by online ranking; rollup rows and
+  cursor advance atomically; viewer scope is session-derived only; missing cost
+  is not zero; both ranking domains use project `TZ`; the API-key leaderboard
+  remains regression-tested.
 
 Verification:
 
@@ -143,6 +148,8 @@ npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRan
 npm --prefix ./web run typecheck
 grep -q "modelrankinghttpapi.RegisterRoutes(adminProtected" internal/api/router.go && echo "✓ route"
 grep -q "ModelRankingSection" web/src/pages/UsagePage.tsx && echo "✓ mount"
+grep -q "key-model-ranking/leaderboards" internal/modelranking/httpapi/routes.go && echo "✓ viewer route"
+grep -q "model_ranking_period_stats" internal/entities/model_ranking_period_stat.go && echo "✓ rollup schema"
 grep -q "model_ranking: {" web/src/i18n/index.ts && echo "✓ i18n namespace"
 make verify
 ```

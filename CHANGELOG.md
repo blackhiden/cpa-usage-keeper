@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **Model Ranking Phase 2.25 expansion.** The model leaderboard now uses a
+  checkpointed rollup, supports global admin and authenticated own-key viewer
+  scope (`/key-model-ranking/leaderboards`), model-level overall scoring,
+  provider filtering/contributions, previous-period trends, estimated cost with
+  unavailable-cost counts, and optional period linking on the admin page.
+  API-key ranking periods now follow project `TZ`; existing snapshots are
+  re-settled when the configured timezone changes. The rollup migration is
+  additive and replay-safe.
+
 - **Model ranking on `/ranking` (Phase 2.25).** `/ranking` now shows a second
   leaderboard that ranks models over six periods (Today, Yesterday, Current
   Week, Previous Week, Current Month, Previous Month; default Today) with seven
