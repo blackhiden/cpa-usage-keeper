@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -70,6 +71,10 @@ func TestModelRankingRollupPageIsScopedAndReplaySafe(t *testing.T) {
 	if len(global) != 2 {
 		t.Fatalf("global provider rows=%d, want 2: %+v", len(global), global)
 	}
+	adminModels, err := repository.ListModelRankingRollups(context.Background(), db, "day", "2026-11-19", "", "")
+	if err != nil || len(adminModels) != 2 {
+		t.Fatalf("admin model contributions=%+v err=%v", adminModels, err)
+	}
 	keyA, err := repository.ListModelRankingRollups(context.Background(), db, "day", "2026-11-19", "key-a", "")
 	if err != nil {
 		t.Fatal(err)
@@ -83,5 +88,32 @@ func TestModelRankingRollupPageIsScopedAndReplaySafe(t *testing.T) {
 	}
 	if len(keyB) != 1 || keyB[0].TotalTokens != 200 || keyB[0].UnavailableCostCount != 1 {
 		t.Fatalf("key B rollup=%+v", keyB)
+	}
+}
+
+func TestBackfillModelRankingRollupsIsBoundedAndResumable(t *testing.T) {
+	db := openModelRankingRollupDB(t)
+	now := time.Date(2026, 11, 19, 12, 0, 0, 0, time.Local)
+	const pageSize = 1000
+	events := make([]entities.UsageEvent, 0, pageSize+1)
+	for i := 0; i < pageSize+1; i++ {
+		events = append(events, entities.UsageEvent{EventKey: fmt.Sprintf("backfill-%04d", i), APIGroupKey: "scope", Model: "model", Provider: "provider", Timestamp: now.Add(time.Duration(i) * time.Second), TotalTokens: 1})
+	}
+	if err := db.CreateInBatches(&events, 200).Error; err != nil {
+		t.Fatal(err)
+	}
+	first, err := repository.BackfillModelRankingRollups(context.Background(), db, now, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ProcessedEvents != pageSize || first.CaughtUp {
+		t.Fatalf("first backfill batch=%+v", first)
+	}
+	second, err := repository.BackfillModelRankingRollups(context.Background(), db, now, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ProcessedEvents != 1 || !second.CaughtUp {
+		t.Fatalf("second backfill batch=%+v", second)
 	}
 }

@@ -402,7 +402,6 @@ func (s *usageIdentityService) ListProviderModels(ctx context.Context, request L
 	}, nil
 }
 
-
 func (s *usageIdentityService) providerAPIGroupKey(ctx context.Context, cpaAPIKeyID int64) (string, error) {
 	if cpaAPIKeyID <= 0 {
 		return "", nil
@@ -459,4 +458,3 @@ func mapProviderModels(models []repodto.ProviderModel) []ProviderModel {
 	}
 	return result
 }
-

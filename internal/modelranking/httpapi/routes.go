@@ -74,7 +74,7 @@ func RegisterKeyViewerRoutes(router gin.IRoutes, provider ScopedProvider, resolv
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "model_ranking_unavailable"})
 			return
 		}
-		if resolve == nil {
+	if resolve == nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			return
 		}
