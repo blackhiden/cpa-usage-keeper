@@ -25,14 +25,23 @@ fresh default deployments use the path documented in `docs/CONFIGURATION.md`.
 local-ranking period: today, yesterday, the current month, and the previous
 month. Its composite primary key is `(period_kind, period_key, api_key_id)`.
 The local leaderboard joins these rows to `cpa_api_keys` for display metadata.
+Monthly rows are cumulative, so the day rows of the current and previous month
+are retained as the ledger that lets a day be settled again without counting it
+twice; day rows outside those two months are pruned.
+
 The `ranking.local.period_state` JSON setting in `app_settings` records the
-last settled complete day.
+settlement cursor (`last_settled_day`), the local period-zone fingerprint
+(`period_timezone`, `period_offset_seconds`), and the `current_month_rebuild`
+flag. A change of the zone name **or** offset invalidates every snapshot: the
+rows are cleared, the cursor moves to just before the previous month window so
+the background pass can rebuild it, and the current month is rebuilt from its
+complete days on the next current-month read.
 
 The `20261022_restore_local_ranking` migration recreates this table and the
 nullable `cpa_api_keys.local_ranking_avatar_id` column after the v2 cleanup.
-Current-day and current-month snapshots are created on the first applicable
-leaderboard read when absent, then refreshed by the five-minute background
-runner.
+Current-day, yesterday, and current-month snapshots are created on the first
+applicable leaderboard read when absent, then refreshed by the five-minute
+background runner.
 
 ## Model ranking expansion storage
 

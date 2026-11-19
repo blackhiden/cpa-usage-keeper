@@ -1966,15 +1966,18 @@ than a preference.
 **Expected Benefits:** Consistent day/week/month boundaries everywhere; no
 misleading "Today" totals; one place to reason about period keys.
 **Trade-offs:** Changing the existing key ranking alters which events fall in
-Today/Yesterday/This month for non-Asia/Shanghai deployments, so historical
-`local_ranking_period_stats` rows keyed by the old calendar can be stale until
-the next aggregation settles; the change is user-visible and needs its own
-release note.
+Today/Yesterday/This month for non-Asia/Shanghai deployments. The snapshots are
+cleared on the zone change: today/yesterday/current month are rebuilt on the
+next read and the previous month is re-settled by a bounded background pass (at
+most 31 complete days per run), so the previous-month window can briefly return
+partial values while the pass catches up.
 **Implementation Impact:** `internal/ranking/local_service.go`,
-`internal/ranking/local_leaderboard.go`, `local_service_test.go`, migration or
+`internal/ranking/local_leaderboard.go`, `local_recovery_test.go`, migration or
 re-settlement of `local_ranking_period_stats`, documentation.
 **Priority:** High for correctness, but explicitly out of Model Ranking scope.
-**Status:** Pending User Review
+**Status:** Implemented (2026-11-19) — API-key ranking follows the project `TZ`,
+the saved period zone is fingerprinted by name and UTC offset, live windows are
+rebuilt on read, and the settlement pass is bounded and self-healing.
 
 #### REC-022: Add an estimated cost column per model
 

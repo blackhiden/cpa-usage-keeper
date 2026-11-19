@@ -10,7 +10,8 @@ const (
 	LocalRankingPeriodMonth LocalRankingPeriodKind = "month"
 )
 
-// LocalRankingPeriodStat 每个 API Key 只保留今日、昨日、本月和上月四行累计。
+// LocalRankingPeriodStat 保留今日、昨日、本月和上月四个活动周期行;本月与上月的
+// 日行同时作为月累计的账本,保证同一天被重复结算时结果保持一致。
 type LocalRankingPeriodStat struct {
 	PeriodKind LocalRankingPeriodKind `gorm:"type:text;primaryKey;check:chk_local_ranking_period_stats_kind,period_kind IN ('day','month')"`
 	PeriodKey  string                 `gorm:"type:text;primaryKey"`

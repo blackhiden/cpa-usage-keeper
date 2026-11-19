@@ -1,5 +1,68 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Local API-Key Ranking Recovery Fix
+
+**Date:** 2026-11-19
+**Status:** Fixed — `/ranking` and `/key-ranking` no longer serve an empty
+API-key leaderboard after a period-zone change.
+
+### Objective
+The API-key leaderboard showed no data after the Phase 2.25 `TZ` alignment
+(`a12df321`) landed in `main`.
+
+### Root cause
+`internal/ranking/local_service.go` cleared every `local_ranking_period_stats`
+row when the saved `period_timezone` differed from the running zone, moved
+`last_settled_day` 91 days back, and refreshed today's snapshot only *after* the
+91-day settlement loop inside the same `AggregateOnce` call. The leaderboard read
+path called `AggregateOnce`, so the board stayed empty for the whole rebuild.
+Two further defects: the zone was compared by name only (a container
+`/etc/localtime` change keeps the name `Local` while the calendar moves), and a
+backwards calendar shift returned `local ranking settlement state is ahead of
+period time` on every aggregation run, which never self-healed.
+
+### Fix
+- Period state now fingerprints the zone by `time.Local.String()` **and** UTC
+  offset; either change clears the snapshots and restarts settlement from the
+  previous month window.
+- `AggregateOnce` writes today's snapshot first, then settles pending complete
+  days with `localRankingSettleDayLimit` (31) days per call.
+- Read-path recovery is per window (today, yesterday, current month) and never
+  runs the historical pass; the current month is rebuilt from its complete days
+  under the new `current_month_rebuild` flag, so a partially accumulated month is
+  never served.
+- A `last_settled_day` ahead of the period time is clamped instead of erroring.
+- `pruneLocalRankingPeriodsTx` retains the current and previous month day rows as
+  the month ledger, keeping re-settlement of a day idempotent.
+
+### Verification
+- `go test ./internal/ranking/ -race -count=1` (five new regression tests in
+  `local_recovery_test.go`), `go vet ./internal/...`, and the full
+  `go test ./cmd/... ./internal/...` (44 packages ok, 0 FAIL).
+- `make verify` passes end to end (232 web test files, 1,920 passed / 2 skipped,
+  lint, typecheck, production build).
+- End-to-end check with the real binary: booted the server on a scratch
+  `WORK_DIR` seeded with a key, today/yesterday/this-month events and a
+  **pre-upgrade** `ranking.local.period_state` (no zone fingerprint). The live
+  HTTP endpoints then returned `today=320`, `yesterday=480`,
+  `current_month=1440` and an empty `previous_month`, and the stored state was
+  migrated to `{"period_timezone":"Asia/Shanghai","period_offset_seconds":28800}`.
+  Before the fix this scenario served an empty `today` board.
+- Docs synced: `SCHEMA.md`, `docs/ARCHITECTURE.md`, `docs/SPECIFICATION.md`,
+  `docs/ROADMAP.md` (REC-021 → Implemented), `CHANGELOG.md`.
+
+### Working tree notes
+- `Dockerfile` carries an unrelated modification (TZ/`/etc/localtime` setup) that
+  did not come from this session; it was left untouched. Keep it out of the fix
+  commit unless it is intentional.
+
+### Known limitations
+- After a zone change the previous-month window can return partial values for a
+  few runs while the bounded pass catches up (≤31 days per run).
+- Frontend rendering was not changed; the recovery is backend-side, and the
+  `VITE_RANKING_PREVIEW_MOCK` build flag still overrides the live client when set.
+
+
 ## Session: Phase 2.21 / 2.23 / 2.24 Worktree Merge Audit
 
 **Date:** 2026-11-19

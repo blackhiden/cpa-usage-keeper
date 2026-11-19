@@ -383,8 +383,12 @@ Key invariants:
   `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, provider contributions and
   cost availability. `web/src/features/model-ranking/` renders cards on both
   `/ranking` and `/key-ranking`; viewer scope is derived from the session and
-  never supplied by the browser. API-key ranking calendars use project `TZ` and
-  stale local snapshots are reset when the saved period timezone changes.
+  never supplied by the browser. API-key ranking calendars use project `TZ`.
+  A saved period timezone is compared by name **and** UTC offset, so a changed
+  container zone also invalidates the snapshots: the read path rebuilds the
+  window it is asked for (today, yesterday, or the current month), while a
+  bounded five-minute pass re-settles at most 31 complete days per run so a
+  rebuild can never leave the leaderboard empty or block a read.
 - Credentials surface **provider subscription badges**: `QuotaRow` has no
   per-row `planType` (removed upstream); instead the quota check response
   carries a top-level `subscription` (`UsageSubscriptionInfo`), which

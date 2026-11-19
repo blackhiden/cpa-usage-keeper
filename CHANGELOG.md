@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Local API-key ranking emptied after a period-zone change.** A saved
+  `ranking.local.period_state` from before the `TZ` alignment (or any real zone
+  change) made the aggregation delete every `local_ranking_period_stats` row and
+  then rebuild the current day only after a 91-day synchronous backfill, so
+  `/ranking` and `/key-ranking` served an empty API-key leaderboard for the whole
+  rebuild. The state now stores a zone fingerprint (name **and** UTC offset),
+  `AggregateOnce` writes today's snapshot before the settlement pass, the read
+  path only rebuilds the window it was asked for (today, yesterday, or the
+  current month), and the pass settles at most 31 complete days per run. A
+  calendar that moves backwards now clamps the cursor instead of failing every
+  aggregation with `settlement state is ahead of period time`. Current- and
+  previous-month day rows are retained as the month ledger so a day settled twice
+  is not counted twice.
+
+
 ### Added
 
 - **Model Ranking Phase 2.25 expansion.** The model leaderboard now uses a

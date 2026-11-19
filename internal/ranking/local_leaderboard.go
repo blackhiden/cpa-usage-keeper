@@ -135,7 +135,7 @@ func scaledRatio(numerator, denominator, scale int64) int64 {
 func localRankingPeriodWindows(now time.Time) []localRankingPeriodWindow {
 	now = now.In(time.Local)
 	dayStart := localRankingStartOfDay(now)
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	monthStart := localRankingMonthStart(now)
 	previousDayStart := dayStart.AddDate(0, 0, -1)
 	previousMonthStart := monthStart.AddDate(0, -1, 0)
 	return []localRankingPeriodWindow{
@@ -158,6 +158,18 @@ func localRankingWindowForPeriod(now time.Time, period LeaderboardPeriod) (local
 func localRankingStartOfDay(now time.Time) time.Time {
 	local := now.In(time.Local)
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.Local)
+}
+
+// localRankingMonthStart 返回当前月在本地的零点。
+func localRankingMonthStart(now time.Time) time.Time {
+	local := now.In(time.Local)
+	return time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, time.Local)
+}
+
+// localRankingResettlementStartDay 是期间时区变化后需要重算的最早完整日:上一月
+// 窗口第一天之前,保证上一月与本月两个窗口都能在新日历下重建。
+func localRankingResettlementStartDay(now time.Time) time.Time {
+	return localRankingMonthStart(now).AddDate(0, -1, 0).AddDate(0, 0, -1)
 }
 
 func localRankingTodayWindow(now time.Time) localRankingPeriodWindow {

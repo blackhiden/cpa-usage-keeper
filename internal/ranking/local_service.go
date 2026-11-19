@@ -23,6 +23,11 @@ const (
 	localRankingTopLimit              = 100
 	localRankingPeriodStateSettingKey = "ranking.local.period_state"
 	localRankingWriteBatchSize        = 100
+	// localRankingSettleDayLimit 限制单次聚合补算的完整日数量,避免补算长时间占住
+	// 聚合锁;进度按日持久化,剩余部分由下一批次继续。
+	localRankingSettleDayLimit = 31
+	// localRankingSettleGraceHour 之前不结算昨天:跨零点的写入仍然可能落到上一天。
+	localRankingSettleGraceHour = 2
 )
 
 var (
@@ -45,11 +50,18 @@ type LocalRankingService struct {
 	lastDynamicAggregates []localRankingRawAggregate
 	periodStateLoaded     bool
 	lastSettledDay        string
+	currentMonthRebuild   bool
 }
 
 type localRankingPeriodState struct {
 	LastSettledDay string `json:"last_settled_day"`
-	PeriodTimezone string `json:"period_timezone,omitempty"`
+	// PeriodTimezone/PeriodOffsetSeconds 记录结算日历时使用的本地期间时区。名称或
+	// offset 任一变化都意味着日历边界已改变,旧键快照必须重算。
+	PeriodTimezone      string `json:"period_timezone,omitempty"`
+	PeriodOffsetSeconds int    `json:"period_offset_seconds,omitempty"`
+	// CurrentMonthRebuild 表示期间时区变化后本月窗口尚未在新日历下重算;置位时
+	// 本月榜单先重算本月完整日,不返回只累加了一部分日贡献的快照。
+	CurrentMonthRebuild bool `json:"current_month_rebuild,omitempty"`
 }
 
 type localRankingPeriodWindow struct {
@@ -120,7 +132,7 @@ func NewLocalRankingService(db *gorm.DB, options LocalRankingServiceOptions) (*L
 	return &LocalRankingService{db: db, now: now}, nil
 }
 
-// AggregateOnce 先结算到期完整日，再用一次数据库查询覆盖当前完整今日快照。
+// AggregateOnce 先覆盖当前完整今日快照,再补算到期完整日。
 func (s *LocalRankingService) AggregateOnce(ctx context.Context) error {
 	if s == nil || s.db == nil || s.now == nil {
 		return fmt.Errorf("local ranking service is not configured")
@@ -133,20 +145,28 @@ func (s *LocalRankingService) AggregateOnce(ctx context.Context) error {
 
 	snapshotAt := timeutil.NormalizeStorageTime(s.now())
 	periodNow := snapshotAt.In(time.Local)
-	if err := s.settlePendingLocalRankingDays(ctx, periodNow, snapshotAt); err != nil {
+	if err := s.ensureLocalRankingPeriodState(ctx, periodNow, snapshotAt); err != nil {
 		return err
 	}
+	// 今日快照先写入:历史完整日的补算可能跨多个批次,今日榜单不能等它完成。
+	if err := s.refreshLocalRankingToday(ctx, periodNow, snapshotAt, true); err != nil {
+		return err
+	}
+	return s.settlePendingLocalRankingDays(ctx, periodNow, snapshotAt)
+}
 
+// refreshLocalRankingToday 覆盖当前完整今日快照;同一天数据无变化时跳过写入。
+func (s *LocalRankingService) refreshLocalRankingToday(ctx context.Context, periodNow, snapshotAt time.Time, prune bool) error {
 	today := localRankingTodayWindow(periodNow)
 	aggregates, err := s.aggregateLocalRankingWindow(ctx, today)
 	if err != nil {
 		return err
 	}
 	// 同一自然日直接比较上次成功结果，保留每轮一次 reader 扫描，同时避免无变化写入。
-	if s.lastDynamicDay == today.Key && slices.Equal(s.lastDynamicAggregates, aggregates) {
+	if !prune && s.lastDynamicDay == today.Key && slices.Equal(s.lastDynamicAggregates, aggregates) {
 		return nil
 	}
-	if err := s.replaceLocalRankingDay(ctx, today, aggregates, snapshotAt, "", true); err != nil {
+	if err := s.replaceLocalRankingDay(ctx, today, aggregates, snapshotAt, nil, prune); err != nil {
 		return err
 	}
 	s.lastDynamicDay = today.Key
@@ -158,7 +178,7 @@ func (s *LocalRankingService) settlePendingLocalRankingDays(ctx context.Context,
 	if err := s.ensureLocalRankingPeriodState(ctx, periodNow, snapshotAt); err != nil {
 		return err
 	}
-	if periodNow.Hour() < 2 {
+	if periodNow.Hour() < localRankingSettleGraceHour {
 		return nil
 	}
 	target := localRankingStartOfDay(periodNow).AddDate(0, 0, -1)
@@ -167,19 +187,30 @@ func (s *LocalRankingService) settlePendingLocalRankingDays(ctx context.Context,
 		return fmt.Errorf("parse local ranking last settled day: %w", err)
 	}
 	if last.After(target) {
-		return fmt.Errorf("local ranking settlement state is ahead of period time")
+		// 本地日历回退(时钟回拨或 offset 变化)时把游标收回到可结算范围,不报错。
+		if err := s.saveLocalRankingPeriodState(ctx, periodNow, target.Format("2006-01-02"), s.currentMonthRebuild, snapshotAt); err != nil {
+			return err
+		}
+		last = target
 	}
+	settled := 0
 	for day := last.AddDate(0, 0, 1); !day.After(target); day = day.AddDate(0, 0, 1) {
+		if settled >= localRankingSettleDayLimit {
+			return nil
+		}
 		window := localRankingCompleteDayWindow(day)
 		aggregates, err := s.aggregateLocalRankingWindow(ctx, window)
 		if err != nil {
 			return err
 		}
 		dayKey := day.Format("2006-01-02")
-		if err := s.replaceLocalRankingDay(ctx, window, aggregates, snapshotAt, dayKey, day.Equal(target)); err != nil {
+		next := localRankingPeriodStateFor(periodNow, dayKey, s.currentMonthRebuild && !day.Equal(target))
+		if err := s.replaceLocalRankingDay(ctx, window, aggregates, snapshotAt, &next, day.Equal(target)); err != nil {
 			return err
 		}
-		s.lastSettledDay = dayKey
+		s.lastSettledDay = next.LastSettledDay
+		s.currentMonthRebuild = next.CurrentMonthRebuild
+		settled++
 	}
 	return nil
 }
@@ -203,8 +234,10 @@ func (s *LocalRankingService) ensureLocalRankingPeriodState(ctx context.Context,
 		if _, err := time.ParseInLocation("2006-01-02", state.LastSettledDay, time.Local); err != nil {
 			return fmt.Errorf("validate local ranking period state: %w", err)
 		}
-		if state.PeriodTimezone != time.Local.String() {
-			state = localRankingPeriodState{LastSettledDay: localRankingStartOfDay(periodNow).AddDate(0, 0, -91).Format("2006-01-02"), PeriodTimezone: time.Local.String()}
+		zoneName, zoneOffset := localRankingZone(periodNow)
+		if state.PeriodTimezone != zoneName || state.PeriodOffsetSeconds != zoneOffset {
+			// 期间时区变化后旧键快照已不对应新日历:清空并从上一月窗口开始重算。
+			state = localRankingPeriodStateFor(periodNow, localRankingResettlementStartDay(periodNow).Format("2006-01-02"), true)
 			if err := s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 				if err := tx.Where("1 = 1").Delete(&entities.LocalRankingPeriodStat{}).Error; err != nil {
 					return fmt.Errorf("reset local ranking snapshots for timezone change: %w", err)
@@ -213,24 +246,55 @@ func (s *LocalRankingService) ensureLocalRankingPeriodState(ctx context.Context,
 			}); err != nil {
 				return err
 			}
-			s.lastSettledDay = state.LastSettledDay
-			s.periodStateLoaded = true
-			return nil
+			s.lastDynamicDay = ""
+			s.lastDynamicAggregates = nil
 		}
 		s.lastSettledDay = state.LastSettledDay
+		s.currentMonthRebuild = state.CurrentMonthRebuild
 		s.periodStateLoaded = true
 		return nil
 	}
 
 	// 首次启用从今天开始，直接把昨天标记为边界，绝不补齐上线前周期。
-	initial := localRankingPeriodState{LastSettledDay: localRankingStartOfDay(periodNow).AddDate(0, 0, -1).Format("2006-01-02"), PeriodTimezone: time.Local.String()}
+	initial := localRankingPeriodStateFor(periodNow, localRankingStartOfDay(periodNow).AddDate(0, 0, -1).Format("2006-01-02"), false)
 	if err := s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return saveLocalRankingPeriodStateTx(tx, initial, snapshotAt)
 	}); err != nil {
 		return err
 	}
 	s.lastSettledDay = initial.LastSettledDay
+	s.currentMonthRebuild = initial.CurrentMonthRebuild
+	s.lastDynamicDay = ""
+	s.lastDynamicAggregates = nil
 	s.periodStateLoaded = true
+	return nil
+}
+
+// localRankingZone 返回本地期间时区的名称与 offset,两者共同决定日历边界。
+func localRankingZone(periodNow time.Time) (string, int) {
+	_, offset := periodNow.Zone()
+	return time.Local.String(), offset
+}
+
+// localRankingPeriodStateFor 组装期间状态,始终写入当前本地期间时区指纹。
+func localRankingPeriodStateFor(periodNow time.Time, lastSettledDay string, currentMonthRebuild bool) localRankingPeriodState {
+	name, offset := localRankingZone(periodNow)
+	return localRankingPeriodState{
+		LastSettledDay: lastSettledDay, PeriodTimezone: name, PeriodOffsetSeconds: offset,
+		CurrentMonthRebuild: currentMonthRebuild,
+	}
+}
+
+// saveLocalRankingPeriodState 持久化期间状态并同步内存游标,供读取路径与后台批次共享。
+func (s *LocalRankingService) saveLocalRankingPeriodState(ctx context.Context, periodNow time.Time, lastSettledDay string, currentMonthRebuild bool, snapshotAt time.Time) error {
+	state := localRankingPeriodStateFor(periodNow, lastSettledDay, currentMonthRebuild)
+	if err := s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return saveLocalRankingPeriodStateTx(tx, state, snapshotAt)
+	}); err != nil {
+		return err
+	}
+	s.lastSettledDay = state.LastSettledDay
+	s.currentMonthRebuild = state.CurrentMonthRebuild
 	return nil
 }
 
@@ -291,7 +355,7 @@ func (s *LocalRankingService) replaceLocalRankingDay(
 	window localRankingPeriodWindow,
 	aggregates []localRankingRawAggregate,
 	snapshotAt time.Time,
-	settledDay string,
+	state *localRankingPeriodState,
 	prune bool,
 ) error {
 	monthKey := window.Start.In(time.Local).Format("2006-01")
@@ -340,8 +404,8 @@ func (s *LocalRankingService) replaceLocalRankingDay(
 				return fmt.Errorf("replace local ranking day %s: %w", window.Key, err)
 			}
 		}
-		if settledDay != "" {
-			if err := saveLocalRankingPeriodStateTx(tx, localRankingPeriodState{LastSettledDay: settledDay, PeriodTimezone: time.Local.String()}, snapshotAt); err != nil {
+		if state != nil {
+			if err := saveLocalRankingPeriodStateTx(tx, *state, snapshotAt); err != nil {
 				return err
 			}
 		}
@@ -405,9 +469,11 @@ func pruneLocalRankingPeriodsTx(tx *gorm.DB, now time.Time) error {
 	windows := localRankingPeriodWindows(now)
 	dayKeys := []string{windows[0].Key, windows[1].Key}
 	monthKeys := []string{windows[2].Key, windows[3].Key}
+	// 日行是月累计的账本:本月与上月的日行必须保留,否则跨批次重复结算同一天时
+	// 会把该天的贡献重复计入月快照。
 	result := tx.Where(
-		"(period_kind = ? AND period_key NOT IN ?) OR (period_kind = ? AND period_key NOT IN ?)",
-		entities.LocalRankingPeriodDay, dayKeys, entities.LocalRankingPeriodMonth, monthKeys,
+		"(period_kind = ? AND period_key NOT IN ? AND substr(period_key, 1, 7) NOT IN ?) OR (period_kind = ? AND period_key NOT IN ?)",
+		entities.LocalRankingPeriodDay, dayKeys, monthKeys, entities.LocalRankingPeriodMonth, monthKeys,
 	).Delete(&entities.LocalRankingPeriodStat{})
 	if result.Error != nil {
 		return fmt.Errorf("prune local ranking period stats: %w", result.Error)
@@ -455,21 +521,88 @@ func (s *LocalRankingService) Leaderboard(ctx context.Context, period Leaderboar
 }
 
 func (s *LocalRankingService) ensureCurrentLocalRankingSnapshot(ctx context.Context, window localRankingPeriodWindow) error {
-	if window.Period != LeaderboardToday && window.Period != LeaderboardCurrentMonth {
+	if window.Period != LeaderboardToday && window.Period != LeaderboardYesterday && window.Period != LeaderboardCurrentMonth {
 		return nil
 	}
-	today := localRankingTodayWindow(window.End)
+	snapshotAt := timeutil.NormalizeStorageTime(s.now())
+	periodNow := snapshotAt.In(time.Local)
+	s.aggregateMu.Lock()
+	defer s.aggregateMu.Unlock()
+	if err := s.ensureLocalRankingPeriodState(ctx, periodNow, snapshotAt); err != nil {
+		return err
+	}
+	switch window.Period {
+	case LeaderboardToday:
+		empty, err := s.localRankingWindowEmpty(ctx, window)
+		if err != nil || !empty {
+			return err
+		}
+		return s.refreshLocalRankingToday(ctx, periodNow, snapshotAt, true)
+	case LeaderboardYesterday:
+		empty, err := s.localRankingWindowEmpty(ctx, window)
+		if err != nil || !empty {
+			return err
+		}
+		if periodNow.Hour() < localRankingSettleGraceHour {
+			return nil
+		}
+		day := localRankingStartOfDay(window.Start)
+		return s.settleLocalRankingDayRange(ctx, day, day.AddDate(0, 0, 1), snapshotAt)
+	default:
+		rangeEnd := localRankingStartOfDay(periodNow)
+		if periodNow.Hour() < localRankingSettleGraceHour {
+			// 昨天还在宽限期内,本月窗口先只覆盖更早的完整日。
+			rangeEnd = rangeEnd.AddDate(0, 0, -1)
+		}
+		if s.currentMonthRebuild {
+			// 期间时区变化后本月窗口必须在新日历下完整重算,否则会返回只累加了一部分
+			// 日贡献的快照;范围止于本月完整日,不涉及更早的历史。
+			if err := s.settleLocalRankingDayRange(ctx, localRankingMonthStart(periodNow), rangeEnd, snapshotAt); err != nil {
+				return err
+			}
+		}
+		empty, err := s.localRankingWindowEmpty(ctx, localRankingTodayWindow(periodNow))
+		if err != nil {
+			return err
+		}
+		if empty {
+			if err := s.refreshLocalRankingToday(ctx, periodNow, snapshotAt, true); err != nil {
+				return err
+			}
+		}
+		if s.currentMonthRebuild {
+			return s.saveLocalRankingPeriodState(ctx, periodNow, s.lastSettledDay, false, snapshotAt)
+		}
+		return nil
+	}
+}
+
+// localRankingWindowEmpty 判断窗口是否还没有写入任何快照行。
+func (s *LocalRankingService) localRankingWindowEmpty(ctx context.Context, window localRankingPeriodWindow) (bool, error) {
 	var count int64
 	if err := s.db.Clauses(dbresolver.Read).WithContext(ctx).
 		Model(&entities.LocalRankingPeriodStat{}).
-		Where("period_kind = ? AND period_key = ?", today.Kind, today.Key).
+		Where("period_kind = ? AND period_key = ?", window.Kind, window.Key).
 		Count(&count).Error; err != nil {
-		return fmt.Errorf("check current local ranking snapshot: %w", err)
+		return false, fmt.Errorf("check current local ranking snapshot: %w", err)
 	}
-	if count != 0 {
-		return nil
+	return count == 0, nil
+}
+
+// settleLocalRankingDayRange 结算半开区间 [start, end) 内的完整自然日,按天幂等覆盖,
+// 不移动后台补算游标。
+func (s *LocalRankingService) settleLocalRankingDayRange(ctx context.Context, start, end, snapshotAt time.Time) error {
+	for day := start; day.Before(end); day = day.AddDate(0, 0, 1) {
+		window := localRankingCompleteDayWindow(day)
+		aggregates, err := s.aggregateLocalRankingWindow(ctx, window)
+		if err != nil {
+			return err
+		}
+		if err := s.replaceLocalRankingDay(ctx, window, aggregates, snapshotAt, nil, false); err != nil {
+			return err
+		}
 	}
-	return s.AggregateOnce(ctx)
+	return nil
 }
 
 func (s *LocalRankingService) loadLocalRankingPopulation(ctx context.Context, window localRankingPeriodWindow) ([]localRankingPopulationRow, error) {

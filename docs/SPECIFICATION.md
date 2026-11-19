@@ -379,12 +379,19 @@ Viewer endpoints are rate-limited per viewer session. Request events, provider g
 
 ### 6.6 Ranking
 
-- **Local API-key ranking** is available by default. It stores current-day and
-  current-month per-key snapshots in `local_ranking_period_stats` and refreshes
-  them every five minutes. If the current snapshot is absent after startup or a
-  schema migration, the first matching leaderboard read builds it before
-  returning, so current usage does not appear as an empty board while waiting
-  for the background interval.
+- **Local API-key ranking** is available by default. It stores current-day,
+  yesterday, and current-month per-key snapshots in `local_ranking_period_stats`
+  and refreshes them every five minutes. If the snapshot of a requested window
+  is absent after startup or a schema migration, the first matching leaderboard
+  read builds that window before returning, so current usage does not appear as
+  an empty board while waiting for the background interval.
+- **Period-zone changes invalidate local snapshots.** When the saved period
+  timezone name or UTC offset no longer matches the running configuration, every
+  snapshot is cleared. The next current-month read rebuilds the current month
+  from its complete days, the next today/yesterday read rebuilds that day, and
+  the background pass re-settles the remaining complete days at a bounded rate
+  (at most 31 per run). Reads never run the historical pass, so a rebuild can
+  neither return an error nor leave the API-key leaderboard empty.
 
 - **Community ranking** is opt-in. When enabled, the instance generates an
   **ed25519** identity persisted via `AppSetting` (saved transactionally with
