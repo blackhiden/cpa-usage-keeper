@@ -1,5 +1,77 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Phase 2.21 / 2.23 / 2.24 Worktree Merge Audit
+
+**Date:** 2026-11-19
+**Status:** No merge required — every worktree branch was already an ancestor of
+`main`; verification and documentation sync only.
+
+### Objective
+Inspect and prepare the 15 worktree branches behind Phase 2.21, 2.23, and 2.24
+for integration into `main`, detect conflicts early, and validate the result.
+
+### Findings
+- `git merge-base --is-ancestor <branch> main` is true for all 15 branches and
+  `git rev-list --count main..<branch>` is 0 for every local branch. Nothing was
+  pending integration, so this session created no merge commit and resolved no
+  conflict.
+- Merge commits already in history (branch tip → merge commit):
+  - Phase 2.21 (fork `a3d2e5b8`): `feature/phase-2-21-backend-models-api`
+    (`dac73dd6`) → `ab65ac4c`; `-dialog-infrastructure` (`2e104335`) →
+    `debcabc8`; `-keys-dialog` (`8747b459`) → `bfb8b11e`; `-models-dialog`
+    (`830d50ff`) → `e3d701d1`; `-provider-actions` (`6437eada`) → `e55d7b1f`.
+  - Phase 2.23 (fork `30e24ff0`): `-model-test-backend` (`51404bcf`) →
+    `1243f325`; `-admin-settings-backend` (`e6934b9f`) → `1ff597e3`;
+    `-admin-settings-ui` (`8ba2e5c6`) → `020c51dd`; `-model-test-ui`
+    (`98c860fc`) → `04daa6cc`; `-viewer-models-page` (`7818fa03`) →
+    `44b3fdac`; `-integration` (`495f5531`) → `86a918dc`.
+  - Phase 2.24: `-telegram-domain` (`283563eb`), `-admin-settings`
+    (`8a494b73`), and `-frontend` (`eb5ecedf`) → `117973ca`; `-integration`
+    (`d231bb3d`) → `5a2b462e`.
+- All 15 worktrees are clean (no staged, unstaged, or untracked changes) and no
+  branch tip is ahead of `main`.
+- Merged feature code is present in `main`: `internal/modeltest/`,
+  `internal/telegram/`, `internal/adminsettings/`,
+  `internal/repository/provider_models.go`,
+  `GET /api/v1/usage/providers/:providerId/models`,
+  `web/src/components/ui/ProviderDataDialog.tsx`,
+  `ProviderKeysDialog`/`ProviderModelsDialog`, `web/src/features/model-test/`,
+  plus router/app wiring in `internal/api/router.go` and `internal/app/app.go`.
+
+### Validation on `main`
+- `go build ./...` PASS; `go vet ./internal/...` PASS.
+- `go test ./cmd/... ./internal/...` PASS — 44 ok packages, 0 FAIL, 0 panics.
+- `npm run typecheck` PASS; `npm run lint` PASS.
+- `npm run test` PASS — 232 files, 1,920 tests passed, 2 skipped.
+- `npm run build` PASS (1,284 modules transformed).
+- Phase 2.21 acceptance criteria re-checked individually: endpoint, admin/viewer
+  scoping, Keys/Models actions, card/list toggle with session-scoped state,
+  stats and table rendering, en/zh/zh-TW keys, and dialog tests.
+
+### Documentation discrepancies recorded
+- `docs/ROADMAP.md` still marked Phase 2.21 as ⬜ planned although it was merged
+  and verified; updated to ✅ with a status block and checked acceptance boxes.
+- One 2.21 acceptance item remains open: the Keys/Models dialogs are not listed
+  in `docs/MERGE-PRESERVATION.md` (§6 covers only `ProviderSummarySection` and
+  `ProviderDetailPage`). Recording new protection policy is a maintainer
+  decision, so it was left open instead of invented.
+- `CHANGELOG.md` has no Phase 2.21 entry (2.23 and 2.24 are documented). Not
+  back-filled here: inventing a release-history entry for an earlier shipped
+  feature is out of scope for a merge audit.
+- `docs/ROADMAP.md` §"Provider Grouping & Detail (Permanent Feature)" carries a
+  truncated fragment (`no inbox loss (documented pass criteria per scenario).`)
+  and Phase 1 items 1.7/1.8 nested under that heading. Pre-existing formatting
+  damage unrelated to these branches; left untouched.
+
+### Branch disposition
+- All 15 branches and their worktrees are integrated and safe to delete only
+  after explicit authorization; nothing was deleted in this session.
+- `fix/ai-provider-table-columns` (`04c9e76b`) is the only local branch with a
+  commit not in `main`, but its four changes (restored table layout classes,
+  `_total` rename, `CredentialSections.styles.test.ts`, `undefined`-class
+  regression assertion) already exist in `main` in evolved form. It is
+  superseded; do not merge it.
+
 ## Session: Phase 2.25 Model Ranking on `/ranking`
 
 ## Session: Phase 2.25 expansion — viewer scope and REC-015…REC-022

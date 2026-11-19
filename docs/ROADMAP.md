@@ -56,7 +56,13 @@
 
 ### Active Feature Development
 
-- **2.21 Provider Keys & Models Dialogs with View Modes.** ⬜ (planned)
+- **2.21 Provider Keys & Models Dialogs with View Modes.** ✅ (integrated into `main`)
+  - **Status:** Implemented and merged from the five worktree branches
+    (`feature/phase-2-21-backend-models-api`, `-dialog-infrastructure`,
+    `-keys-dialog`, `-models-dialog`, `-provider-actions`). Re-verified on
+    `main` 2026-11-19: endpoint, role scoping, both dialogs, view toggle, and
+    en/zh/zh-TW strings are present and tested. One documentation item
+    (`MERGE-PRESERVATION.md`) remains open below.
   - **Objective:** Enhance `/ai-provider` table with separate "Keys" and "Models" action buttons. Each opens a dialog showing provider-specific data with card and list view toggles.
   - **User Story:** As an admin, I want to quickly inspect all keys or all models for a provider without navigating away from the providers table, and toggle between card and list presentations based on my preference.
   - **Scope:**
@@ -83,17 +89,21 @@
       - Update `session.md` with implementation notes
   - **Dependencies:** None (builds on existing provider table infrastructure)
   - **Acceptance Criteria:**
-    - [ ] Backend endpoint returns paginated models for a provider
-    - [ ] Admin sees all models; API-key viewer sees only models from their events
-    - [ ] "Keys" button (renamed from "Detail") opens a dialog with key list
-    - [ ] "Models" button opens a dialog with model list
-    - [ ] Both dialogs support card and list view toggle
-    - [ ] Card view renders grid layout with stats
-    - [ ] List view renders table layout
-    - [ ] View mode selection persists during dialog session
-    - [ ] i18n complete for all three locales
-    - [ ] Tests cover dialog interaction, view toggle, and role-based filtering
-    - [ ] Feature documented in `MERGE-PRESERVATION.md`
+    - [x] Backend endpoint returns paginated models for a provider
+    - [x] Admin sees all models; API-key viewer sees only models from their events
+    - [x] "Keys" button (renamed from "Detail") opens a dialog with key list
+    - [x] "Models" button opens a dialog with model list
+    - [x] Both dialogs support card and list view toggle
+    - [x] Card view renders grid layout with stats
+    - [x] List view renders table layout
+    - [x] View mode selection persists during dialog session
+    - [x] i18n complete for all three locales
+    - [x] Tests cover dialog interaction, view toggle, and role-based filtering
+    - [ ] Feature documented in `MERGE-PRESERVATION.md` — **open:** the Keys and
+      Models dialogs are not yet listed as a protected feature
+      (`MERGE-PRESERVATION.md` §6 covers `ProviderSummarySection` and
+      `ProviderDetailPage` only). Recording new protection policy needs an
+      explicit maintainer decision; tracked in `session.md` (2026-11-19).
   - **Tasks:** See [PHASE_2_21_PLAN.md](PHASE_2_21_PLAN.md) for detailed task breakdown (12 tasks total, 2-3 developer-days).
 
 - **2.22 Live Flow Model History & Period Filter.** ⬜ (planned)
