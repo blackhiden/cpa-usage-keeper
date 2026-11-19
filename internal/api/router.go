@@ -24,6 +24,7 @@ import (
 	"cpa-usage-keeper/internal/poller"
 	"cpa-usage-keeper/internal/quota"
 	rankinghttpapi "cpa-usage-keeper/internal/ranking/httpapi"
+	"cpa-usage-keeper/internal/repository"
 	"cpa-usage-keeper/internal/service"
 	"cpa-usage-keeper/internal/telegram"
 	telegramhttpapi "cpa-usage-keeper/internal/telegram/httpapi"
@@ -79,7 +80,7 @@ type OptionalProviders struct {
 	// Local ranking provider (fork feature)
 	LocalRanking rankinghttpapi.LocalProvider
 	// Model Ranking (Phase 2.25 fork feature)
-	ModelRanking modelrankinghttpapi.Provider
+	ModelRanking modelrankinghttpapi.ScopedProvider
 	// Community ranking provider (disabled but preserved)
 	Ranking rankinghttpapi.Provider
 	// Models provider (upstream feature)
@@ -150,7 +151,7 @@ func NewRouter(
 	// Local ranking provider (fork feature)
 	var localRankingProvider rankinghttpapi.LocalProvider
 	// Model Ranking (Phase 2.25 fork feature)
-	var modelRankingProvider modelrankinghttpapi.Provider
+	var modelRankingProvider modelrankinghttpapi.ScopedProvider
 	// Community ranking is disabled but preserved
 	var _ rankinghttpapi.Provider // rankingProvider - disabled but type preserved
 	// Provider Model GNN (permanent fork feature)
@@ -286,6 +287,17 @@ func NewRouter(
 	if localRankingProvider != nil {
 		rankinghttpapi.RegisterKeyViewerLocalRoutes(keyViewerProtected, localRankingProvider)
 	}
+	modelrankinghttpapi.RegisterKeyViewerRoutes(keyViewerProtected, modelRankingProvider, func(c *gin.Context) (modelrankinghttpapi.ViewerScope, bool) {
+		session, key, ok := activeAPIKeyViewerContext(c)
+		if !ok {
+			return modelrankinghttpapi.ViewerScope{}, false
+		}
+		scope, err := repository.ModelRankingScopeForAPIKeyID(session.CPAAPIKeyID, key.APIKey)
+		if err != nil {
+			return modelrankinghttpapi.ViewerScope{}, false
+		}
+		return modelrankinghttpapi.ViewerScope{ScopeKey: scope}, true
+	})
 
 	registerStaticRoutes(router, appGroup, staticFS, authConfig.FrameAncestorOrigins, basePath, nil)
 

@@ -6,9 +6,8 @@ import (
 	"math/big"
 )
 
-// Metric is a quantitative ranking metric. The wire values intentionally match
-// ranking.LeaderboardMetric (minus overall); metric_test.go asserts the parity so
-// the two leaderboards cannot drift silently.
+// Metric is a model-ranking metric. The seven quantitative wire values mirror
+// the API-key leaderboard; overall is shared through rankingmath.
 type Metric string
 
 const (
@@ -19,9 +18,10 @@ const (
 	MetricLatencyAverage Metric = "latency_average"
 	MetricPeakTPM        Metric = "peak_tpm"
 	MetricPeakRPM        Metric = "peak_rpm"
+	MetricOverall        Metric = "overall"
 )
 
-// AllMetrics returns the seven supported metrics in display order.
+// AllMetrics returns the supported metrics in display order.
 func AllMetrics() []Metric {
 	return []Metric{
 		MetricTotalTokens,
@@ -31,6 +31,7 @@ func AllMetrics() []Metric {
 		MetricLatencyAverage,
 		MetricPeakTPM,
 		MetricPeakRPM,
+		MetricOverall,
 	}
 }
 

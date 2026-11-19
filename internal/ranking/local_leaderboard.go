@@ -133,9 +133,9 @@ func scaledRatio(numerator, denominator, scale int64) int64 {
 }
 
 func localRankingPeriodWindows(now time.Time) []localRankingPeriodWindow {
-	now = now.In(localRankingPeriodLocation)
+	now = now.In(time.Local)
 	dayStart := localRankingStartOfDay(now)
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, localRankingPeriodLocation)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 	previousDayStart := dayStart.AddDate(0, 0, -1)
 	previousMonthStart := monthStart.AddDate(0, -1, 0)
 	return []localRankingPeriodWindow{
@@ -156,15 +156,15 @@ func localRankingWindowForPeriod(now time.Time, period LeaderboardPeriod) (local
 }
 
 func localRankingStartOfDay(now time.Time) time.Time {
-	local := now.In(localRankingPeriodLocation)
-	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, localRankingPeriodLocation)
+	local := now.In(time.Local)
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.Local)
 }
 
 func localRankingTodayWindow(now time.Time) localRankingPeriodWindow {
 	start := localRankingStartOfDay(now)
 	return localRankingPeriodWindow{
 		Period: LeaderboardToday, Kind: entities.LocalRankingPeriodDay,
-		Key: start.Format("2006-01-02"), Start: start, End: now.In(localRankingPeriodLocation),
+		Key: start.Format("2006-01-02"), Start: start, End: now.In(time.Local),
 	}
 }
 

@@ -46,6 +46,7 @@ func newKeyViewerRankingRouter(t *testing.T, localEnabled bool) (*auth.SessionMa
 	}
 	community := &rankingRouteProviderStub{}
 	local := &adminLocalRankingProviderStub{}
+	modelProvider := &modelRankingProviderStub{}
 	keyProvider := &keyViewerRankingKeyStub{row: entities.CPAAPIKey{ID: 42, APIKey: "sk-viewer123456", KeyAlias: "Viewer"}}
 	config := AuthConfig{
 		Enabled:                         true,
@@ -58,6 +59,7 @@ func newKeyViewerRankingRouter(t *testing.T, localEnabled bool) (*auth.SessionMa
 		CPAAPIKeys:   keyProvider,
 		Ranking:      community,
 		LocalRanking: local,
+		ModelRanking: modelProvider,
 	})
 	return sessions, viewerToken, community, local, router
 }

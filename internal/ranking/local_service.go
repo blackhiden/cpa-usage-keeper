@@ -26,8 +26,7 @@ const (
 )
 
 var (
-	ErrInvalidLeaderboard      = errors.New("invalid leaderboard selection")
-	localRankingPeriodLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
+	ErrInvalidLeaderboard = errors.New("invalid leaderboard selection")
 )
 
 // LocalRankingServiceOptions 只开放测试需要固定的项目时钟。
@@ -50,6 +49,7 @@ type LocalRankingService struct {
 
 type localRankingPeriodState struct {
 	LastSettledDay string `json:"last_settled_day"`
+	PeriodTimezone string `json:"period_timezone,omitempty"`
 }
 
 type localRankingPeriodWindow struct {
@@ -132,7 +132,7 @@ func (s *LocalRankingService) AggregateOnce(ctx context.Context) error {
 	defer s.aggregateMu.Unlock()
 
 	snapshotAt := timeutil.NormalizeStorageTime(s.now())
-	periodNow := snapshotAt.In(localRankingPeriodLocation)
+	periodNow := snapshotAt.In(time.Local)
 	if err := s.settlePendingLocalRankingDays(ctx, periodNow, snapshotAt); err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (s *LocalRankingService) settlePendingLocalRankingDays(ctx context.Context,
 		return nil
 	}
 	target := localRankingStartOfDay(periodNow).AddDate(0, 0, -1)
-	last, err := time.ParseInLocation("2006-01-02", s.lastSettledDay, localRankingPeriodLocation)
+	last, err := time.ParseInLocation("2006-01-02", s.lastSettledDay, time.Local)
 	if err != nil {
 		return fmt.Errorf("parse local ranking last settled day: %w", err)
 	}
@@ -200,8 +200,22 @@ func (s *LocalRankingService) ensureLocalRankingPeriodState(ctx context.Context,
 		if err := json.Unmarshal([]byte(*setting.Value), &state); err != nil {
 			return fmt.Errorf("decode local ranking period state: %w", err)
 		}
-		if _, err := time.ParseInLocation("2006-01-02", state.LastSettledDay, localRankingPeriodLocation); err != nil {
+		if _, err := time.ParseInLocation("2006-01-02", state.LastSettledDay, time.Local); err != nil {
 			return fmt.Errorf("validate local ranking period state: %w", err)
+		}
+		if state.PeriodTimezone != time.Local.String() {
+			state = localRankingPeriodState{LastSettledDay: localRankingStartOfDay(periodNow).AddDate(0, 0, -91).Format("2006-01-02"), PeriodTimezone: time.Local.String()}
+			if err := s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+				if err := tx.Where("1 = 1").Delete(&entities.LocalRankingPeriodStat{}).Error; err != nil {
+					return fmt.Errorf("reset local ranking snapshots for timezone change: %w", err)
+				}
+				return saveLocalRankingPeriodStateTx(tx, state, snapshotAt)
+			}); err != nil {
+				return err
+			}
+			s.lastSettledDay = state.LastSettledDay
+			s.periodStateLoaded = true
+			return nil
 		}
 		s.lastSettledDay = state.LastSettledDay
 		s.periodStateLoaded = true
@@ -209,7 +223,7 @@ func (s *LocalRankingService) ensureLocalRankingPeriodState(ctx context.Context,
 	}
 
 	// 首次启用从今天开始，直接把昨天标记为边界，绝不补齐上线前周期。
-	initial := localRankingPeriodState{LastSettledDay: localRankingStartOfDay(periodNow).AddDate(0, 0, -1).Format("2006-01-02")}
+	initial := localRankingPeriodState{LastSettledDay: localRankingStartOfDay(periodNow).AddDate(0, 0, -1).Format("2006-01-02"), PeriodTimezone: time.Local.String()}
 	if err := s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return saveLocalRankingPeriodStateTx(tx, initial, snapshotAt)
 	}); err != nil {
@@ -280,7 +294,7 @@ func (s *LocalRankingService) replaceLocalRankingDay(
 	settledDay string,
 	prune bool,
 ) error {
-	monthKey := window.Start.In(localRankingPeriodLocation).Format("2006-01")
+	monthKey := window.Start.In(time.Local).Format("2006-01")
 	return s.db.Clauses(dbresolver.Write).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tx = tx.Session(&gorm.Session{NowFunc: func() time.Time { return snapshotAt }})
 		var existing []entities.LocalRankingPeriodStat
@@ -327,12 +341,12 @@ func (s *LocalRankingService) replaceLocalRankingDay(
 			}
 		}
 		if settledDay != "" {
-			if err := saveLocalRankingPeriodStateTx(tx, localRankingPeriodState{LastSettledDay: settledDay}, snapshotAt); err != nil {
+			if err := saveLocalRankingPeriodStateTx(tx, localRankingPeriodState{LastSettledDay: settledDay, PeriodTimezone: time.Local.String()}, snapshotAt); err != nil {
 				return err
 			}
 		}
 		if prune {
-			if err := pruneLocalRankingPeriodsTx(tx, snapshotAt.In(localRankingPeriodLocation)); err != nil {
+			if err := pruneLocalRankingPeriodsTx(tx, snapshotAt.In(time.Local)); err != nil {
 				return err
 			}
 		}
@@ -410,7 +424,7 @@ func (s *LocalRankingService) Leaderboard(ctx context.Context, period Leaderboar
 		return Leaderboard{}, ErrInvalidLeaderboard
 	}
 	snapshotAt := timeutil.NormalizeStorageTime(s.now())
-	window, ok := localRankingWindowForPeriod(snapshotAt.In(localRankingPeriodLocation), period)
+	window, ok := localRankingWindowForPeriod(snapshotAt.In(time.Local), period)
 	if !ok {
 		return Leaderboard{}, ErrInvalidLeaderboard
 	}

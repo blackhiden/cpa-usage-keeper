@@ -242,4 +242,11 @@ func seedArchiveCaughtUpCheckpoints(t *testing.T, db *gorm.DB, maxID int64, now 
 	if err := db.Create(&rows).Error; err != nil {
 		t.Fatalf("seed archive cleanup checkpoints: %v", err)
 	}
+	if !db.Migrator().HasTable(&entities.ModelRankingAggregationCheckpoint{}) {
+		return
+	}
+	modelCheckpoint := entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", LastAggregatedUsageEventID: maxID, CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&modelCheckpoint).Error; err != nil {
+		t.Fatalf("seed model ranking checkpoint: %v", err)
+	}
 }

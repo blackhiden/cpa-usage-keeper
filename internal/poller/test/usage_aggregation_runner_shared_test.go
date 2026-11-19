@@ -149,7 +149,7 @@ func TestUsageAggregationRunnerFallbackCatchesUpEachCursorThenRestoresSharedRead
 		t.Fatalf("unexpected fallback result: %+v", result)
 	}
 	if got := eventPageQueries.Load(); got != 3 {
-		t.Fatalf("expected three independent fallback page queries, got %d", got)
+		t.Fatalf("expected the three legacy fallback page queries, got %d", got)
 	}
 	for _, name := range []entities.UsageAggregationCheckpointName{
 		entities.UsageAggregationCheckpointOverview,

@@ -130,6 +130,12 @@ func TestUsageLatencyStatsMigrationEnablesUsageEventArchive(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("seed caught-up overview/activity checkpoints: %v", err)
 	}
+	if err := db.AutoMigrate(&entities.ModelRankingAggregationCheckpoint{}); err != nil {
+		t.Fatalf("create model ranking checkpoint table: %v", err)
+	}
+	if err := db.Create(&entities.ModelRankingAggregationCheckpoint{Name: "model_ranking", LastAggregatedUsageEventID: 2, CreatedAt: now, UpdatedAt: now}).Error; err != nil {
+		t.Fatalf("seed model ranking checkpoint: %v", err)
+	}
 
 	result, err := repository.CleanupStorage(db, now, 0)
 	if err != nil {

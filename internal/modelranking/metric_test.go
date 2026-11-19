@@ -19,7 +19,7 @@ func TestMetricWireStringsMatchRanking(t *testing.T) {
 		ranking.MetricPeakTPM,
 		ranking.MetricPeakRPM,
 	}
-	metrics := AllMetrics()
+	metrics := AllMetrics()[:len(rankingMetrics)]
 	if len(metrics) != len(rankingMetrics) {
 		t.Fatalf("metric count = %d, want %d", len(metrics), len(rankingMetrics))
 	}
@@ -27,6 +27,9 @@ func TestMetricWireStringsMatchRanking(t *testing.T) {
 		if string(metric) != string(rankingMetrics[index]) {
 			t.Fatalf("metric[%d] = %q, want %q", index, metric, rankingMetrics[index])
 		}
+	}
+	if got := AllMetrics()[len(AllMetrics())-1]; got != MetricOverall {
+		t.Fatalf("overall metric missing from end of metric list: %q", got)
 	}
 }
 
@@ -36,9 +39,12 @@ func TestParseMetric(t *testing.T) {
 			t.Fatalf("ParseMetric(%q) = %q, %v; want %q", metric, got, err, metric)
 		}
 	}
-	for _, invalid := range []string{"", "overall", "tokens", "TOTAL_TOKENS", "peak"} {
+	for _, invalid := range []string{"", "tokens", "TOTAL_TOKENS", "peak"} {
 		if _, err := ParseMetric(invalid); err == nil {
 			t.Fatalf("ParseMetric(%q) unexpectedly accepted", invalid)
 		}
+	}
+	if parsed, err := ParseMetric("overall"); err != nil || parsed != MetricOverall {
+		t.Fatalf("ParseMetric(overall) = %q, %v", parsed, err)
 	}
 }

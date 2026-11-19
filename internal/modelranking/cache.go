@@ -11,9 +11,12 @@ import (
 const modelRankingReadCacheTTL = 30 * time.Second
 
 type modelRankingCacheKey struct {
-	kind   PeriodKind
-	key    string
-	metric Metric
+	kind     PeriodKind
+	key      string
+	metric   Metric
+	scope    string
+	provider string
+	trend    bool
 }
 
 type modelRankingCacheEntry struct {
@@ -32,10 +35,10 @@ func newModelRankingReadCache() *modelRankingReadCache {
 	return &modelRankingReadCache{entries: make(map[modelRankingCacheKey]modelRankingCacheEntry, 42)}
 }
 
-func (c *modelRankingReadCache) leaderboard(kind PeriodKind, key string, metric Metric, now time.Time) (Response, bool) {
+func (c *modelRankingReadCache) leaderboard(kind PeriodKind, key string, metric Metric, scope, provider string, trend bool, now time.Time) (Response, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	cacheKey := modelRankingCacheKey{kind: kind, key: key, metric: metric}
+	cacheKey := modelRankingCacheKey{kind: kind, key: key, metric: metric, scope: scope, provider: provider, trend: trend}
 	entry, ok := c.entries[cacheKey]
 	if !ok || !now.Before(entry.expiresAt) {
 		delete(c.entries, cacheKey)
@@ -44,10 +47,10 @@ func (c *modelRankingReadCache) leaderboard(kind PeriodKind, key string, metric 
 	return entry.value, true
 }
 
-func (c *modelRankingReadCache) store(kind PeriodKind, key string, metric Metric, value Response, now time.Time) {
+func (c *modelRankingReadCache) store(kind PeriodKind, key string, metric Metric, scope, provider string, trend bool, value Response, now time.Time) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.entries[modelRankingCacheKey{kind: kind, key: key, metric: metric}] = modelRankingCacheEntry{
+	c.entries[modelRankingCacheKey{kind: kind, key: key, metric: metric, scope: scope, provider: provider, trend: trend}] = modelRankingCacheEntry{
 		value: value, expiresAt: now.Add(modelRankingReadCacheTTL),
 	}
 }
