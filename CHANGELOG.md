@@ -31,6 +31,19 @@ All notable changes to this project are documented here.
 
 ### Added
 
+- **Model Ranking “Top spender” column.** Every model row on `/ranking` (and the
+  viewer-scoped card on `/key-ranking`) now names the API key that contributed
+  most to that model in the selected period. The key follows the metric you are
+  viewing: Tokens names the heaviest token consumer, Requests the busiest key,
+  Cache the key with the most cache-read tokens, and TPM/RPM follow the same
+  volumes; Overall, TTFT, and Latency keep the spend order (estimated cost, then
+  tokens, then requests). The value is computed from the API-key-scoped slices
+  the rollup already writes next to the global rows
+  (`ListModelRankingSpenders`), so this needs no new table, migration, or
+  backfill, and the aggregation is cached with the board it belongs to. Labels
+  reuse the API-key ranking's safe names (CPA key name → alias → masked key); an
+  unknown key renders masked and never raw.
+
 - **Model Ranking Phase 2.25 expansion.** The model leaderboard now uses a
   checkpointed rollup, supports global admin and authenticated own-key viewer
   scope (`/key-model-ranking/leaderboards`), model-level overall scoring,

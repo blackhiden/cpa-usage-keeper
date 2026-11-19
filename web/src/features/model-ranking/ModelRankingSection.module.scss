@@ -82,7 +82,7 @@
 
 .table {
   width: 100%;
-  min-width: 560px;
+  min-width: 680px;
   border-collapse: collapse;
 
   th,
@@ -139,6 +139,16 @@
 .modelName {
   color: var(--text-primary);
   overflow-wrap: anywhere;
+}
+
+.spenderName {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .providers {

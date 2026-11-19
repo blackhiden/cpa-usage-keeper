@@ -35,6 +35,7 @@ export interface ModelRankingEntry {
   rate_denominator?: number;
   cost_usd?: number;
   unavailable_cost_count?: number;
+  top_spender?: { display_name: string; masked_key: string };
   provider_contributions?: { provider: string; request_count: number; total_tokens: number }[];
   trend?: { change: number; percent?: number; previous_value: number; available: boolean };
 }

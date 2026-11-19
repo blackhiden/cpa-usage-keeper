@@ -148,14 +148,17 @@ keys that are synchronized from CPA itself.
   bodies, headers, or credentials, and it never queries the archive. The admin
   view supports provider filtering and contribution shares, estimated cost with
   an unavailable state, a model-population overall score, previous-period
-  trends, and an optional period-link control.
+  trends, an optional period-link control, and the top-spending API key per
+  model.
 - **UC-9b — Viewer-scoped model ranking.** As an API-key viewer, I open
   `/key-ranking` and see a model leaderboard derived only from my authenticated
   session's API group. The server derives the scope from the session-bound CPA
   key; client-provided API key IDs or scope fields are rejected and the global
   admin route is forbidden to viewers. The viewer card supports the same
   quantitative metrics, overall score, provider filter, trend, and cost state,
-  but never exposes another key's model totals.
+  but never exposes another key's model totals. Because the board is filtered to
+  the viewer's API group, the top-spending key of every row is the viewer's own
+  key.
 - **UC-10 — Stay current.** As an admin, I see a notification when a newer
   release is available (hidden for dev builds).
 - **UC-11 — Data safety.** As an admin, daily backups and the 90-day →
@@ -392,6 +395,23 @@ Viewer endpoints are rate-limited per viewer session. Request events, provider g
   the background pass re-settles the remaining complete days at a bounded rate
   (at most 31 per run). Reads never run the historical pass, so a rebuild can
   neither return an error nor leave the API-key leaderboard empty.
+- **Model ranking names the top spender of every model.** Each row carries the
+  API key that contributed most to the model in the selected period, measured on
+  the same metric the board is ranked by: `Tokens` names the heaviest token
+  consumer, `Requests` the key with the most calls, `Cache` the key with the most
+  cache-read tokens, and `TPM`/`RPM` follow those volumes because a peak is a
+  bucket maximum the per-key period aggregate does not retain. `Overall` is a
+  composite and `TTFT`/`Latency` are lower-is-better quality signals rather than
+  volumes, so those boards keep the spend order: highest estimated cost, then
+  total tokens (a period without pricing still names its heaviest consumer), then
+  request count. Every order ends with the API group key as the deterministic
+  tie-break. The aggregate reads only the API-key-scoped rollup slices of the
+  ranked models (`model_ranking_period_stats.scope_key <> ''`) and never the
+  global rows, which duplicate them without a key identity. The label resolves
+  through `cpa_api_keys` in the API-key ranking order (CPA key name → operator
+  alias → masked key); an unknown key renders masked, never raw. The provider
+  filter also narrows the attribution, and a failed attribution read fails the
+  request instead of serving a silently wrong name.
 
 - **Community ranking** is opt-in. When enabled, the instance generates an
   **ed25519** identity persisted via `AppSetting` (saved transactionally with

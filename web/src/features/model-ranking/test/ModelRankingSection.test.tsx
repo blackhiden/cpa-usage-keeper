@@ -45,6 +45,7 @@ const response = (overrides: Partial<ModelRankingResponse> = {}): ModelRankingRe
     value: 100,
     cost_usd: 0.125,
     unavailable_cost_count: 0,
+    top_spender: { display_name: 'Alpha Key', masked_key: 'sk-*********7890' },
     provider_contributions: [
       { provider: 'openai', request_count: 2, total_tokens: 70 },
       { provider: 'azure', request_count: 1, total_tokens: 30 },
@@ -97,6 +98,20 @@ describe('ModelRankingSection', () => {
     expect(api.fetchModelRankingLeaderboard).toHaveBeenCalledWith('today', 'total_tokens', expect.any(AbortSignal), '', false);
     expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('$0.1250');
     expect(container.querySelector('[data-model-ranking-row]')?.textContent).toContain('33.3%');
+    expect(container.querySelector('thead')?.textContent).toContain('Top spender');
+    const header = Array.from(container.querySelectorAll('thead th')).find((node) => node.textContent === 'Top spender');
+    expect(header?.getAttribute('title')).toContain('selected metric');
+    const spender = container.querySelector('[data-model-ranking-top-spender]');
+    expect(spender?.textContent).toBe('Alpha Key');
+    expect(spender?.getAttribute('title')).toBe('sk-*********7890');
+  });
+
+  it('renders a dash when a model has no attributable spender', async () => {
+    api.fetchModelRankingLeaderboard.mockResolvedValue(response({
+      entries: [{ ...response().entries[0], top_spender: undefined }],
+    }));
+    await render();
+    expect(container.querySelector('[data-model-ranking-top-spender]')?.textContent).toBe('—');
   });
 
   it('offers exactly six periods and persists a period change', async () => {

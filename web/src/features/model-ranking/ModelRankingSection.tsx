@@ -178,6 +178,7 @@ export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPerio
                 <th className={styles.rankColumn}>{t('model_ranking.rank')}</th>
                 <th>{t('model_ranking.model')}</th>
                 <th>{t('model_ranking.providers')}</th>
+                <th title={t('model_ranking.top_spender_hint')}>{t('model_ranking.top_spender')}</th>
                 <th className={styles.numberCell}>{t(`model_ranking.metric_short_${metric}`)}</th>
                 <th className={styles.numberCell}>{t('model_ranking.cost')}</th>
                 <th className={styles.numberCell}>{t('model_ranking.trend')}</th>
@@ -202,6 +203,17 @@ export function ModelRankingSection({ viewerScope = false, linkedPeriod, onPerio
                         ))
                         : <span className={styles.noProvider}>—</span>}
                     </div>
+                  </td>
+                  <td>
+                    {entry.top_spender ? (
+                      <span
+                        className={styles.spenderName}
+                        title={entry.top_spender.masked_key}
+                        data-model-ranking-top-spender
+                      >
+                        {entry.top_spender.display_name}
+                      </span>
+                    ) : <span className={styles.noProvider} data-model-ranking-top-spender>—</span>}
                   </td>
                   <td className={`${styles.numberCell} ${styles.valueCell}`.trim()}>
                     {formatModelRankingValue(metric, entry)}

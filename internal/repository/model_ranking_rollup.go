@@ -287,6 +287,48 @@ func ListModelRankingRollups(ctx context.Context, db *gorm.DB, kind, periodKey, 
 	return rows, nil
 }
 
+// ModelRankingSpenderRow is one API group key's accumulated contribution to a
+// model inside a period. It is an aggregate over the scopeful rollup rows the
+// rollup writes next to the global ones.
+type ModelRankingSpenderRow struct {
+	Model                string  `gorm:"column:model"`
+	ScopeKey             string  `gorm:"column:scope_key"`
+	RequestCount         int64   `gorm:"column:request_count"`
+	CacheReadTokens      int64   `gorm:"column:cache_read_tokens"`
+	TotalTokens          int64   `gorm:"column:total_tokens"`
+	CostUSD              float64 `gorm:"column:cost_usd"`
+	UnavailableCostCount int64   `gorm:"column:unavailable_cost_count"`
+}
+
+// ListModelRankingSpenders aggregates the API-key-scoped rollup rows per
+// (model, API group key) for one calendar grain. Global rows (an empty
+// scope_key) are never read here: they duplicate the totals of the scoped rows
+// and carry no key identity. models bounds the aggregate to the ranked models,
+// so the scan stays proportional to the leaderboard page, not to the period.
+func ListModelRankingSpenders(ctx context.Context, db *gorm.DB, kind, periodKey, scope, provider string, models []string) ([]ModelRankingSpenderRow, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database is nil")
+	}
+	if len(models) == 0 {
+		return []ModelRankingSpenderRow{}, nil
+	}
+	query := db.Clauses(dbresolver.Read).WithContext(ctx).Model(&entities.ModelRankingPeriodStat{}).
+		Select("model, scope_key, SUM(request_count) AS request_count, SUM(cache_read_tokens) AS cache_read_tokens, SUM(total_tokens) AS total_tokens, SUM(cost_usd) AS cost_usd, SUM(unavailable_cost_count) AS unavailable_cost_count").
+		Where("period_kind = ? AND period_key = ? AND scope_key <> '' AND model IN ?", kind, periodKey, models).
+		Group("model, scope_key")
+	if scope != "" {
+		query = query.Where("scope_key = ?", scope)
+	}
+	if provider != "" {
+		query = query.Where("provider = ?", provider)
+	}
+	var rows []ModelRankingSpenderRow
+	if err := query.Order("model ASC, scope_key ASC").Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("list model ranking spenders: %w", err)
+	}
+	return rows, nil
+}
+
 func ModelRankingScopeForAPIKeyID(apiKeyID int64, apiGroupKey string) (string, error) {
 	if apiKeyID <= 0 || strings.TrimSpace(apiGroupKey) == "" {
 		return "", fmt.Errorf("invalid API key scope")

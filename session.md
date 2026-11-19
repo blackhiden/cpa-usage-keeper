@@ -1,5 +1,55 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## Session: Model Ranking "Top Spender" Column
+
+**Date:** 2026-11-19
+**Status:** Implemented and verified locally; not yet committed.
+
+### Objective
+Add a `Top spender` column to the Model Ranking card that names the API key
+which used each model most in the selected period.
+
+### Decisions
+- **No new storage.** `model_ranking_period_stats` already stores API-key-scoped
+  slices (`scope_key = api_group_key`) next to the global rows, so
+  `repository.ListModelRankingSpenders` aggregates only `scope_key <> ''` rows
+  per `(model, scope_key)`, bounded to the ranked models. Global rows are never
+  read: they duplicate the totals without a key identity, so no migration or
+  backfill is needed and history is immediately available.
+- **The column follows the selected metric** (`modelRankingSpenderDimensions`):
+  Tokens → total tokens first, Requests → request count first, Cache →
+  cache-read tokens first, TPM/RPM → the matching volume (a peak is a bucket
+  maximum the per-key period aggregate does not retain). Overall (composite) and
+  TTFT/Latency (lower-is-better) are not volumes, so they keep the spend order:
+  estimated cost → total tokens → request count. Every order ends with the API
+  group key as the deterministic tie-break. The token/cost fallbacks keep
+  unpriced models meaningful (production rows for `gemini-3.8-flash-high` /
+  `deepseek-v4.1-flash` carry `cost_usd = 0`).
+- **Labels:** `helper.CPAAPIKeyDisplayName` / `CPAAPIKeyMaskedDisplayKey`
+  resolved through `repository.FindCPAAPIKeysByValues` (soft-deleted rows stay
+  resolvable). An unknown key falls back to `helper.RedactSensitiveValue`; the
+  raw key never leaves the server.
+- **Scope:** the viewer board and the provider filter both narrow the aggregate,
+  so `/key-ranking` shows the viewer's own key and a provider filter shows that
+  provider's top key.
+- **Failure:** an attribution read error fails the request, matching the rollup
+  read, instead of serving a silently unlabeled board.
+- The column header carries a tooltip (`model_ranking.top_spender_hint`) so the
+  metric dependency is discoverable without leaving the page.
+
+### Verified
+- `go test ./internal/modelranking/... ./internal/repository/...` — unit coverage
+  for every metric's leader, tie-breaks, and an end-to-end rollup test where
+  gpt-5 resolves to three different keys on Overall / Tokens / Requests.
+- `go vet ./internal/...`, `gofmt` clean on touched files.
+- `npm run test` (model-ranking + i18n), `npm run typecheck`, `npm run lint`.
+
+### Pending
+- Rebuild/redeploy the image to surface the column (the running container still
+  serves the previous frontend bundle). The live SQLite database is not
+  reachable from this working copy, so the post-deploy spot check on `/ranking`
+  is still open.
+
 ## Session: Future "Updated" Timestamp And Empty Today Board (Host Clock Skew)
 
 **Date:** 2026-11-19

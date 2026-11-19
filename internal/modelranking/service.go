@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
+	"cpa-usage-keeper/internal/entities"
+	"cpa-usage-keeper/internal/helper"
 	"cpa-usage-keeper/internal/rankingmath"
 	"cpa-usage-keeper/internal/repository"
 	"cpa-usage-keeper/internal/repository/dto"
@@ -38,6 +41,7 @@ type Entry struct {
 	RateDenominator       int64                  `json:"rate_denominator,omitempty"`
 	CostUSD               float64                `json:"cost_usd"`
 	UnavailableCostCount  int64                  `json:"unavailable_cost_count"`
+	TopSpender            *TopSpender            `json:"top_spender,omitempty"`
 	ProviderContributions []ProviderContribution `json:"provider_contributions"`
 	Trend                 *Trend                 `json:"trend,omitempty"`
 }
@@ -46,6 +50,14 @@ type ProviderContribution struct {
 	Provider     string `json:"provider"`
 	RequestCount int64  `json:"request_count"`
 	TotalTokens  int64  `json:"total_tokens"`
+}
+
+// TopSpender names the API key that contributed most to one model. DisplayName
+// is the same safe label the API-key ranking uses (CPA key name, then the
+// operator alias, then the masked key) and MaskedKey is always safe to render.
+type TopSpender struct {
+	DisplayName string `json:"display_name"`
+	MaskedKey   string `json:"masked_key"`
 }
 
 type Trend struct {
@@ -151,6 +163,9 @@ func (s *Service) LeaderboardWithOptions(ctx context.Context, period Period, met
 		Timezone:    time.Local.String(),
 		GeneratedAt: now.UTC(),
 		Entries:     buildModelRankingEntriesFromRollups(rows, metric),
+	}
+	if err := attachTopSpenders(ctx, s.db, &board, window, options); err != nil {
+		return Response{}, err
 	}
 	if options.IncludeTrend {
 		attachTrends(ctx, s, &board, options)
@@ -272,6 +287,163 @@ func buildModelOverallEntries(rows []dto.ModelRankingRow) []Entry {
 		entries[i].Rank = uint16(i + 1)
 	}
 	return entries
+}
+
+// attachTopSpenders names the API key behind each ranked model. The rollup
+// stores the per-key slices of every period next to the global rows, so this is
+// a bounded aggregate over the scoped rows of the ranked models only.
+func attachTopSpenders(ctx context.Context, db *gorm.DB, board *Response, window Window, options LeaderboardOptions) error {
+	if len(board.Entries) == 0 {
+		return nil
+	}
+	models := make([]string, 0, len(board.Entries))
+	for _, entry := range board.Entries {
+		if entry.Model != "" {
+			models = append(models, entry.Model)
+		}
+	}
+	rows, err := repository.ListModelRankingSpenders(ctx, db, string(window.Kind), window.Key, options.ScopeKey, options.Provider, models)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	leaders := pickModelRankingSpenders(rows, board.Metric)
+	labels, err := loadModelRankingSpenderLabels(ctx, db, leaders)
+	if err != nil {
+		return err
+	}
+	for index := range board.Entries {
+		label, ok := labels[board.Entries[index].Model]
+		if !ok {
+			continue
+		}
+		board.Entries[index].TopSpender = &label
+	}
+	return nil
+}
+
+// pickModelRankingSpenders keeps the leading API group key per model, using the
+// comparison order of the board's metric.
+func pickModelRankingSpenders(rows []repository.ModelRankingSpenderRow, metric Metric) map[string]repository.ModelRankingSpenderRow {
+	leaders := make(map[string]repository.ModelRankingSpenderRow, len(rows))
+	for _, row := range rows {
+		if strings.TrimSpace(row.Model) == "" || strings.TrimSpace(row.ScopeKey) == "" {
+			continue
+		}
+		current, ok := leaders[row.Model]
+		if !ok || modelRankingSpenderOutranks(row, current, metric) {
+			leaders[row.Model] = row
+		}
+	}
+	return leaders
+}
+
+// spenderDimension is one comparison dimension of the top-spender order.
+type spenderDimension uint8
+
+const (
+	spenderCost spenderDimension = iota
+	spenderTokens
+	spenderRequests
+	spenderCacheRead
+)
+
+// modelRankingSpenderDimensions returns the comparison order for a metric. The
+// selected metric leads, so the column agrees with the board it sits on: Tokens
+// names the heaviest token consumer, Requests the key with the most calls, Cache
+// the key with the most cache-read tokens. TTFT and Latency are lower-is-better
+// quality signals rather than volumes, so they keep the spend order, and Overall
+// leads with estimated cost because it is a composite score.
+func modelRankingSpenderDimensions(metric Metric) [4]spenderDimension {
+	switch metric {
+	case MetricTotalTokens, MetricPeakTPM:
+		return [4]spenderDimension{spenderTokens, spenderCost, spenderRequests, spenderCacheRead}
+	case MetricRequestCount, MetricPeakRPM:
+		return [4]spenderDimension{spenderRequests, spenderTokens, spenderCost, spenderCacheRead}
+	case MetricCacheReadRate:
+		return [4]spenderDimension{spenderCacheRead, spenderTokens, spenderCost, spenderRequests}
+	default:
+		return [4]spenderDimension{spenderCost, spenderTokens, spenderRequests, spenderCacheRead}
+	}
+}
+
+// modelRankingSpenderOutranks reports whether candidate leads current on metric.
+// Equal dimension values fall through to the API group key so a tie always
+// resolves the same way.
+func modelRankingSpenderOutranks(candidate, current repository.ModelRankingSpenderRow, metric Metric) bool {
+	for _, dimension := range modelRankingSpenderDimensions(metric) {
+		if order := compareModelRankingSpenderValues(candidate, current, dimension); order != 0 {
+			return order > 0
+		}
+	}
+	return candidate.ScopeKey < current.ScopeKey
+}
+
+func compareModelRankingSpenderValues(candidate, current repository.ModelRankingSpenderRow, dimension spenderDimension) int {
+	switch dimension {
+	case spenderCost:
+		if candidate.CostUSD > current.CostUSD {
+			return 1
+		}
+		if candidate.CostUSD < current.CostUSD {
+			return -1
+		}
+		return 0
+	case spenderTokens:
+		return compareSpenderCount(candidate.TotalTokens, current.TotalTokens)
+	case spenderRequests:
+		return compareSpenderCount(candidate.RequestCount, current.RequestCount)
+	case spenderCacheRead:
+		return compareSpenderCount(candidate.CacheReadTokens, current.CacheReadTokens)
+	}
+	return 0
+}
+
+func compareSpenderCount(candidate, current int64) int {
+	switch {
+	case candidate > current:
+		return 1
+	case candidate < current:
+		return -1
+	}
+	return 0
+}
+
+// loadModelRankingSpenderLabels resolves the winning API group keys to the safe
+// labels the API-key ranking uses. An unknown key (never synced or removed from
+// CPA) still renders its masked value, never the raw key.
+func loadModelRankingSpenderLabels(ctx context.Context, db *gorm.DB, leaders map[string]repository.ModelRankingSpenderRow) (map[string]TopSpender, error) {
+	if len(leaders) == 0 {
+		return map[string]TopSpender{}, nil
+	}
+	keys := make([]string, 0, len(leaders))
+	for _, leader := range leaders {
+		keys = append(keys, leader.ScopeKey)
+	}
+	identities, err := repository.FindCPAAPIKeysByValues(db, keys)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]entities.CPAAPIKey, len(identities))
+	for _, identity := range identities {
+		byKey[identity.APIKey] = identity
+	}
+	labels := make(map[string]TopSpender, len(leaders))
+	for model, leader := range leaders {
+		identity, ok := byKey[leader.ScopeKey]
+		if !ok {
+			masked := helper.RedactSensitiveValue(leader.ScopeKey)
+			labels[model] = TopSpender{DisplayName: masked, MaskedKey: masked}
+			continue
+		}
+		labels[model] = TopSpender{
+			DisplayName: helper.CPAAPIKeyDisplayName(identity),
+			MaskedKey:   helper.CPAAPIKeyMaskedDisplayKey(identity),
+		}
+	}
+	return labels, nil
 }
 
 func attachTrends(ctx context.Context, service *Service, response *Response, options LeaderboardOptions) {

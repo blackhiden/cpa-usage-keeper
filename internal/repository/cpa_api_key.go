@@ -227,6 +227,33 @@ func FindActiveCPAAPIKeyByValue(db *gorm.DB, apiKey string) (entities.CPAAPIKey,
 	return row, err
 }
 
+// FindCPAAPIKeysByValues resolves stored key identities by their API key value,
+// which is what usage events carry as api_group_key. Soft-deleted rows are
+// included so historical attribution keeps the name the key had in CPA.
+func FindCPAAPIKeysByValues(db *gorm.DB, apiKeys []string) ([]entities.CPAAPIKey, error) {
+	values := make([]string, 0, len(apiKeys))
+	seen := make(map[string]struct{}, len(apiKeys))
+	for _, value := range apiKeys {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		values = append(values, trimmed)
+	}
+	if len(values) == 0 {
+		return []entities.CPAAPIKey{}, nil
+	}
+	var rows []entities.CPAAPIKey
+	if err := db.Clauses(dbresolver.Read).Where("api_key IN ?", values).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func UpdateCPAAPIKeyAlias(db *gorm.DB, id int64, keyAlias string) error {
 	result := db.Model(&entities.CPAAPIKey{}).Where("id = ? AND is_deleted = ?", id, false).Update("key_alias", strings.TrimSpace(keyAlias))
 	if result.Error != nil {

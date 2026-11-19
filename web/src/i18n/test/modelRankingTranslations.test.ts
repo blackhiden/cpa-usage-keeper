@@ -14,7 +14,7 @@ const REQUIRED_KEYS = [
   'metric_short_total_tokens', 'metric_short_request_count', 'metric_short_cache_read_rate',
   'metric_short_ttft_average', 'metric_short_latency_average', 'metric_short_peak_tpm',
   'metric_short_peak_rpm',
-  'rank', 'model', 'providers', 'updated_at', 'stale', 'loading',
+  'rank', 'model', 'providers', 'top_spender', 'top_spender_hint', 'updated_at', 'stale', 'loading',
   'empty_title', 'empty_description', 'error_generic', 'retry',
   'metric_overall', 'metric_short_overall', 'provider_all', 'provider_filter',
   'link_periods', 'cost', 'cost_partial', 'trend', 'trend_change',

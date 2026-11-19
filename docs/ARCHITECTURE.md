@@ -374,7 +374,10 @@ Key invariants:
   periods resolved with `timeutil.NormalizeStorageTime`, alias-grouped
   aggregation, seven
   quantitative metrics, deterministic ordering, model-population overall
-  scoring, provider/cost/trend projection, and scoped read caching) plus
+  scoring, provider/cost/trend projection, per-model top-contributor API-key
+  attribution that follows the selected metric (`ListModelRankingSpenders` over
+  the scoped rollup slices, labels resolved through `cpa_api_keys`), and scoped
+  read caching) plus
   `internal/modelranking/httpapi/` registering global admin and own-key viewer
   routes. `internal/repository/model_ranking_rollup.go` owns the additive
   `model_ranking_period_stats` and checkpoint read/write path; the existing
