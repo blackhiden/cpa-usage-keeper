@@ -115,7 +115,7 @@ The ranking feature displays **local API key competition by default**.
 Community ranking remains in the backend but is not wired in the UI.
 
 - **Admin page:** `web/src/pages/UsagePage.tsx` - `rankingScope` constant locked to `'local'`
-- **Key viewer page:** `web/src/pages/KeyViewerPage.tsx` - `rankingScope` constant locked to `'local'`
+- **Key viewer page:** `web/src/pages/KeyRankingPage.tsx` - `effectiveScope` constant locked to `'local'`
 - **Backend:** Community ranking service and endpoints remain intact but unused by UI
 - **Display:** API keys shown with CPA-provided names → user aliases → masked keys
 
@@ -128,11 +128,11 @@ Community ranking remains in the backend but is not wired in the UI.
 ```bash
 # Verify UI locked to local scope
 grep -A2 "const rankingScope.*RankingScope = 'local'" web/src/pages/UsagePage.tsx
-grep -A2 "const rankingScope.*RankingScope = 'local'" web/src/pages/KeyViewerPage.tsx
+grep -A2 "const effectiveScope.*RankingScope = 'local'" web/src/pages/KeyRankingPage.tsx
 
 # Verify no scope toggle switches
 ! grep -q "handleRankingScopeChange" web/src/pages/UsagePage.tsx && echo "✓ No toggle in admin" || echo "✗ TOGGLE FOUND"
-! grep -q "handleRankingScopeChange" web/src/pages/KeyViewerPage.tsx && echo "✓ No toggle in viewer" || echo "✗ TOGGLE FOUND"
+! grep -q "handleRankingScopeChange" web/src/pages/KeyRankingPage.tsx && echo "✓ No toggle in viewer" || echo "✗ TOGGLE FOUND"
 
 # Backend endpoints should still exist (unused)
 grep -q "/api/v1/ranking/leaderboard" internal/api/router.go && echo "✓ Endpoints intact" || echo "✗ MISSING"

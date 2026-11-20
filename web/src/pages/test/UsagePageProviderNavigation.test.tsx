@@ -143,12 +143,14 @@ describe('credential provider navigation', () => {
     expect(api.fetchUsageIdentitiesPage.mock.lastCall?.[1]).toMatchObject({ authType: 1, types: ['meta'] });
 
     await navigate('ai-provider');
-    expect(filter('Meta')?.querySelector('[data-provider-brand-icon="meta"]')).toBeTruthy();
+    // This fork renders server-side grouped summaries on /ai-provider, so the
+    // provider filter bar is intentionally absent there. Meta remains the
+    // ai-provider filter identity in credentialProviderFilters; Muse is only a
+    // credential-brand display override.
+    expect(filter('Meta')).toBeUndefined();
     expect(filter('Muse')).toBeUndefined();
-    await select('Meta');
-    expect(provider()).toBe('meta');
-    expect(saved('ai-provider')).toBe('meta');
-    expect(api.fetchUsageIdentitiesPage.mock.lastCall?.[1]).toMatchObject({ authType: 2, types: ['meta'] });
+    expect(provider()).toBeNull();
+    expect(localStorage.getItem(CREDENTIAL_LIST_PREFERENCES_STORAGE_KEYS['ai-provider'])).toBeNull();
 
     await navigate('credentials');
     expect(provider()).toBe('meta');
