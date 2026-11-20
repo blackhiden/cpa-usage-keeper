@@ -108,7 +108,8 @@ same model served through different providers under one alias collapses into a
 single row whose `providers[]` lists the contributors. The endpoint is
 admin-only because it aggregates usage across every API key. `/key-ranking`
 also mounts a separate model card whose endpoint is strictly scoped to the
-authenticated viewer's API group.
+authenticated viewer's API group. Every row also names the **top spender** of the
+model; that column has its own protection contract in §10.
 
 - **Backend:** `internal/modelranking/` (period resolution with project `TZ`,
   metric projection including model overall score, provider/cost/trend fields,
@@ -156,6 +157,70 @@ grep -q "ModelRankingSection" web/src/pages/UsagePage.tsx && echo "✓ mount"
 grep -q "key-model-ranking/leaderboards" internal/modelranking/httpapi/routes.go && echo "✓ viewer route"
 grep -q "model_ranking_period_stats" internal/entities/model_ranking_period_stat.go && echo "✓ rollup schema"
 grep -q "model_ranking: {" web/src/i18n/index.ts && echo "✓ i18n namespace"
+make verify
+```
+
+### 10. Model Ranking Top Spender Column
+
+**Status:** Permanent (Phase 2.25 follow-up)
+**Domain:** `internal/modelranking/` + `internal/repository/model_ranking_rollup.go`
+**Introduced:** 2026-11-19 (`feat(model-ranking): add top spender column`)
+
+Every row of the Model Ranking card (the admin card on `/ranking` and the
+viewer-scoped card on `/key-ranking`) carries a **Top spender** value naming the
+API key that contributed most to that model inside the selected period and
+provider filter. The column must stay mounted on both cards, must keep following
+the selected metric, and must keep its safe-label contract. Removing the column,
+dropping the per-metric leader rule, or exposing the raw API key value requires
+the Policy Statement process above.
+
+- **Backend:** `internal/modelranking/service.go` (`Entry.TopSpender`,
+  `attachTopSpenders`, `pickModelRankingSpenders`,
+  `modelRankingSpenderDimensions`, `loadModelRankingSpenderLabels`) and
+  `internal/repository/model_ranking_rollup.go`
+  (`ListModelRankingSpenders`, `ModelRankingSpenderRow` including
+  `CacheReadTokens`), with `repository.FindCPAAPIKeysByValues` for labels.
+- **Leader rule (must survive):** the selected metric leads the order —
+  `total_tokens`/`peak_tpm` → total tokens, `request_count`/`peak_rpm` → request
+  count, `cache_read_rate` → cache-read tokens; `overall`, `ttft_average`, and
+  `latency_average` keep the spend order (estimated cost → total tokens →
+  request count); the API group key breaks every tie.
+- **Attribution source:** only the API-key-scoped rollup slices of the ranked
+  models (`model_ranking_period_stats.scope_key <> ''`, reader pool). Global
+  rows are never read, and no new table, migration, or backfill may be added for
+  this column.
+- **Failure behavior:** an attribution read error fails the request instead of
+  serving a silently unlabeled board.
+- **Frontend:** `web/src/features/model-ranking/ModelRankingSection.tsx`
+  (`data-model-ranking-top-spender`, `model_ranking.top_spender_hint` header
+  tooltip, `—` fallback when a model has no attributable key), `types.ts`
+  (`top_spender`), `ModelRankingSection.module.scss`, and the `model_ranking`
+  i18n namespace (`top_spender`, `top_spender_hint`) in en/zh/zh-TW.
+- **Security invariants:** the payload exposes only `display_name` and
+  `masked_key`. Labels resolve through `helper.CPAAPIKeyDisplayName` (CPA key
+  name → operator alias → masked key) and unknown keys fall back to
+  `helper.RedactSensitiveValue`, so a raw API key never reaches the payload, the
+  DOM, or the logs. Viewer scope stays session-derived and the column is included
+  in the scoped 30 s board cache only.
+- **Regression tests:** `internal/modelranking/service_top_spender_test.go`
+  (per-metric leaders, tie-breaks, masked labels, viewer scope) and
+  `internal/repository/test/model_ranking_top_spender_test.go` (scoped and
+  provider-filtered aggregation, cache-read totals).
+- **Documentation:** `docs/SPECIFICATION.md` (model-ranking attribution rule),
+  `docs/ARCHITECTURE.md` (model ranking attribution), `README.md` /
+  `README.zh.md` (feature bullet), `CHANGELOG.md`.
+
+Verification after merge:
+
+```bash
+go test ./internal/modelranking/... ./internal/repository/...
+npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
+grep -q "ListModelRankingSpenders" internal/repository/model_ranking_rollup.go && echo "✓ attribution aggregate"
+grep -q "attachTopSpenders" internal/modelranking/service.go && echo "✓ attribution wiring"
+grep -q "modelRankingSpenderDimensions" internal/modelranking/service.go && echo "✓ metric-driven leader rule"
+grep -q "modelRankingSpenderOutranks" internal/modelranking/service.go && echo "✓ deterministic tie-break"
+grep -q "data-model-ranking-top-spender" web/src/features/model-ranking/ModelRankingSection.tsx && echo "✓ column"
+grep -q "top_spender_hint" web/src/i18n/index.ts && echo "✓ i18n"
 make verify
 ```
 
