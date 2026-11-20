@@ -1,5 +1,37 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-20 — Upstream merge `e5e8f1a4` into `dev`
+
+**Status:** Complete on `dev`; git-flow release `2.1.7` prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** clean tree on `dev`; `main`/`dev` present; git-flow 1.12.3
+  configured with production `main`, development `dev`, release prefix
+  `release/`, and version tag prefix `v`; latest tag `v2.1.6` unambiguous.
+- **Upstream:** fetched `upstream/main` at `e5e8f1a4` (no ref movement during
+  this run). 14 incoming commits / 38 files, adding Meta/Muse subscription
+  badges and quota support.
+- **Merge:** `git merge --no-ff upstream/main` produced `c4e9ed2a` with no
+  textual conflicts.
+- **Adaptation:** upstream `UsagePageProviderNavigation.test.tsx` assumed the
+  provider filter bar is visible on `/ai-provider`. The test now asserts the
+  protected fork behavior (server-side grouped summaries, no provider filter)
+  while keeping the Muse/Meta credential-filter coverage.
+- **Documentation:** corrected the stale local-ranking verification path in
+  `docs/MERGE-PRESERVATION.md` (`KeyRankingPage.tsx` / `effectiveScope`), and
+  documented Meta/Muse quota support in `SPECIFICATION.md`, `ARCHITECTURE.md`,
+  `README.md`, `README.zh.md`, and `CHANGELOG.md`.
+- **Protected features:** structural checks passed for GNN, full key-viewer
+  request logs, local ranking, Live Flow, AI Provider table/detail, API-key
+  name priority, model test/Telegram, Model Ranking, and Top Spender.
+- **Verification:** targeted navigation test 11/11 passed; full `make verify`
+  passed after the adaptation.
+- **Release handoff:** git-flow release `2.1.7` starts from this state (pass
+  `2.1.7`, not `v2.1.7`, because git-flow adds the `v` prefix); the finish step
+  creates tag `v2.1.7`, merges into `main`, back-merges into `dev`, and deletes
+  `release/2.1.7`.
+
 ## 2026-11-20 — Git Flow Release v2.1.6
 
 **Status:** Complete — release merged into `main`, tagged `v2.1.6`, back-merged

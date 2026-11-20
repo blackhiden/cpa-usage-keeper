@@ -61,7 +61,7 @@ internal/api ────── Gin router, handlers, auth middleware, DTO mappi
         │                          writer/reader pool wiring (dbresolver)
         ├── internal/quota ─────── provider quota clients, refresh engine &
         │                          offline subscription resolvers (claude /
-        │                          codex / antigravity plan classification)
+        │                          codex / antigravity / meta plan classification)
         ├── internal/ranking ───── local and community ranking (local by default)
         ├── internal/modelranking ─ Model Ranking feature domain (self-contained:
         │                          six local-calendar periods, alias-grouped
@@ -398,6 +398,9 @@ Key invariants:
   `credentialSubscription.ts` maps to a display plan rendered by
   `CredentialSubscriptionBadge` on auth-file credential cards. Codex
   auth-file identities may also carry `subscription` on identity responses.
+  Meta/Muse credentials are branded as Muse in the Credentials filter and cards
+  while the CPA identity remains `meta`; quota checks download a short-lived
+  DCA token through CPA and retain only bounded usage windows and the plan.
 - The request-events custom date range is capped at **90 days**
   (`utils/usage/customRange.ts`), and the events default page size is 50.
 - The **Session Settings** card (`SessionSettingsCard.tsx`) was redesigned to

@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Meta/Muse credential subscriptions and quotas (upstream `e5e8f1a4`).**
+  Meta auth-file credentials now show Muse branding and subscription badges
+  (`Everyday`, `High`, `Power`, `Maximum`) and expose bounded quota windows from
+  the official Muse endpoint. The DCA token and raw upstream response are not
+  persisted.
+
+### Changed
+
+- **Upstream merge adaptation.** Merged 14 upstream commits from
+  `upstream/main` into `dev` with no textual conflicts. The upstream provider
+  navigation test was adapted to keep the protected `/ai-provider` grouped-summary
+  behavior (no provider filter bar) while retaining Muse/Meta credential-filter
+  coverage. All protected fork features were re-verified and `make verify`
+  passed.
+
 ### Fixed
 
 - **Local API-key ranking emptied after a period-zone change.** A saved

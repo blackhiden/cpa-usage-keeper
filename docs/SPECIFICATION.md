@@ -26,7 +26,7 @@ exploration, cost analysis, quota monitoring, and community ranking.
 - Mirror and management of CPA metadata: Auth Files, API Keys, AI Providers,
   and model pricing rules.
 - Quota tracking and refresh for AI providers (Claude, Codex, Gemini CLI,
-  Kimi, xAI, Antigravity) attached to Auth Files.
+  Kimi, Meta/Muse, xAI, Antigravity) attached to Auth Files.
 - Optional, opt-in community ranking against the official center; local API key ranking is available by default.
 - Web UI (admin) and a read-only per-API-key viewer page.
 - Authenticated API-key viewers can open the Models catalog without pricing
@@ -353,14 +353,17 @@ Viewer endpoints are rate-limited per viewer session. Request events, provider g
 
 ### 6.5 Quota
 
-- Providers: **claude, codex (incl. codex_header), gemini_cli, kimi, xai,
-  antigravity**.
+- Providers: **claude, codex (incl. codex_header), gemini_cli, kimi, meta
+  (Muse), xai, antigravity**.
 - Manual refresh, scheduled auto-refresh (settings stored in SQLite), raw
   payload inspection, and credit resets (per provider or global).
+- Meta/Muse quota checks download a short-lived DCA token through CPA and call
+  the fixed official quota endpoint. Only bounded usage windows and the
+  subscription plan are retained; the token and raw response are not persisted.
 - Concurrency: `QUOTA_REFRESH_WORKER_LIMIT` (default 10, hard cap 100);
   header-based providers use a snapshot/cache worker.
 - **Provider subscription contract.** Providers that expose subscription
-  metadata (claude, codex, antigravity) return a response-level
+  metadata (claude, codex, antigravity, meta) return a response-level
   `subscription` (`{provider, plan, tierId?, tierName?}`) alongside the
   quota rows; the classification runs offline over the already-fetched
   provider payloads (no extra upstream requests). Canonical plan values:
@@ -376,6 +379,9 @@ Viewer endpoints are rate-limited per viewer session. Request events, provider g
     mapped from tier IDs (`free-tier`, `g1-pro-tier`, `g1-ultra-lite-tier`,
     `g1-ultra-tier`); `paidTier` overrides `currentTier` only when it has a
     non-empty ID, and the tier ID/name are echoed as `tierId`/`tierName`.
+  - *meta*: Muse plans `everyday usage`, `high usage`, `power usage`, and
+    `maximum usage` are surfaced from the quota response; unknown plans are not
+    badged.
   Codex auth-file identities additionally surface their stored plan as
   `subscription` on the identities endpoints. Quota rows no longer carry a
   per-row `planType` field — subscription info lives at the response level.
