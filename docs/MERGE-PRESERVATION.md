@@ -23,207 +23,6 @@ below requires:
 
 ## Protected Features
 
-### 7. Model Test & API-key Viewer Models Access
-
-The authenticated `/models` catalog and per-model test controls must remain
-available to API-key viewers without exposing pricing settings. The server
-selects credentials by role: the active viewer key for viewers and the
-encrypted Admin Settings key for administrators. Probes use the configured CPA
-base URL, a fixed bounded prompt, a maximum output budget, and a 1–600 second
-timeout.
-
-- Backend: `internal/modeltest/`, `internal/modeltest/httpapi/`,
-  `internal/adminsettings/`, `internal/cpa/client.go`
-- Frontend: `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`,
-  `web/src/components/usage/AdminSettingsCard.tsx`, and `ModelCatalog.tsx`
-- Routes: authenticated `GET /api/v1/models`, `POST /api/v1/model-test`, and
-  admin-only `GET/PUT /api/v1/admin-settings`
-- Security: raw credentials are never returned; viewer requests cannot choose a
-  credential, host, path, or header.
-
-### 8. Model Test Failure Telegram Notifications
-
-**Status:** Permanent (Phase 2.24)  
-**Domain:** `internal/telegram/` + `internal/telegram/httpapi/`
-
-A user whose model test failed can notify the administrator through a configured
-Telegram bot. The message reports the reporter as the **API Key Name** (never
-the key value), the tested model, and a bounded failure reason. Telegram is
-configured in `/settings` → **Admin Settings** with an encrypted Bot Token, a
-Chat ID, and an optional Topic ID (`message_thread_id`).
-
-- **Backend:** `internal/telegram/` (contract, rendering, Bot API client,
-  limiter), `internal/telegram/httpapi/` (route registration),
-  `internal/adminsettings/` (`admin.telegram.bot_token`,
-  `admin.telegram.chat_id`, `admin.telegram.message_thread_id` settings)
-- **Frontend:** `web/src/features/model-test/` (notify action),
-  `web/src/components/usage/AdminSettingsCard.tsx` (Telegram section)
-- **Routes:** `POST /api/v1/model-test/notify` (admin + API-key viewer),
-  `POST /api/v1/telegram/test-message` (admin only), extended
-  `GET/PUT /api/v1/admin-settings` (admin only)
-- **Wiring:** `internal/app/app.go` (`telegram.NewService` +
-  `telegramSettingsSource` adapter), `internal/api/router.go`
-  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes` /
-  `RegisterAdminRoutes`), `internal/api/telegram_wiring.go` (session-derived
-  reporter/scope and the automatic-send observer on the model-test route)
-- **Security invariants:**
-  - The bot token is encrypted at rest with the existing AES-GCM key derived
-    from `CPA_MANAGEMENT_KEY`; no endpoint returns it. `GET /admin-settings`
-    exposes only `telegram.bot_token_configured`.
-  - The reporter is resolved server-side from `activeAPIKeyViewerContext` +
-    `helper.CPAAPIKeyDisplayName`; administrators report as `Administrator`.
-    The request body has no reporter field.
-  - Failure content is server-authored: the browser sends only `model` and
-    `mode`, and the reason/status/error code come from the in-memory,
-    per-session failure record (10-minute TTL). The reason is re-bounded to 240
-    characters, control characters are stripped, and key-like substrings are
-    redacted before delivery.
-  - Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly
-    cap; `429` carries `notify_rate_limited` and `Retry-After`.
-  - The `admin.telegram.enabled` toggle and the `admin.telegram.muted_models`
-    list are enforced server-side (`telegram_disabled`, `telegram_model_muted`).
-  - Error responses use stable codes (`telegram_not_configured`,
-    `telegram_disabled`, `telegram_model_muted`, `telegram_send_failed`,
-    `notify_rate_limited`, `invalid_notify_request`) and never echo the token,
-    the chat id, or the Bot API response body.
-
-Verification:
-
-```bash
-go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...
-npm --prefix ./web run test -- src/features/model-test src/components/usage/test/AdminSettingsCard.test.tsx
-npm --prefix ./web run typecheck
-make verify
-```
-
-### 9. Model Ranking on `/ranking` (Phase 2.25)
-
-**Status:** Permanent (Phase 2.25)
-**Domain:** `internal/modelranking/` + `internal/modelranking/httpapi/`
-
-`/ranking` shows a second leaderboard that ranks **models** over six periods
-(Today, Yesterday, Current Week, Previous Week, Current Month, Previous Month;
-default Today) with seven quantitative metrics (default `total_tokens`). The
-same model served through different providers under one alias collapses into a
-single row whose `providers[]` lists the contributors. The endpoint is
-admin-only because it aggregates usage across every API key. `/key-ranking`
-also mounts a separate model card whose endpoint is strictly scoped to the
-authenticated viewer's API group. Every row also names the **top spender** of the
-model; that column has its own protection contract in §10.
-
-- **Backend:** `internal/modelranking/` (period resolution with project `TZ`,
-  metric projection including model overall score, provider/cost/trend fields,
-  deterministic ordering, scoped 30 s in-memory read cache),
-  `internal/modelranking/httpapi/` (route registration),
-  `internal/repository/model_ranking.go` +
-  `internal/repository/model_ranking_rollup.go` +
-  `internal/repository/dto/model_ranking.go` (reader-pool aggregation and
-  checkpointed rollup over `usage_events`, grouped by
-  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`).
-- **Schema/pipeline:** migration `20261119_model_ranking_rollups` adds
-  `model_ranking_period_stats` and the checkpoint table; the existing serial
-  usage aggregation runner commits rollup pages and the model cursor atomically.
-  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` is the
-  bounded resumable recovery/backfill entry point.
-- **Frontend:** `web/src/features/model-ranking/` (types, period helpers,
-  formatting, API client, data hook, `ModelRankingSection` + styles).
-- **Routes:** global admin `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>` and viewer-scoped `GET /api/v1/key-model-ranking/leaderboards?period=<value>&metric=<value>`
-  with `Cache-Control: no-store`, `400 invalid_model_ranking_selection`, and
-  `503 model_ranking_unavailable`.
-- **Mount points:** `<ModelRankingSection />` immediately after
-  `<RankingPage />` inside `activeTab === 'ranking'` in
-  `web/src/pages/UsagePage.tsx`, and a viewer-scoped card in
-  `web/src/pages/KeyRankingPage.tsx`.
-- **Wiring:** `internal/api/router.go` (`OptionalProviders.ModelRanking` +
-  `modelrankinghttpapi.RegisterRoutes(adminProtected, ...)`) and
-  `internal/app/app.go` (`modelranking.NewService`, no runner).
-- **i18n namespace:** `model_ranking` in `web/src/i18n/index.ts` for en, zh,
-  and zh-TW.
-- **Invariants:** metadata only — no prompts, request bodies, headers, or
-  credentials; alias matching is exact after `TRIM`; the reader pool is used;
-  `usage_events_archive` is never queried by online ranking; rollup rows and
-  cursor advance atomically; viewer scope is session-derived only; missing cost
-  is not zero; both ranking domains use project `TZ`; the API-key leaderboard
-  remains regression-tested.
-
-Verification:
-
-```bash
-go test ./internal/modelranking/... ./internal/repository/... ./internal/api/...
-npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
-npm --prefix ./web run typecheck
-grep -q "modelrankinghttpapi.RegisterRoutes(adminProtected" internal/api/router.go && echo "✓ route"
-grep -q "ModelRankingSection" web/src/pages/UsagePage.tsx && echo "✓ mount"
-grep -q "key-model-ranking/leaderboards" internal/modelranking/httpapi/routes.go && echo "✓ viewer route"
-grep -q "model_ranking_period_stats" internal/entities/model_ranking_period_stat.go && echo "✓ rollup schema"
-grep -q "model_ranking: {" web/src/i18n/index.ts && echo "✓ i18n namespace"
-make verify
-```
-
-### 10. Model Ranking Top Spender Column
-
-**Status:** Permanent (Phase 2.25 follow-up)
-**Domain:** `internal/modelranking/` + `internal/repository/model_ranking_rollup.go`
-**Introduced:** 2026-11-19 (`feat(model-ranking): add top spender column`)
-
-Every row of the Model Ranking card (the admin card on `/ranking` and the
-viewer-scoped card on `/key-ranking`) carries a **Top spender** value naming the
-API key that contributed most to that model inside the selected period and
-provider filter. The column must stay mounted on both cards, must keep following
-the selected metric, and must keep its safe-label contract. Removing the column,
-dropping the per-metric leader rule, or exposing the raw API key value requires
-the Policy Statement process above.
-
-- **Backend:** `internal/modelranking/service.go` (`Entry.TopSpender`,
-  `attachTopSpenders`, `pickModelRankingSpenders`,
-  `modelRankingSpenderDimensions`, `loadModelRankingSpenderLabels`) and
-  `internal/repository/model_ranking_rollup.go`
-  (`ListModelRankingSpenders`, `ModelRankingSpenderRow` including
-  `CacheReadTokens`), with `repository.FindCPAAPIKeysByValues` for labels.
-- **Leader rule (must survive):** the selected metric leads the order —
-  `total_tokens`/`peak_tpm` → total tokens, `request_count`/`peak_rpm` → request
-  count, `cache_read_rate` → cache-read tokens; `overall`, `ttft_average`, and
-  `latency_average` keep the spend order (estimated cost → total tokens →
-  request count); the API group key breaks every tie.
-- **Attribution source:** only the API-key-scoped rollup slices of the ranked
-  models (`model_ranking_period_stats.scope_key <> ''`, reader pool). Global
-  rows are never read, and no new table, migration, or backfill may be added for
-  this column.
-- **Failure behavior:** an attribution read error fails the request instead of
-  serving a silently unlabeled board.
-- **Frontend:** `web/src/features/model-ranking/ModelRankingSection.tsx`
-  (`data-model-ranking-top-spender`, `model_ranking.top_spender_hint` header
-  tooltip, `—` fallback when a model has no attributable key), `types.ts`
-  (`top_spender`), `ModelRankingSection.module.scss`, and the `model_ranking`
-  i18n namespace (`top_spender`, `top_spender_hint`) in en/zh/zh-TW.
-- **Security invariants:** the payload exposes only `display_name` and
-  `masked_key`. Labels resolve through `helper.CPAAPIKeyDisplayName` (CPA key
-  name → operator alias → masked key) and unknown keys fall back to
-  `helper.RedactSensitiveValue`, so a raw API key never reaches the payload, the
-  DOM, or the logs. Viewer scope stays session-derived and the column is included
-  in the scoped 30 s board cache only.
-- **Regression tests:** `internal/modelranking/service_top_spender_test.go`
-  (per-metric leaders, tie-breaks, masked labels, viewer scope) and
-  `internal/repository/test/model_ranking_top_spender_test.go` (scoped and
-  provider-filtered aggregation, cache-read totals).
-- **Documentation:** `docs/SPECIFICATION.md` (model-ranking attribution rule),
-  `docs/ARCHITECTURE.md` (model ranking attribution), `README.md` /
-  `README.zh.md` (feature bullet), `CHANGELOG.md`.
-
-Verification after merge:
-
-```bash
-go test ./internal/modelranking/... ./internal/repository/...
-npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
-grep -q "ListModelRankingSpenders" internal/repository/model_ranking_rollup.go && echo "✓ attribution aggregate"
-grep -q "attachTopSpenders" internal/modelranking/service.go && echo "✓ attribution wiring"
-grep -q "modelRankingSpenderDimensions" internal/modelranking/service.go && echo "✓ metric-driven leader rule"
-grep -q "modelRankingSpenderOutranks" internal/modelranking/service.go && echo "✓ deterministic tie-break"
-grep -q "data-model-ranking-top-spender" web/src/features/model-ranking/ModelRankingSection.tsx && echo "✓ column"
-grep -q "top_spender_hint" web/src/i18n/index.ts && echo "✓ i18n"
-make verify
-```
-
 ### 1. Provider Model GNN Panel
 
 **Status:** Permanent core feature  
@@ -580,6 +379,207 @@ make verify
 - `TestCPAAPIKeyDisplayNameFallsBackToAlias` (KeyName empty → KeyAlias → display)
 - `TestCPAAPIKeyDisplayNameFallsBackToMaskedKey` (KeyName and KeyAlias empty → masked key)
 - `TestSyncCPAAPIKeysWithNamesWritesToKeyNameColumn` (sync writes to database)
+
+### 7. Model Test & API-key Viewer Models Access
+
+The authenticated `/models` catalog and per-model test controls must remain
+available to API-key viewers without exposing pricing settings. The server
+selects credentials by role: the active viewer key for viewers and the
+encrypted Admin Settings key for administrators. Probes use the configured CPA
+base URL, a fixed bounded prompt, a maximum output budget, and a 1–600 second
+timeout.
+
+- Backend: `internal/modeltest/`, `internal/modeltest/httpapi/`,
+  `internal/adminsettings/`, `internal/cpa/client.go`
+- Frontend: `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`,
+  `web/src/components/usage/AdminSettingsCard.tsx`, and `ModelCatalog.tsx`
+- Routes: authenticated `GET /api/v1/models`, `POST /api/v1/model-test`, and
+  admin-only `GET/PUT /api/v1/admin-settings`
+- Security: raw credentials are never returned; viewer requests cannot choose a
+  credential, host, path, or header.
+
+### 8. Model Test Failure Telegram Notifications
+
+**Status:** Permanent (Phase 2.24)  
+**Domain:** `internal/telegram/` + `internal/telegram/httpapi/`
+
+A user whose model test failed can notify the administrator through a configured
+Telegram bot. The message reports the reporter as the **API Key Name** (never
+the key value), the tested model, and a bounded failure reason. Telegram is
+configured in `/settings` → **Admin Settings** with an encrypted Bot Token, a
+Chat ID, and an optional Topic ID (`message_thread_id`).
+
+- **Backend:** `internal/telegram/` (contract, rendering, Bot API client,
+  limiter), `internal/telegram/httpapi/` (route registration),
+  `internal/adminsettings/` (`admin.telegram.bot_token`,
+  `admin.telegram.chat_id`, `admin.telegram.message_thread_id` settings)
+- **Frontend:** `web/src/features/model-test/` (notify action),
+  `web/src/components/usage/AdminSettingsCard.tsx` (Telegram section)
+- **Routes:** `POST /api/v1/model-test/notify` (admin + API-key viewer),
+  `POST /api/v1/telegram/test-message` (admin only), extended
+  `GET/PUT /api/v1/admin-settings` (admin only)
+- **Wiring:** `internal/app/app.go` (`telegram.NewService` +
+  `telegramSettingsSource` adapter), `internal/api/router.go`
+  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes` /
+  `RegisterAdminRoutes`), `internal/api/telegram_wiring.go` (session-derived
+  reporter/scope and the automatic-send observer on the model-test route)
+- **Security invariants:**
+  - The bot token is encrypted at rest with the existing AES-GCM key derived
+    from `CPA_MANAGEMENT_KEY`; no endpoint returns it. `GET /admin-settings`
+    exposes only `telegram.bot_token_configured`.
+  - The reporter is resolved server-side from `activeAPIKeyViewerContext` +
+    `helper.CPAAPIKeyDisplayName`; administrators report as `Administrator`.
+    The request body has no reporter field.
+  - Failure content is server-authored: the browser sends only `model` and
+    `mode`, and the reason/status/error code come from the in-memory,
+    per-session failure record (10-minute TTL). The reason is re-bounded to 240
+    characters, control characters are stripped, and key-like substrings are
+    redacted before delivery.
+  - Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly
+    cap; `429` carries `notify_rate_limited` and `Retry-After`.
+  - The `admin.telegram.enabled` toggle and the `admin.telegram.muted_models`
+    list are enforced server-side (`telegram_disabled`, `telegram_model_muted`).
+  - Error responses use stable codes (`telegram_not_configured`,
+    `telegram_disabled`, `telegram_model_muted`, `telegram_send_failed`,
+    `notify_rate_limited`, `invalid_notify_request`) and never echo the token,
+    the chat id, or the Bot API response body.
+
+Verification:
+
+```bash
+go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...
+npm --prefix ./web run test -- src/features/model-test src/components/usage/test/AdminSettingsCard.test.tsx
+npm --prefix ./web run typecheck
+make verify
+```
+
+### 9. Model Ranking on `/ranking` (Phase 2.25)
+
+**Status:** Permanent (Phase 2.25)
+**Domain:** `internal/modelranking/` + `internal/modelranking/httpapi/`
+
+`/ranking` shows a second leaderboard that ranks **models** over six periods
+(Today, Yesterday, Current Week, Previous Week, Current Month, Previous Month;
+default Today) with seven quantitative metrics (default `total_tokens`). The
+same model served through different providers under one alias collapses into a
+single row whose `providers[]` lists the contributors. The endpoint is
+admin-only because it aggregates usage across every API key. `/key-ranking`
+also mounts a separate model card whose endpoint is strictly scoped to the
+authenticated viewer's API group. Every row also names the **top spender** of the
+model; that column has its own protection contract in §10.
+
+- **Backend:** `internal/modelranking/` (period resolution with project `TZ`,
+  metric projection including model overall score, provider/cost/trend fields,
+  deterministic ordering, scoped 30 s in-memory read cache),
+  `internal/modelranking/httpapi/` (route registration),
+  `internal/repository/model_ranking.go` +
+  `internal/repository/model_ranking_rollup.go` +
+  `internal/repository/dto/model_ranking.go` (reader-pool aggregation and
+  checkpointed rollup over `usage_events`, grouped by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`).
+- **Schema/pipeline:** migration `20261119_model_ranking_rollups` adds
+  `model_ranking_period_stats` and the checkpoint table; the existing serial
+  usage aggregation runner commits rollup pages and the model cursor atomically.
+  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` is the
+  bounded resumable recovery/backfill entry point.
+- **Frontend:** `web/src/features/model-ranking/` (types, period helpers,
+  formatting, API client, data hook, `ModelRankingSection` + styles).
+- **Routes:** global admin `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>` and viewer-scoped `GET /api/v1/key-model-ranking/leaderboards?period=<value>&metric=<value>`
+  with `Cache-Control: no-store`, `400 invalid_model_ranking_selection`, and
+  `503 model_ranking_unavailable`.
+- **Mount points:** `<ModelRankingSection />` immediately after
+  `<RankingPage />` inside `activeTab === 'ranking'` in
+  `web/src/pages/UsagePage.tsx`, and a viewer-scoped card in
+  `web/src/pages/KeyRankingPage.tsx`.
+- **Wiring:** `internal/api/router.go` (`OptionalProviders.ModelRanking` +
+  `modelrankinghttpapi.RegisterRoutes(adminProtected, ...)`) and
+  `internal/app/app.go` (`modelranking.NewService`, no runner).
+- **i18n namespace:** `model_ranking` in `web/src/i18n/index.ts` for en, zh,
+  and zh-TW.
+- **Invariants:** metadata only — no prompts, request bodies, headers, or
+  credentials; alias matching is exact after `TRIM`; the reader pool is used;
+  `usage_events_archive` is never queried by online ranking; rollup rows and
+  cursor advance atomically; viewer scope is session-derived only; missing cost
+  is not zero; both ranking domains use project `TZ`; the API-key leaderboard
+  remains regression-tested.
+
+Verification:
+
+```bash
+go test ./internal/modelranking/... ./internal/repository/... ./internal/api/...
+npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
+npm --prefix ./web run typecheck
+grep -q "modelrankinghttpapi.RegisterRoutes(adminProtected" internal/api/router.go && echo "✓ route"
+grep -q "ModelRankingSection" web/src/pages/UsagePage.tsx && echo "✓ mount"
+grep -q "key-model-ranking/leaderboards" internal/modelranking/httpapi/routes.go && echo "✓ viewer route"
+grep -q "model_ranking_period_stats" internal/entities/model_ranking_period_stat.go && echo "✓ rollup schema"
+grep -q "model_ranking: {" web/src/i18n/index.ts && echo "✓ i18n namespace"
+make verify
+```
+
+### 10. Model Ranking Top Spender Column
+
+**Status:** Permanent (Phase 2.25 follow-up)
+**Domain:** `internal/modelranking/` + `internal/repository/model_ranking_rollup.go`
+**Introduced:** 2026-11-19 (`feat(model-ranking): add top spender column`)
+
+Every row of the Model Ranking card (the admin card on `/ranking` and the
+viewer-scoped card on `/key-ranking`) carries a **Top spender** value naming the
+API key that contributed most to that model inside the selected period and
+provider filter. The column must stay mounted on both cards, must keep following
+the selected metric, and must keep its safe-label contract. Removing the column,
+dropping the per-metric leader rule, or exposing the raw API key value requires
+the Policy Statement process above.
+
+- **Backend:** `internal/modelranking/service.go` (`Entry.TopSpender`,
+  `attachTopSpenders`, `pickModelRankingSpenders`,
+  `modelRankingSpenderDimensions`, `loadModelRankingSpenderLabels`) and
+  `internal/repository/model_ranking_rollup.go`
+  (`ListModelRankingSpenders`, `ModelRankingSpenderRow` including
+  `CacheReadTokens`), with `repository.FindCPAAPIKeysByValues` for labels.
+- **Leader rule (must survive):** the selected metric leads the order —
+  `total_tokens`/`peak_tpm` → total tokens, `request_count`/`peak_rpm` → request
+  count, `cache_read_rate` → cache-read tokens; `overall`, `ttft_average`, and
+  `latency_average` keep the spend order (estimated cost → total tokens →
+  request count); the API group key breaks every tie.
+- **Attribution source:** only the API-key-scoped rollup slices of the ranked
+  models (`model_ranking_period_stats.scope_key <> ''`, reader pool). Global
+  rows are never read, and no new table, migration, or backfill may be added for
+  this column.
+- **Failure behavior:** an attribution read error fails the request instead of
+  serving a silently unlabeled board.
+- **Frontend:** `web/src/features/model-ranking/ModelRankingSection.tsx`
+  (`data-model-ranking-top-spender`, `model_ranking.top_spender_hint` header
+  tooltip, `—` fallback when a model has no attributable key), `types.ts`
+  (`top_spender`), `ModelRankingSection.module.scss`, and the `model_ranking`
+  i18n namespace (`top_spender`, `top_spender_hint`) in en/zh/zh-TW.
+- **Security invariants:** the payload exposes only `display_name` and
+  `masked_key`. Labels resolve through `helper.CPAAPIKeyDisplayName` (CPA key
+  name → operator alias → masked key) and unknown keys fall back to
+  `helper.RedactSensitiveValue`, so a raw API key never reaches the payload, the
+  DOM, or the logs. Viewer scope stays session-derived and the column is included
+  in the scoped 30 s board cache only.
+- **Regression tests:** `internal/modelranking/service_top_spender_test.go`
+  (per-metric leaders, tie-breaks, masked labels, viewer scope) and
+  `internal/repository/test/model_ranking_top_spender_test.go` (scoped and
+  provider-filtered aggregation, cache-read totals).
+- **Documentation:** `docs/SPECIFICATION.md` (model-ranking attribution rule),
+  `docs/ARCHITECTURE.md` (model ranking attribution), `README.md` /
+  `README.zh.md` (feature bullet), `CHANGELOG.md`.
+
+Verification after merge:
+
+```bash
+go test ./internal/modelranking/... ./internal/repository/...
+npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
+grep -q "ListModelRankingSpenders" internal/repository/model_ranking_rollup.go && echo "✓ attribution aggregate"
+grep -q "attachTopSpenders" internal/modelranking/service.go && echo "✓ attribution wiring"
+grep -q "modelRankingSpenderDimensions" internal/modelranking/service.go && echo "✓ metric-driven leader rule"
+grep -q "modelRankingSpenderOutranks" internal/modelranking/service.go && echo "✓ deterministic tie-break"
+grep -q "data-model-ranking-top-spender" web/src/features/model-ranking/ModelRankingSection.tsx && echo "✓ column"
+grep -q "top_spender_hint" web/src/i18n/index.ts && echo "✓ i18n"
+make verify
+```
 
 ---
 
