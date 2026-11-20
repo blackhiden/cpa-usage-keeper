@@ -1,5 +1,25 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-20 — Git Flow Release v2.1.6
+
+**Status:** Complete — release merged into `main`, tagged `v2.1.6`, back-merged
+into `dev`, and `release/2.1.6` deleted.
+
+- **Version source:** latest tag `v2.1.5`; patch increment to `v2.1.6`.
+- **CLI argument:** `2.1.6` (no leading `v`). Installed `git-flow` 1.12.3 adds
+  `gitflow.prefix.versiontag=v` automatically; passing `v2.1.6` would create
+  `vv2.1.6`.
+- **Preflight:** on `dev`; clean tree (no staged/unstaged/untracked); `main` and
+  `dev` present; local/remote branches equal; no existing `release/*` branch;
+  target tag/branch absent.
+- **Staged changes:** none at release start, so no unrelated local work was
+  included.
+- **Release content:** 60 commits since `v2.1.5`, ending with
+  `2646c78e docs(merge-preservation): protect model ranking top spender column`;
+  this session entry is the only release-branch commit.
+- **Verification:** `git diff --check` clean; no code changed in this release
+  task.
+
 ## Session: Model Ranking "Top Spender" Column
 
 **Date:** 2026-11-19
