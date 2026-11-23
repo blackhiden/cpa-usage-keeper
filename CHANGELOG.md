@@ -25,6 +25,12 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- **Antigravity Ultra subscription labels (upstream `a0186173`).** The
+  Antigravity `ultra-lite` and `ultra` plans now display as **Ultra 5x** and
+  **Ultra 20x** in en/zh/zh-TW, with matching badge and translation tests. The
+  merge preserved all `PF-01`…`PF-11` features and required no conflict
+  resolution.
+
 - **Feature-loss-proof merge preservation format.** `docs/MERGE-PRESERVATION.md`
   is now a fork-owned protected-feature manifest with stable `PF-01`…`PF-11`
   IDs, a completeness index, a mandatory feature-record template, one

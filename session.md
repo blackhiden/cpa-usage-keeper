@@ -1,5 +1,31 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-23 — Upstream merge `a0186173` into `dev`
+
+**Status:** Complete on `dev`; release prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** clean tree on `dev`; `main`/`dev` present; git-flow 1.12.3
+  configured with production `main`, development `dev`, release prefix
+  `release/`, and version tag prefix `v`; latest tag `v2.1.8` unambiguous. The
+  upstream remote is `https://github.com/Willxup/cpa-usage-keeper.git`.
+- **Upstream:** `upstream/main` was already at `a0186173`
+  (`fix(credentials): align Antigravity Ultra subscription labels (#725)`);
+  `git fetch upstream main` confirmed the ref. Two incoming commits / three
+  files changed only Antigravity subscription label text and its tests.
+- **Protected-feature review:** the upstream diff did not touch
+  `docs/MERGE-PRESERVATION.md` or any `PF-01`…`PF-11` domain/wiring. The §5
+  structural gate passed before and after the merge.
+- **Merge:** `git merge --no-ff upstream/main` produced `ae1c95af` with no
+  textual conflicts. No application code was hand-edited.
+- **Verification:** targeted request-log, ranking (`-race`), Live Flow /
+  model-ranking repository, model ranking, Telegram/settings/model-test, and
+  89 protected frontend tests all passed. Full `make verify` is the release
+  gate.
+- **Release handoff:** git-flow release `2.1.9` starts from this state (pass
+  `2.1.9`, not `v2.1.9`, because git-flow adds the `v` prefix).
+
 ## 2026-11-23 — Upstream merge `82ad42b2` into `dev`
 
 **Status:** Complete on `dev`; release prepared from this state.
