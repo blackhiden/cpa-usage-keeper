@@ -437,7 +437,7 @@ web/
 - **i18n mandatory** - All user-facing strings through i18next
 - **Theme support** - `data-theme` attribute (light/dark/auto)
 - **Chart.js** - Registered via `lib/chartjs.ts` only
-- **Protected features** - Provider Model GNN panel, AI Provider Table redesign, Model Ranking on `/ranking`, and its Top Spender column are permanent (see `AGENTS.md` §3 and `docs/MERGE-PRESERVATION.md` §6, §9, §10)
+- **Protected features** - Provider Model GNN panel, AI Provider Table redesign, Model Ranking on `/ranking`, and its Top Spender column are permanent (see `AGENTS.md` §3 and `docs/MERGE-PRESERVATION.md` PF-01, PF-06, PF-10, PF-11)
 
 ---
 

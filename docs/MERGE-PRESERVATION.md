@@ -1,619 +1,709 @@
-# Merge Preservation Policy
+# Merge Preservation Manifest
 
-This document lists features and architectural decisions that **must not be
-removed or replaced** during upstream merges from the original CLIProxyAPI
-Usage Keeper repository. These features were introduced in this fork since
-commit `bcc2d4c4b28e4ec6e8e6367b0831a313a4347f8c` and represent core functional
-requirements for this deployment.
+> ## 🛑 FORK-OWNED FILE — DO NOT DELETE, REPLACE, OR LET UPSTREAM OVERWRITE
+>
+> This file is the **authoritative upstream-merge gate** for CPA Usage Keeper.
+> It is local source of truth, not a mirror of upstream documentation and not a
+> changelog. An upstream merge that deletes, renames, empties, or rewrites this
+> file is **an invalid merge** until the local manifest is restored.
+>
+> If upstream touches this file, keep the local version and port only genuinely
+> new upstream text into the **Revision history** at the bottom. Never accept an
+> upstream deletion of a protected feature record.
 
-## Policy Statement
+**Canonical path:** `docs/MERGE-PRESERVATION.md`
+**Policy owner:** fork maintainers
+**Format revision:** 2026-11-23 (stable-ID manifest)
+**Fork baseline:** features introduced after `bcc2d4c4b28e4ec6e8e6367b0831a313a4347f8c`
+**Legacy alias:** previously titled “Merge Preservation Policy”. Old `§1`–`§10`
+references are mapped to stable `PF-xx` IDs in §2 and remain valid aliases; new
+references must use `PF-xx` IDs.
 
-Any removal, replacement, or significant modification of the features listed
-below requires:
+---
 
-1. An explicit, documented architectural decision
-2. Approval from the maintainers
-3. Updates to all affected documentation:
+## 0. How to use this manifest
+
+This document is a **merge gate**, not background reading. Follow it in order.
+
+1. **Before merging upstream:** read §2 (index) and §4 (feature records). Compare
+   the upstream diff against every `PF-xx` ID. A diff that removes a file,
+   route, mount point, marker, or invariant named in a record is a feature-loss
+   candidate and must be resolved in favor of the fork.
+2. **During conflict resolution:** never choose “theirs” for a protected file or
+   integration point. Adapt upstream code around the protected contract. If a
+   contract genuinely must change, stop and follow §1.
+3. **After merging:** run the single gate in §5, then the targeted tests in §5,
+   then `make verify`. A failed gate blocks the release; do not “fix” it by
+   deleting the check.
+4. **When adding a feature:** append a new `PF-xx` record using §3. Never reuse
+   or renumber an ID, never edit an old record to describe a different feature,
+   and never remove a record without the §1 decision process.
+5. **If this file is missing after a merge:** restore it from the merge base or
+   `main` before doing anything else, then re-run §5. See §6.4.
+
+---
+
+## 1. Policy statement
+
+Any removal, replacement, rename, hiding, or significant modification of a
+feature listed in §2 requires **all** of the following, in one reviewed change:
+
+1. An explicit, documented architectural decision explaining why the feature is
+   no longer required.
+2. Approval from the fork maintainers.
+3. Updates to every affected document:
    - `docs/ARCHITECTURE.md`
    - `docs/SPECIFICATION.md`
    - `docs/ROADMAP.md`
    - `README.md` / `README.zh.md`
    - `session.md`
-   - This file (`docs/MERGE-PRESERVATION.md`)
+   - `CHANGELOG.md`
+   - This manifest (record marked `RETIRED` with the decision link; the ID is
+     never deleted or reused).
+4. A passing §5 gate **after** the decision, with the retired check explicitly
+   removed in the same reviewed change.
 
-## Protected Features
+Until that process is complete, the default answer to “did upstream remove or
+replace this?” is **restore the fork behavior**.
 
-### 1. Provider Model GNN Panel
+---
 
-**Status:** Permanent core feature  
-**Commit baseline:** Since fork inception
+## 2. Protected feature index
 
-The Provider Model GNN visualization panel must remain mounted on the Usage
-overview tab. Both renderers (React Flow grid + Reagraph WebGL) must be
-preserved.
+This table is the completeness check. If a row is missing, the manifest has been
+damaged. `Legacy` exists only to resolve older prose references.
 
-- **Backend domain:** `internal/gnn/` (self-contained: service, HTTP API)
+| ID | Legacy | Feature | Permanence | Owner domains | Contract anchor | Gate |
+|---|---|---|---|---|---|---|
+| `PF-01` | §1 | Provider Model GNN Panel | Permanent core | `internal/gnn`, `web/src/features/model-gnn` | `SPECIFICATION.md` UC-12 | §5.1 |
+| `PF-02` | §2 | API Key Viewer Full Request Logs | Fork-only requirement | `internal/api` | `SPECIFICATION.md` §7 request logs | §5.2 |
+| `PF-03` | §3 | Local Ranking as Default | Fork-specific configuration | `internal/ranking`, `web/src/pages` | `SPECIFICATION.md` UC-9 / UC-14 | §5.3 |
+| `PF-04` | §4 | Live Flow Visualization + History | Permanent | `internal/liveflow`, `web/src/features/live-flow`, `web/src/features/usage` | `SPECIFICATION.md` UC-2a/2c/2d | §5.4 |
+| `PF-05` | §5 | API Key Viewer Enhancements | Fork-specific viewer capability | `internal/api`, `web/src/features/key-viewer` | `SPECIFICATION.md` UC-13/15/16 | §5.5 |
+| `PF-06` | §6 | AI Provider Table Redesign & Detail Navigation | Permanent core | `internal/api`, `internal/service`, `internal/repository`, `web/src/components/usage/credentials`, `web/src/pages` | `SPECIFICATION.md` UC-7a | §5.6 |
+| `PF-07` | §7 (first) | API Key Name Display Priority | Fork-specific display rule | `internal/entities`, `internal/repository`, `internal/helper`, `internal/cpa` | `SPECIFICATION.md` UC-9 | §5.7 |
+| `PF-08` | §7 (second) | Model Test & API-key Viewer Models Access | Permanent | `internal/modeltest`, `internal/adminsettings`, `web/src/features/model-test` | `SPECIFICATION.md` §1 / §5 | §5.8 |
+| `PF-09` | §8 | Model Test Failure Telegram Notifications | Permanent | `internal/telegram`, `internal/adminsettings`, `web/src/features/model-test` | `SPECIFICATION.md` UC-17 | §5.9 |
+| `PF-10` | §9 | Model Ranking on `/ranking` | Permanent | `internal/modelranking`, `internal/repository`, `web/src/features/model-ranking` | `SPECIFICATION.md` UC-9a/9b | §5.10 |
+| `PF-11` | §10 | Model Ranking Top Spender Column | Permanent | `internal/modelranking`, `internal/repository/model_ranking_rollup.go`, `web/src/features/model-ranking` | `SPECIFICATION.md` §6.6 | §5.11 |
+
+---
+
+## 3. Feature record format (mandatory for new entries)
+
+Every `PF-xx` record in §4 must contain these fields, in this order. This is what
+makes a silent feature loss visible during review: a missing field is a broken
+record, just like a missing file is a broken gate.
+
+```text
+### PF-xx — Feature name
+**Status:** Permanent | Fork-only | Fork-specific configuration
+**Legacy:** §old-section (or "new in this revision")
+**Introduced:** date / commit / phase
+
+Protected contract:
+  - One sentence stating the user-visible behavior that must survive.
+  - Explicit "must not be removed / renamed / hidden / replaced" wording.
+
+Owner domains and files:
+  - Backend domain(s), frontend domain(s), routes, migrations, tests.
+
+Integration points:
+  - Exact files and symbols that connect the domain to the app. These are the
+    lines upstream merges most often revert; list them all.
+
+Invariants:
+  - Security, scoping, masking, failure-isolation, and data-source rules that
+    must not be weakened.
+
+Documentation:
+  - Every authoritative doc that repeats this contract.
+
+Verification:
+  - Gate subsection in §5 (structural check).
+  - Targeted test command(s) that prove behavior, not just file presence.
+```
+
+Rules for record edits:
+
+- **Append-only IDs.** `PF-12` is next; `PF-07` never becomes something else.
+- **No silent weakening.** Changing an invariant is a §1 decision, even if the
+  code still compiles.
+- **No path-only protection.** A file existing is not enough; name the mount
+  point, route registration, or marker that proves the feature is wired.
+- **No orphan checks.** Every §5 check must map to a §4 record and vice versa.
+- **No stale paths.** If a file moves, update the record and the gate in the same
+  commit (see the `KeyViewerPage.tsx` drift fixed in this revision).
+
+---
+
+## 4. Protected feature records
+
+### PF-01 — Provider Model GNN Panel
+
+**Status:** Permanent core
+**Legacy:** §1
+**Introduced:** Since fork inception
+
+**Protected contract:** The Provider Model GNN visualization panel must remain
+mounted on the Usage overview tab. Both renderers — React Flow grid and Reagraph
+WebGL (lazy-loaded) — must be preserved. The panel must not be removed, renamed,
+hidden, or replaced.
+
+- **Backend domain:** `internal/gnn/` (self-contained service + HTTP API)
 - **Frontend domain:** `web/src/features/model-gnn/` (panel, renderers, API client, types)
 - **API endpoints:** `GET /api/v1/provider-model-gnn` (canonical), `/provider-model-graph` (alias)
 - **Integration points:**
-  - `internal/app/app.go`: `gnn.NewService` constructor
+  - `internal/app/app.go`: `gnn.NewService`
   - `internal/api/router.go`: `OptionalProviders.ProviderModelGraph` + `gnnhttpapi.RegisterRoutes`
   - `web/src/pages/UsagePage.tsx`: `ProviderModelGNNPanel` import from `@/features/model-gnn`
   - i18n keys: `usage_stats.provider_model_graph.*` (en/zh/zh-TW)
+- **Invariants:** the CPA config proxy decodes only whitelisted fields via
+  `internal/cpa/dto/providerconfig`; `api-key`, `base-url`, and `headers` are
+  never parsed, stored, or forwarded. Both renderers reuse the same fetched
+  graph and `buildProviderModelGraph` helper.
+- **Documentation:** `ARCHITECTURE.md` §7, `SPECIFICATION.md` UC-12,
+  `ROADMAP.md`, `README.md` / `README.zh.md`, `AGENTS.md` §3, `session.md`.
+- **Verification:** §5.1; `go build ./...`, `npm --prefix ./web run typecheck`,
+  `npm --prefix ./web run build`.
 
-**Documentation:**
-- `docs/ARCHITECTURE.md` §7 (permanence requirement)
-- `docs/SPECIFICATION.md` UC-12 (permanent contract)
-- `docs/ROADMAP.md` (policy reminder)
-- `README.md` / `README.zh.md` (permanent feature note)
-- `AGENTS.md` §3 (frontend GNN guidance)
-- `session.md` (domain isolation decision)
+### PF-02 — API Key Viewer Full Request Logs
 
-**Verification after merge:**
-```bash
-# Verify backend domain intact
-test -f internal/gnn/gnn.go && echo "✓ GNN service exists" || echo "✗ MISSING"
-test -f internal/gnn/httpapi/routes.go && echo "✓ GNN HTTP API exists" || echo "✗ MISSING"
+**Status:** Fork-only requirement
+**Legacy:** §2
+**Introduced:** Since fork inception
 
-# Verify frontend domain intact
-test -f web/src/features/model-gnn/ProviderModelGNNPanel.tsx && echo "✓ GNN panel exists" || echo "✗ MISSING"
-test -f web/src/features/model-gnn/ProviderModelReagraphPanel.tsx && echo "✓ Reagraph renderer exists" || echo "✗ MISSING"
-
-# Verify integration points
-grep -q "gnn.NewService" internal/app/app.go && echo "✓ Service wired" || echo "✗ MISSING"
-grep -q "gnnhttpapi.RegisterRoutes" internal/api/router.go && echo "✓ Routes registered" || echo "✗ MISSING"
-grep -q "@/features/model-gnn" web/src/pages/UsagePage.tsx && echo "✓ Panel imported" || echo "✗ MISSING"
-
-# Build verification
-go build ./...
-npm --prefix ./web run typecheck
-npm --prefix ./web run build
-```
-
----
-
-### 2. API Key Viewer Full Request Logs
-
-**Status:** Fork-only requirement  
-**Commit baseline:** Since fork inception
-
-API key viewers must see the **full request/response log content** for their
-own events (no redaction). This includes request/response bodies, headers,
-prompts, and upstream payloads.
+**Protected contract:** API key viewers must see the **full request/response log
+content** for their own events — request/response bodies, headers, prompts, and
+upstream payloads. No redaction layer may be inserted for this viewer role.
 
 - **Route:** `GET /api/v1/key-events/:id/request-log`
 - **File:** `internal/api/key_viewer_request_events.go`
-- **Marker:** `FORK-ONLY: The owning API-key viewer receives every request-log section` comment
-- **Access control:** Ownership verified (cross-key → 404); requires `CPA_REQUEST_LOG_ACCESS_ENABLED=true` (disabled → 403)
-- **Test:** `TestAPIKeyViewerRequestLogFullContentPersistence` compares every returned section with original title and content
+- **Marker:** `FORK-ONLY: The owning API-key viewer receives every request-log section`
+- **Access control:** ownership verified (cross-key → 404); requires
+  `CPA_REQUEST_LOG_ACCESS_ENABLED=true` (disabled → 403).
+- **Test:** `TestAPIKeyViewerRequestLogFullContentPersistence` compares every
+  returned section with the original title and content.
+- **Invariants:** the fork marker stays in the handler; no viewer-specific
+  redaction helper may be added; cross-key access stays 404.
+- **Documentation:** `SPECIFICATION.md` §7 request logs, `session.md`,
+  `README.md` / `README.zh.md` (`CPA_REQUEST_LOG_ACCESS_ENABLED`).
+- **Verification:** §5.2; run the three request-log protection tests in §5.
 
-**Documentation:**
-- `docs/SPECIFICATION.md` (key-viewer request-log row)
-- `session.md` (full-content decision)
-- `README.md` / `README.zh.md` (env var `CPA_REQUEST_LOG_ACCESS_ENABLED` notes API key viewers)
+### PF-03 — Local Ranking as Default
 
-**Verification after merge:**
-```bash
-# Verify fork marker
-grep -n 'FORK-ONLY: The owning API-key viewer receives every request-log section' internal/api/key_viewer_request_events.go
+**Status:** Fork-specific feature configuration
+**Legacy:** §3
+**Introduced:** Phase 2.19 (October 2026)
 
-# Verify no redaction logic added
-! grep -q 'redactRequestLogForKeyViewer' internal/api/key_viewer_request_events.go && echo "✓ No redaction" || echo "✗ REDACTION ADDED"
+**Protected contract:** Ranking displays **local API key competition by
+default**. Community ranking code and endpoints remain intact but are not wired
+into the UI. No scope toggle may be reintroduced.
 
-# Run protection tests
-go test ./internal/api/test/ -run 'TestAPIKeyViewerRequestLogFullContentPersistence|TestAPIKeyViewerRequestLogRejectsCrossKeyAccess|TestAPIKeyViewerRequestLogRejectsDisabledAccess' -count=1
-```
+- **Admin page:** `web/src/pages/UsagePage.tsx` — `rankingScope: RankingScope = 'local'`
+- **Key viewer page:** `web/src/pages/KeyRankingPage.tsx` — `effectiveScope: RankingScope = 'local'`
+- **Backend:** `rankinghttpapi.RegisterLocalRoutes` and
+  `rankinghttpapi.RegisterKeyViewerLocalRoutes` stay mounted; community
+  `RegisterRoutes` / `RegisterKeyViewerRoutes` stay intentionally commented out.
+- **Display:** CPA-provided key names → user aliases → masked keys (see PF-07).
+- **Invariants:** no `handleRankingScopeChange`; local ranking remains available
+  to viewers; a period-zone change invalidates snapshots and rebuilds only the
+  requested window (see `SPECIFICATION.md` §6.6).
+- **Documentation:** `session.md`, `CHANGELOG.md`, `ARCHITECTURE.md` §3.
+- **Verification:** §5.3; `go test ./internal/ranking/... -race -count=1`.
 
----
+### PF-04 — Live Flow Visualization + History
 
-### 3. Local Ranking as Default (Community Ranking UI Disabled)
+**Status:** Permanent
+**Legacy:** §4
+**Introduced:** October 2026; history in Phase 2.22
 
-**Status:** Fork-specific feature configuration  
-**Commit baseline:** Phase 2.19 (October 2026)
+**Protected contract:** Authenticated Live Flow relay and dashboard pages show
+CPA's metadata-only request stream with lifecycle trails, plus persistent
+per-model history for six selectable calendar periods. The relay contract must
+not change and the canvas must stay mounted before traffic arrives.
 
-The ranking feature displays **local API key competition by default**.
-Community ranking remains in the backend but is not wired in the UI.
+- **Backend relay:** `GET /api/v1/live-flow/ws` (`internal/api/live_flow.go`)
+- **Backend history:** `GET /api/v1/live-flow/models?period=<value>`
+  (`internal/liveflow/`, `internal/liveflow/httpapi/`,
+  `internal/repository/liveflow_models.go`)
+- **Frontend:** `/live-flow` and `/key-live-flow` pages;
+  `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`, `FlowTopology.tsx`;
+  `web/src/features/live-flow/` (types, API client, alias-aware merge, trend,
+  period select); `web/src/pages/KeyLiveFlowPage.tsx`
+- **Features:** generation-only stream; amber pending → green success / red
+  failure trails; model fidelity; six periods (today, yesterday, current week,
+  previous week, current month, previous month); per-period model count, request
+  total, and previous-period trend.
+- **Alias naming (must survive):** blocks group by
+  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`; `source_models` is reported;
+  `buildLiveFlowAliasMap` folds live events onto the alias block.
+- **Canvas layout (must survive):** `liveFlowRingRadius` grows with model count;
+  `liveFlowNodeZIndex` (10 vs 1) plus `live-flow-node-active` keeps active blocks
+  above idle neighbours.
+- **Invariants:** metadata only — no prompts, bodies, headers, or credentials;
+  history is on-demand over `usage_events` (generation only, reader pool, bounded
+  `LIMIT`); no new table, no background runner; `usage_events_archive` is never
+  queried; history shares the relay's admin + viewer authorization.
+- **Documentation:** `ARCHITECTURE.md` §4/§7, `SPECIFICATION.md` UC-2a/2c/2d,
+  `CHANGELOG.md`, `session.md`, `CODE_GRAPH.md`.
+- **Verification:** §5.4; `go test ./internal/liveflow/...`,
+  `go test ./internal/repository/test -run TestListLiveFlowModels`,
+  `go test ./internal/api/test -run TestLiveFlowModels`,
+  `npx vitest run src/features/live-flow src/features/usage`.
 
-- **Admin page:** `web/src/pages/UsagePage.tsx` - `rankingScope` constant locked to `'local'`
-- **Key viewer page:** `web/src/pages/KeyRankingPage.tsx` - `effectiveScope` constant locked to `'local'`
-- **Backend:** Community ranking service and endpoints remain intact but unused by UI
-- **Display:** API keys shown with CPA-provided names → user aliases → masked keys
+### PF-05 — API Key Viewer Enhancements
 
-**Documentation:**
-- `session.md` (community ranking UI disable decision)
-- `CHANGELOG.md` (ranking feature conversion)
-- `docs/ARCHITECTURE.md` §3 (local ranking as default)
+**Status:** Fork-specific viewer capability
+**Legacy:** §5
+**Introduced:** Phase 2.19 (October 2026)
 
-**Verification after merge:**
-```bash
-# Verify UI locked to local scope
-grep -A2 "const rankingScope.*RankingScope = 'local'" web/src/pages/UsagePage.tsx
-grep -A2 "const effectiveScope.*RankingScope = 'local'" web/src/pages/KeyRankingPage.tsx
+**Protected contract:** API key viewers retain request events, full request logs
+(PF-02), and Live Flow access (PF-04). Their shell and navigation must not be
+replaced by the admin dashboard or a flat upstream viewer page.
 
-# Verify no scope toggle switches
-! grep -q "handleRankingScopeChange" web/src/pages/UsagePage.tsx && echo "✓ No toggle in admin" || echo "✗ TOGGLE FOUND"
-! grep -q "handleRankingScopeChange" web/src/pages/KeyRankingPage.tsx && echo "✓ No toggle in viewer" || echo "✗ TOGGLE FOUND"
+- **Request events endpoints:** `GET /api/v1/key-events` (own events, paginated),
+  `GET /api/v1/key-events/:id` (own detail),
+  `GET /api/v1/key-events/:id/request-log` (full log, PF-02)
+- **Router:** `registerKeyRequestEventsRoute` stays on `keyViewerProtected`
+- **Frontend:** `web/src/features/key-viewer/KeyViewerShell.tsx`,
+  `web/src/features/key-viewer/navigation.ts`, `web/src/pages/KeyEventsPage.tsx`,
+  `web/src/pages/KeyLiveFlowPage.tsx`, `web/src/pages/KeyRankingPage.tsx`
+  (the former `web/src/pages/KeyViewerPage.tsx` no longer exists — do not restore
+  that stale path).
+- **Invariants:** viewer scope is session-derived; cross-key event access is 404;
+  viewer endpoints are rate-limited; Live Flow is a global metadata view with a
+  privacy notice.
+- **Documentation:** `SPECIFICATION.md` UC-13/15/16, `docs/PHASE_2_19_PLAN.md`,
+  `session.md`.
+- **Verification:** §5.5; `go test ./internal/api/test/ -run 'TestAPIKeyViewer' -count=1`.
 
-# Backend endpoints should still exist (unused)
-grep -q "/api/v1/ranking/leaderboard" internal/api/router.go && echo "✓ Endpoints intact" || echo "✗ MISSING"
-```
+### PF-06 — AI Provider Table Redesign & Detail Navigation
 
----
+**Status:** Permanent core
+**Legacy:** §6
+**Introduced:** October 2026; restored and protected after upstream regression
 
-### 4. Live Flow Visualization
+**Protected contract:** `/ai-provider` must render the server-grouped
+`ProviderSummarySection` (one row per provider), and `/ai-provider/:providerId`
+must render `ProviderDetailPage` with paginated, server-sorted keys. Upstream
+must not revert to the flat key list, remove the grid/flexbox layout, or remove
+the provider API endpoints.
 
-**Status:** Permanent feature  
-**Commit baseline:** October 2026
+- **Backend routes:** `GET /api/v1/usage/providers`,
+  `GET /api/v1/usage/providers/:providerId/keys`,
+  `GET /api/v1/usage/providers/:providerId/models`
+- **Backend files:** `internal/api/usage_identities.go` (`registerProviderRoutes`),
+  `internal/service/usage_identities_service.go`,
+  `internal/repository/usage_identities.go`, `internal/repository/provider_models.go`;
+  tests in `internal/api/test/usage_providers_test.go` and
+  `internal/repository/test/usage_identities_test.go`
+- **Frontend files:** `web/src/components/usage/credentials/ProviderSummarySection.tsx`,
+  `web/src/pages/ProviderDetailPage.tsx`, `web/src/lib/api.ts`
+  (`listProviders`, `listProviderKeys`), `web/src/lib/types.ts`
+  (`ProviderSummary`, `ProvidersResponse`), `web/src/components/ui/ProviderDataDialog.tsx`,
+  `ProviderKeysDialog`, `ProviderModelsDialog`
+- **Integration points:** exports from `web/src/components/usage/credentials/index.ts`
+  and `web/src/components/usage/index.ts`; mount in `web/src/pages/UsagePage.tsx`;
+  route in `web/src/App.tsx`; SCSS classes `.credentialMetricHeaderGroup` and
+  `.credentialMetricGroup` in `CredentialSections.module.scss`
+- **Invariants:** both endpoints accept admin + active API-key viewer; viewer
+  scope is session-derived; viewers see only their own keys; credential masking
+  is applied per role; the provider filter bar stays on the `credentials` tab,
+  not `/ai-provider`.
+- **Documentation:** `ARCHITECTURE.md` §7, `SPECIFICATION.md` UC-7a,
+  `ROADMAP.md`, `CODE_GRAPH.md`, `AGENTS.md` §3, `README.md` / `README.zh.md`,
+  `session.md`, `BUGFIX.md`.
+- **Verification:** §5.6; `npm --prefix ./web run test -- src/pages/test/UsagePageProviderNavigation.test.tsx src/components/usage/credentials/test/ProviderSummarySection.test.tsx src/pages/test/ProviderDetailPage.test.tsx`.
 
-Authenticated Live Flow relay and dashboard page showing CLIProxyAPI's
-metadata-only request stream with lifecycle trails (pending/success/failure),
-plus a persistent per-model history for the six selectable calendar periods.
+### PF-07 — API Key Name Display Priority
 
-- **Backend relay:** `GET /api/v1/live-flow/ws` (authenticated WebSocket proxy to CPA `/live-flow/ws`)
-- **Backend history:** `GET /api/v1/live-flow/models?period=<value>` (admin + API-key viewer, metadata only)
-- **Frontend page:** `/live-flow` standalone menu page and `/key-live-flow` viewer page, both with an always-mounted canvas
-- **Features:** Generation-only stream, lifecycle trails (amber pending → green success / red failure), model fidelity, persistent period history with six periods (today, yesterday, current week, previous week, current month, previous month), per-period model count, request total, and previous-period trend
-- **Model block naming:** blocks are named by model alias, falling back to the real model name when no alias exists. Grouping uses `COALESCE(NULLIF(TRIM(model_alias), ''), model)`, so prefixed real names sharing one alias collapse into a single block. History rows report `source_models` so live stream events (which carry only the routed model name) fold onto the same alias block.
-- **Canvas layout:** blocks are centered on a ring whose radius grows with the model count so neighbours never overlap. Blocks with in-flight requests or a pending trail are raised above idle blocks (`zIndex` 10 vs 1, plus the `live-flow-node-active` class) so a busy block and its label are never covered.
-- **Files:**
-  - `internal/api/live_flow.go` (relay handler)
-  - `internal/liveflow/` (period model + history service), `internal/liveflow/httpapi/` (history route)
-  - `internal/repository/liveflow_models.go` (alias-grouped aggregation over `usage_events`)
-  - `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`, `FlowTopology.tsx` (panel, canvas, ring layout, active-block z-index)
-  - `web/src/features/live-flow/` (history types, API client, alias-aware merge, trend helpers, period select)
-  - `web/src/pages/KeyLiveFlowPage.tsx` (API-key viewer page)
+**Status:** Fork-specific display rule
+**Legacy:** §7 (first)
+**Introduced:** October 2026
 
-**Documentation:**
-- `docs/ARCHITECTURE.md` §4 (Live Flow relay) and §7 (Live Flow history domain)
-- `docs/SPECIFICATION.md` UC-2a (inspect Live Flow) and UC-2d (historical model view)
-- `CHANGELOG.md` (Live Flow features)
-- `session.md` (Live Flow implementation notes)
+**Protected contract:** API keys display with the three-tier priority **CPA Key
+Name → User Alias → Masked Key** everywhere. A merge must not drop `KeyName` from
+the entity, sync, helper, or CPA client.
 
-**Verification after merge:**
-```bash
-# Verify backend relay and history domain
-test -f internal/api/live_flow.go && echo "✓ Relay handler exists" || echo "✗ MISSING"
-grep -q "/live-flow/ws" internal/api/live_flow.go && echo "✓ Relay route exists" || echo "✗ MISSING"
-grep -q "registerLiveFlowRoutes" internal/api/router.go && echo "✓ Relay route registered" || echo "✗ MISSING"
-test -f internal/liveflow/period.go && echo "✓ Period model exists" || echo "✗ MISSING"
-test -f internal/liveflow/httpapi/routes.go && echo "✓ History route exists" || echo "✗ MISSING"
-test -f internal/repository/liveflow_models.go && echo "✓ Aggregation exists" || echo "✗ MISSING"
+- **Schema:** `cpa_api_keys.key_name` (migration `20261013_add_cpa_api_key_name`)
+- **Entity:** `entities.CPAAPIKey.KeyName`
+- **Sync:** `repository.SyncCPAAPIKeysWithNames()` writes `key_name`
+- **Display logic:** `helper.CPAAPIKeyDisplayName()` implements
+  `KeyName → KeyAlias → MaskedKey`
+- **CPA client:** `client.FetchAuthAPIKeys()` → `/v0/management/auth-api-keys`
+- **Display locations:** ranking leaderboard, API key settings card, key viewer
+  dashboard, session management, Telegram reporter (PF-09), Top Spender labels (PF-11)
+- **Invariants:** the raw key is never used as a display label; unknown keys fall
+  back to `helper.RedactSensitiveValue`; soft-deleted rows stay resolvable for
+  attribution.
+- **Required tests:** `TestCPAAPIKeyDisplayNamePrefersKeyName`,
+  `TestCPAAPIKeyDisplayNameFallsBackToAlias`,
+  `TestCPAAPIKeyDisplayNameFallsBackToMaskedRawKey`,
+  `TestCPAAPIKeyDisplayNameThreeTierPriority`, and the sync write test in
+  `internal/repository/test/`.
+- **Documentation:** `SPECIFICATION.md` UC-9, `ROADMAP.md` Phase 2.20,
+  `CHANGELOG.md`.
+- **Verification:** §5.7; `go test ./internal/helper/test/redact_test.go`.
 
-# Verify frontend
-test -f web/src/features/usage/LiveFlowPanel.tsx && echo "✓ Panel exists" || echo "✗ MISSING"
-test -f web/src/features/usage/FlowTopology.tsx && echo "✓ Canvas exists" || echo "✗ MISSING"
-test -f web/src/features/live-flow/merge.ts && echo "✓ History domain exists" || echo "✗ MISSING"
-test -f web/src/pages/KeyLiveFlowPage.tsx && echo "✓ Viewer page exists" || echo "✗ MISSING"
+### PF-08 — Model Test & API-key Viewer Models Access
 
-# Verify alias-based block naming survives
-grep -q "model_alias" internal/repository/liveflow_models.go && echo "✓ Alias grouping present" || echo "✗ MISSING"
-grep -q "buildLiveFlowAliasMap" web/src/features/live-flow/merge.ts && echo "✓ Alias merge present" || echo "✗ MISSING"
+**Status:** Permanent
+**Legacy:** §7 (second)
+**Introduced:** Phase 2.23 (November 2026)
 
-# Verify canvas layout guards survive
-grep -q "liveFlowRingRadius" web/src/features/usage/FlowTopology.tsx && echo "✓ Ring layout present" || echo "✗ MISSING"
-grep -q "liveFlowNodeZIndex" web/src/features/usage/FlowTopology.tsx && echo "✓ Active z-index present" || echo "✗ MISSING"
+**Protected contract:** The authenticated `/models` catalog and per-model test
+controls remain available to API-key viewers without exposing pricing settings.
+The server selects credentials by role; the browser cannot choose a credential,
+host, path, or header.
 
-# Verify navigation entry
-grep -q "'live-flow'" web/src/lib/usageNavigation.ts && echo "✓ Tab registered" || echo "✗ MISSING"
-grep -q "live-flow" web/src/App.tsx && echo "✓ Route registered" || echo "✗ MISSING"
-```
-
----
-
-### 5. API Key Viewer Enhancements (Phase 2.19)
-
-**Status:** Fork-specific viewer capabilities  
-**Commit baseline:** October 2026
-
-API key viewers have access to request events and live flow (global metadata
-view).
-
-- **Request events endpoints:**
-  - `GET /api/v1/key-events` (own events, paginated)
-  - `GET /api/v1/key-events/:id` (own event details)
-  - `GET /api/v1/key-events/:id/request-log` (full log, see §2)
-- **Live flow access:** Key viewers can access `/live-flow` page (global CPA metadata stream)
-- **Files:**
-  - `internal/api/key_viewer_request_events.go` (endpoints)
-  - `web/src/pages/KeyViewerPage.tsx` (viewer dashboard)
-
-**Documentation:**
-- `docs/SPECIFICATION.md` (API-key viewer capabilities table)
-- `docs/PHASE_2_19_PLAN.md` (Phase 2.19 requirements)
-- `session.md` (Phase 2.19 implementation)
-
-**Verification after merge:**
-```bash
-# Verify key-viewer request events endpoints
-grep -q "GET /api/v1/key-events" internal/api/router.go && echo "✓ Key-events routes exist" || echo "✗ MISSING"
-test -f internal/api/key_viewer_request_events.go && echo "✓ Handler exists" || echo "✗ MISSING"
-
-# Verify viewer can access live flow
-grep -q "live.*flow" web/src/pages/KeyViewerPage.tsx || grep -q "LiveFlow" web/src/pages/KeyViewerPage.tsx
-```
-
----
-
-### 6. AI Provider Table Redesign & Detail Navigation
-
-**Status:** Permanent core feature  
-**Commit baseline:** October 2026
-
-The `/ai-provider` provider grouping table and the `/ai-provider/:providerId` detail navigation must remain implemented as the `ProviderSummarySection` and detail page. Removal or replacement requires an explicit, documented architectural decision and approval from maintainers. Upstream merges must not revert to the flat key list or remove the grid/flexbox layout.
-
-- **Backend domain:**
-  - Routes: `GET /api/v1/usage/providers` (list), `GET /api/v1/usage/providers/:providerId/keys` (detail)
-  - Handler: `internal/api/usage_identities.go` (registerProviderRoutes)
-  - Service: `internal/service/usage_identities_service.go` (ListProviders, ListProviderKeys)
-  - Repository: `internal/repository/usage_identities.go` (ListProviders, ListProviderKeys)
-  - Tests: `internal/api/test/usage_providers_test.go`, `internal/repository/test/usage_identities_test.go`
-- **Frontend domain:**
-  - Main table: `web/src/components/usage/credentials/ProviderSummarySection.tsx`, `web/src/pages/UsagePage.tsx`
-  - SCSS:  `web/src/components/usage/credentials/CredentialSections.module.scss` (must contain `.credentialMetricHeaderGroup` and `.credentialMetricGroup` grid/flexbox rules)
-  - Detail page: `web/src/pages/ProviderDetailPage.tsx`
-  - API client: `web/src/lib/api.ts` (listProviders, listProviderKeys)
-  - Types: `web/src/lib/types.ts` (ProviderSummary, ProvidersResponse)
-  - Tests: `web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx`, `web/src/pages/test/ProviderDetailPage.test.tsx`
-- **Integration points:**
-  - `web/src/components/usage/index.ts`: must export `ProviderSummarySection`
-  - `web/src/components/usage/credentials/index.ts`: must export `ProviderSummarySection`
-  - `web/src/pages/UsagePage.tsx`: must render `ProviderSummarySection` for `/ai-provider`
-  - `web/src/App.tsx`: Route `/ai-provider/:providerId` → `ProviderDetailPage`
-  - `web/src/pages/UsagePage.tsx`: Mounts `ProviderSummarySection` on `/ai-provider` tab
-  - `web/src/components/usage/credentials/index.ts`: Exports `ProviderSummarySection`
-  - `web/src/components/usage/index.ts`: Exports `ProviderSummarySection`
-- **Tests:**
-  - `ProviderSummarySection.test.tsx` (unit test)
-  - `/ai-provider` integration test (table layout)
-- **Access control:**
-  - Both endpoints protected by `versionProtected` middleware (Admin + API-key viewer)
-  - API-key viewers see only their own keys, scoped by session `api_key_id`
-  - Credential masking applied per role (viewers see masked keys)
-
-**Documentation:**
-- `docs/ARCHITECTURE.md` §7 (permanence requirement, AI Provider usage)
-- `docs/SPECIFICATION.md` UC-7a (permanent contract)
-- `docs/ROADMAP.md` (policy reminder, phase documentation)
-- `docs/CODE_GRAPH.md` §7 (provider grouping permanent feature)
-- `AGENTS.md` §3 (permanent feature guidance)
-- `session.md` (restoration history, October 2026)
-- `README.md` / `README.zh.md` (compare providers feature)
-
-**Verification after merge:**
-```bash
-# Verify backend routes and handlers
-grep -q "registerProviderRoutes" internal/api/usage_identities.go && echo "✓ Provider routes function exists" || echo "✗ MISSING"
-grep -q "/usage/providers" internal/api/usage_identities.go && echo "✓ Provider list route exists" || echo "✗ MISSING"
-grep -q "/usage/providers/:providerId/keys" internal/api/usage_identities.go && echo "✓ Provider keys route exists" || echo "✗ MISSING"
-
-# Verify service methods
-grep -q "func.*ListProviders" internal/service/usage_identities_service.go && echo "✓ ListProviders service exists" || echo "✗ MISSING"
-grep -q "func.*ListProviderKeys" internal/service/usage_identities_service.go && echo "✓ ListProviderKeys service exists" || echo "✗ MISSING"
-
-# Verify repository functions
-grep -q "func ListProviders" internal/repository/usage_identities.go && echo "✓ ListProviders repository exists" || echo "✗ MISSING"
-grep -q "func ListProviderKeys" internal/repository/usage_identities.go && echo "✓ ListProviderKeys repository exists" || echo "✗ MISSING"
-
-# Verify frontend components
-test -f web/src/components/usage/credentials/ProviderSummarySection.tsx && echo "✓ ProviderSummarySection exists" || echo "✗ MISSING"
-test -f web/src/pages/ProviderDetailPage.tsx && echo "✓ ProviderDetailPage exists" || echo "✗ MISSING"
-
-# Verify frontend API client
-grep -q "listProviders" web/src/lib/api.ts && echo "✓ listProviders API client exists" || echo "✗ MISSING"
-grep -q "listProviderKeys" web/src/lib/api.ts && echo "✓ listProviderKeys API client exists" || echo "✗ MISSING"
-
-# Verify integration points
-grep -q "ProviderSummarySection" web/src/pages/UsagePage.tsx && echo "✓ ProviderSummarySection mounted" || echo "✗ MISSING"
-grep -q "ProviderDetailPage" web/src/App.tsx && echo "✓ ProviderDetailPage route registered" || echo "✗ MISSING"
-grep -q "ProviderSummarySection" web/src/components/usage/credentials/index.ts && echo "✓ Exported" || echo "✗ MISSING"
-
-# Verify tests
-test -f internal/api/test/usage_providers_test.go && echo "✓ Backend provider tests exist" || echo "✗ MISSING"
-test -f web/src/components/usage/credentials/test/ProviderSummarySection.test.tsx && echo "✓ Frontend tests exist" || echo "✗ MISSING"
-test -f web/src/pages/test/ProviderDetailPage.test.tsx && echo "✓ Detail page tests exist" || echo "✗ MISSING"
-
-# Build verification
-go build ./...
-npm --prefix ./web run typecheck
-npm --prefix ./web run build
-```
-```bash
-# Verify SCSS grid/flexbox rules
-grep -q "credentialMetricHeaderGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Header group class exists" || echo "✗ MISSING"
-grep -q "credentialMetricGroup" web/src/components/usage/credentials/CredentialSections.module.scss && echo "✓ Row group class exists" || echo "✗ MISSING"
-# Build verification
-npm --prefix ./web run typecheck
-npm --prefix ./web run lint
-npm --prefix ./web run test
-npm --prefix ./web run build
-```
-
-### 7. API Key Name Display Priority
-
-**Status:** Fork-specific display enhancement  
-**Commit baseline:** October 2026
-
-API keys must display with a three-tier priority: **CPA Key Name → User Alias → Masked Key**. This ensures users see meaningful names from CPA's `/v0/management/auth-api-keys` endpoint first, falling back to user-defined aliases, and finally to the masked key format.
-
-- **Database schema:** `cpa_api_keys.key_name` column (migration `20261013_add_cpa_api_key_name`)
-- **Backend entity:** `entities.CPAAPIKey.KeyName` field must be present
-- **Backend sync:** `repository.SyncCPAAPIKeysWithNames()` must write to `key_name` column
-- **Backend display logic:** `helper.CPAAPIKeyDisplayName()` must implement priority: `KeyName` → `KeyAlias` → `MaskedKey`
-- **CPA client:** `client.FetchAuthAPIKeys()` for `/v0/management/auth-api-keys` endpoint
-- **Display locations:**
-  - Ranking leaderboard (`web/src/features/ranking/components/RankingLeaderboardResults.tsx`)
-  - API key settings card (`web/src/components/usage/ApiKeySettingsCard.tsx`)
-  - Key viewer dashboard (all key display contexts)
-  - Session management (where API keys are referenced)
-
-**Documentation:**
-- `docs/SPECIFICATION.md` (UC-9: Local ranking with key names)
-- `docs/ROADMAP.md` (Phase 2.20: Restoration task)
-- `CHANGELOG.md` (Display name priority documentation)
-
-**Verification after merge:**
-```bash
-# Verify entity field exists
-grep -q "KeyName.*string" internal/entities/cpa_api_key.go && echo "✓ Entity field exists" || echo "✗ MISSING"
-
-# Verify migration exists
-test -f internal/repository/migration/20261013_add_cpa_api_key_name.go && echo "✓ Migration exists" || echo "✗ MISSING"
-
-# Verify sync function writes key_name
-grep -q "key_name" internal/repository/cpa_api_key.go && echo "✓ Sync uses key_name column" || echo "✗ MISSING"
-
-# Verify display priority function
-grep -A5 "CPAAPIKeyDisplayName" internal/helper/redact.go | grep -q "KeyName" && echo "✓ Display uses KeyName" || echo "✗ MISSING"
-
-# Verify CPA client endpoint
-grep -q "FetchAuthAPIKeys" internal/cpa/client.go && echo "✓ CPA client method exists" || echo "✗ MISSING"
-grep -q "/v0/management/auth-api-keys" internal/cpa/endpoints.go && echo "✓ Endpoint defined" || echo "✗ MISSING"
-
-# Run tests
-go test ./internal/helper/test/redact_test.go
-make verify
-```
-
-**Test coverage required:**
-- `TestCPAAPIKeyDisplayNamePrefersKeyName` (KeyName → display)
-- `TestCPAAPIKeyDisplayNameFallsBackToAlias` (KeyName empty → KeyAlias → display)
-- `TestCPAAPIKeyDisplayNameFallsBackToMaskedKey` (KeyName and KeyAlias empty → masked key)
-- `TestSyncCPAAPIKeysWithNamesWritesToKeyNameColumn` (sync writes to database)
-
-### 7. Model Test & API-key Viewer Models Access
-
-The authenticated `/models` catalog and per-model test controls must remain
-available to API-key viewers without exposing pricing settings. The server
-selects credentials by role: the active viewer key for viewers and the
-encrypted Admin Settings key for administrators. Probes use the configured CPA
-base URL, a fixed bounded prompt, a maximum output budget, and a 1–600 second
-timeout.
-
-- Backend: `internal/modeltest/`, `internal/modeltest/httpapi/`,
+- **Backend:** `internal/modeltest/`, `internal/modeltest/httpapi/`,
   `internal/adminsettings/`, `internal/cpa/client.go`
-- Frontend: `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`,
-  `web/src/components/usage/AdminSettingsCard.tsx`, and `ModelCatalog.tsx`
-- Routes: authenticated `GET /api/v1/models`, `POST /api/v1/model-test`, and
-  admin-only `GET/PUT /api/v1/admin-settings`
-- Security: raw credentials are never returned; viewer requests cannot choose a
-  credential, host, path, or header.
+- **Frontend:** `web/src/features/model-test/`, `web/src/pages/KeyModelsPage.tsx`,
+  `web/src/components/usage/AdminSettingsCard.tsx`,
+  `web/src/components/usage/models/ModelCatalog.tsx`
+- **Routes:** authenticated `GET /api/v1/models`, `POST /api/v1/model-test`,
+  admin-only `GET/PUT /api/v1/admin-settings`; registered via
+  `modeltesthttpapi.RegisterAuthenticatedRoutes` and
+  `adminsettingshttpapi.RegisterRoutes`
+- **Request contract:** configured CPA base URL, fixed bounded prompt, maximum
+  output budget, regular/streaming modes, 1–600 second timeout (default 30).
+- **Invariants:** raw credentials are never returned; the admin key is encrypted
+  with the AES-GCM key derived from `CPA_MANAGEMENT_KEY`; viewer requests use only
+  the active session key; pricing routes stay admin-only; all three locales carry
+  the strings.
+- **Documentation:** `ARCHITECTURE.md` §2/§7, `SPECIFICATION.md` §1/§5,
+  `ROADMAP.md` Phase 2.23, `CHANGELOG.md`, `session.md`.
+- **Verification:** §5.8; `go test ./internal/modeltest/... ./internal/adminsettings/... ./internal/api/...`.
 
-### 8. Model Test Failure Telegram Notifications
+### PF-09 — Model Test Failure Telegram Notifications
 
-**Status:** Permanent (Phase 2.24)  
-**Domain:** `internal/telegram/` + `internal/telegram/httpapi/`
+**Status:** Permanent
+**Legacy:** §8
+**Introduced:** Phase 2.24 (November 2026)
 
-A user whose model test failed can notify the administrator through a configured
-Telegram bot. The message reports the reporter as the **API Key Name** (never
-the key value), the tested model, and a bounded failure reason. Telegram is
-configured in `/settings` → **Admin Settings** with an encrypted Bot Token, a
-Chat ID, and an optional Topic ID (`message_thread_id`).
+**Protected contract:** A user whose model test failed can notify the
+administrator through a configured Telegram bot. The message reports the
+reporter as the **API Key Name** (never the key value), the tested model, and a
+bounded failure reason. Configuration lives in `/settings` → **Admin Settings**.
 
 - **Backend:** `internal/telegram/` (contract, rendering, Bot API client,
-  limiter), `internal/telegram/httpapi/` (route registration),
-  `internal/adminsettings/` (`admin.telegram.bot_token`,
-  `admin.telegram.chat_id`, `admin.telegram.message_thread_id` settings)
+  limiter, `FailureStore`), `internal/telegram/httpapi/`,
+  `internal/adminsettings/` (`admin.telegram.bot_token`, `chat_id`,
+  `message_thread_id`, `enabled`, `muted_models`)
 - **Frontend:** `web/src/features/model-test/` (notify action),
   `web/src/components/usage/AdminSettingsCard.tsx` (Telegram section)
-- **Routes:** `POST /api/v1/model-test/notify` (admin + API-key viewer),
+- **Routes:** `POST /api/v1/model-test/notify` (admin + viewer),
   `POST /api/v1/telegram/test-message` (admin only), extended
   `GET/PUT /api/v1/admin-settings` (admin only)
 - **Wiring:** `internal/app/app.go` (`telegram.NewService` +
-  `telegramSettingsSource` adapter), `internal/api/router.go`
-  (`OptionalProviders.Telegram` + `telegramhttpapi.RegisterRoutes` /
-  `RegisterAdminRoutes`), `internal/api/telegram_wiring.go` (session-derived
-  reporter/scope and the automatic-send observer on the model-test route)
-- **Security invariants:**
-  - The bot token is encrypted at rest with the existing AES-GCM key derived
-    from `CPA_MANAGEMENT_KEY`; no endpoint returns it. `GET /admin-settings`
-    exposes only `telegram.bot_token_configured`.
-  - The reporter is resolved server-side from `activeAPIKeyViewerContext` +
-    `helper.CPAAPIKeyDisplayName`; administrators report as `Administrator`.
-    The request body has no reporter field.
-  - Failure content is server-authored: the browser sends only `model` and
-    `mode`, and the reason/status/error code come from the in-memory,
-    per-session failure record (10-minute TTL). The reason is re-bounded to 240
-    characters, control characters are stripped, and key-like substrings are
-    redacted before delivery.
-  - Server-enforced per-reporter-per-model cooldown plus a per-reporter hourly
-    cap; `429` carries `notify_rate_limited` and `Retry-After`.
-  - The `admin.telegram.enabled` toggle and the `admin.telegram.muted_models`
-    list are enforced server-side (`telegram_disabled`, `telegram_model_muted`).
-  - Error responses use stable codes (`telegram_not_configured`,
-    `telegram_disabled`, `telegram_model_muted`, `telegram_send_failed`,
-    `notify_rate_limited`, `invalid_notify_request`) and never echo the token,
-    the chat id, or the Bot API response body.
+  `telegramSettingsSource`), `internal/api/router.go`
+  (`telegramhttpapi.RegisterRoutes` / `RegisterAdminRoutes`),
+  `internal/api/telegram_wiring.go` (session-derived reporter, automatic-send
+  observer)
+- **Invariants:** bot token encrypted at rest and never returned (`GET` exposes
+  only `telegram.bot_token_configured`); reporter resolved server-side via
+  `activeAPIKeyViewerContext` + `helper.CPAAPIKeyDisplayName`; administrators
+  report as `Administrator`; browser sends only `model` and `mode`; reason is
+  re-bounded to 240 chars, control characters stripped, key-like substrings
+  redacted; per-reporter-per-model cooldown plus hourly cap; `enabled` and
+  `muted_models` enforced server-side; stable error codes never echo the token,
+  chat id, or Bot API body.
+- **Documentation:** `ARCHITECTURE.md` §7, `SPECIFICATION.md` UC-17/§7,
+  `ROADMAP.md` Phase 2.24, `CHANGELOG.md`, `session.md`.
+- **Verification:** §5.9; `go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...`.
 
-Verification:
+### PF-10 — Model Ranking on `/ranking`
 
-```bash
-go test ./internal/telegram/... ./internal/adminsettings/... ./internal/api/...
-npm --prefix ./web run test -- src/features/model-test src/components/usage/test/AdminSettingsCard.test.tsx
-npm --prefix ./web run typecheck
-make verify
-```
+**Status:** Permanent
+**Legacy:** §9
+**Introduced:** Phase 2.25 (November 2026)
 
-### 9. Model Ranking on `/ranking` (Phase 2.25)
+**Protected contract:** `/ranking` keeps a second, model-ranking leaderboard over
+six periods and seven quantitative metrics; `/key-ranking` keeps a strictly
+viewer-scoped model card. The API-key leaderboard must keep working unchanged.
 
-**Status:** Permanent (Phase 2.25)
-**Domain:** `internal/modelranking/` + `internal/modelranking/httpapi/`
-
-`/ranking` shows a second leaderboard that ranks **models** over six periods
-(Today, Yesterday, Current Week, Previous Week, Current Month, Previous Month;
-default Today) with seven quantitative metrics (default `total_tokens`). The
-same model served through different providers under one alias collapses into a
-single row whose `providers[]` lists the contributors. The endpoint is
-admin-only because it aggregates usage across every API key. `/key-ranking`
-also mounts a separate model card whose endpoint is strictly scoped to the
-authenticated viewer's API group. Every row also names the **top spender** of the
-model; that column has its own protection contract in §10.
-
-- **Backend:** `internal/modelranking/` (period resolution with project `TZ`,
-  metric projection including model overall score, provider/cost/trend fields,
-  deterministic ordering, scoped 30 s in-memory read cache),
-  `internal/modelranking/httpapi/` (route registration),
-  `internal/repository/model_ranking.go` +
-  `internal/repository/model_ranking_rollup.go` +
-  `internal/repository/dto/model_ranking.go` (reader-pool aggregation and
-  checkpointed rollup over `usage_events`, grouped by
-  `COALESCE(NULLIF(TRIM(model_alias), ''), model)`).
+- **Backend:** `internal/modelranking/`, `internal/modelranking/httpapi/`,
+  `internal/repository/model_ranking.go`, `internal/repository/model_ranking_rollup.go`,
+  `internal/repository/dto/model_ranking.go`
 - **Schema/pipeline:** migration `20261119_model_ranking_rollups` adds
-  `model_ranking_period_stats` and the checkpoint table; the existing serial
-  usage aggregation runner commits rollup pages and the model cursor atomically.
-  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` is the
-  bounded resumable recovery/backfill entry point.
-- **Frontend:** `web/src/features/model-ranking/` (types, period helpers,
-  formatting, API client, data hook, `ModelRankingSection` + styles).
-- **Routes:** global admin `GET /api/v1/model-ranking/leaderboards?period=<value>&metric=<value>` and viewer-scoped `GET /api/v1/key-model-ranking/leaderboards?period=<value>&metric=<value>`
-  with `Cache-Control: no-store`, `400 invalid_model_ranking_selection`, and
-  `503 model_ranking_unavailable`.
-- **Mount points:** `<ModelRankingSection />` immediately after
-  `<RankingPage />` inside `activeTab === 'ranking'` in
-  `web/src/pages/UsagePage.tsx`, and a viewer-scoped card in
-  `web/src/pages/KeyRankingPage.tsx`.
-- **Wiring:** `internal/api/router.go` (`OptionalProviders.ModelRanking` +
-  `modelrankinghttpapi.RegisterRoutes(adminProtected, ...)`) and
-  `internal/app/app.go` (`modelranking.NewService`, no runner).
-- **i18n namespace:** `model_ranking` in `web/src/i18n/index.ts` for en, zh,
-  and zh-TW.
-- **Invariants:** metadata only — no prompts, request bodies, headers, or
-  credentials; alias matching is exact after `TRIM`; the reader pool is used;
-  `usage_events_archive` is never queried by online ranking; rollup rows and
-  cursor advance atomically; viewer scope is session-derived only; missing cost
-  is not zero; both ranking domains use project `TZ`; the API-key leaderboard
-  remains regression-tested.
+  `model_ranking_period_stats` and the checkpoint table; the serial usage
+  aggregation runner commits rollup pages and the model cursor atomically;
+  `repository.BackfillModelRankingRollups(ctx, db, now, maxPages)` is the bounded
+  resumable recovery entry point.
+- **Frontend:** `web/src/features/model-ranking/` (types, periods, formatting,
+  API client, hook, `ModelRankingSection` + styles)
+- **Routes:** global admin `GET /api/v1/model-ranking/leaderboards` and viewer
+  `GET /api/v1/key-model-ranking/leaderboards`, with `Cache-Control: no-store`,
+  `400 invalid_model_ranking_selection`, `503 model_ranking_unavailable`
+- **Mount points:** `<ModelRankingSection />` immediately after `<RankingPage />`
+  in `web/src/pages/UsagePage.tsx`; viewer card in `web/src/pages/KeyRankingPage.tsx`
+- **Wiring:** `modelrankinghttpapi.RegisterRoutes(adminProtected, ...)` and
+  `modelrankinghttpapi.RegisterKeyViewerRoutes(...)` in `internal/api/router.go`;
+  `modelranking.NewService` in `internal/app/app.go`
+- **Invariants:** metadata only — no prompts, bodies, headers, or credentials;
+  alias matching is exact after `TRIM`; reader pool only; archive never queried
+  online; rollup rows and cursor advance atomically; viewer scope is
+  session-derived; missing cost is not zero; both ranking domains use project
+  `TZ`; i18n namespace `model_ranking` exists in en/zh/zh-TW.
+- **Documentation:** `ARCHITECTURE.md` §7, `SPECIFICATION.md` UC-9a/9b/§6.6,
+  `ROADMAP.md`, `CHANGELOG.md`, `session.md`, `CODE_GRAPH.md`.
+- **Verification:** §5.10; `go test ./internal/modelranking/... ./internal/repository/... ./internal/api/...`,
+  `npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts`.
 
-Verification:
+### PF-11 — Model Ranking Top Spender Column
 
-```bash
-go test ./internal/modelranking/... ./internal/repository/... ./internal/api/...
-npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
-npm --prefix ./web run typecheck
-grep -q "modelrankinghttpapi.RegisterRoutes(adminProtected" internal/api/router.go && echo "✓ route"
-grep -q "ModelRankingSection" web/src/pages/UsagePage.tsx && echo "✓ mount"
-grep -q "key-model-ranking/leaderboards" internal/modelranking/httpapi/routes.go && echo "✓ viewer route"
-grep -q "model_ranking_period_stats" internal/entities/model_ranking_period_stat.go && echo "✓ rollup schema"
-grep -q "model_ranking: {" web/src/i18n/index.ts && echo "✓ i18n namespace"
-make verify
-```
-
-### 10. Model Ranking Top Spender Column
-
-**Status:** Permanent (Phase 2.25 follow-up)
-**Domain:** `internal/modelranking/` + `internal/repository/model_ranking_rollup.go`
+**Status:** Permanent
+**Legacy:** §10
 **Introduced:** 2026-11-19 (`feat(model-ranking): add top spender column`)
 
-Every row of the Model Ranking card (the admin card on `/ranking` and the
-viewer-scoped card on `/key-ranking`) carries a **Top spender** value naming the
-API key that contributed most to that model inside the selected period and
-provider filter. The column must stay mounted on both cards, must keep following
-the selected metric, and must keep its safe-label contract. Removing the column,
-dropping the per-metric leader rule, or exposing the raw API key value requires
-the Policy Statement process above.
+**Protected contract:** Every row of the Model Ranking card (admin `/ranking` and
+viewer `/key-ranking`) carries a **Top spender** value naming the API key that
+contributed most to that model in the selected period and provider filter. The
+column must stay mounted on both cards, keep following the selected metric, and
+keep its masked-label contract. Removing the column, dropping the per-metric
+leader rule, or exposing the raw key requires §1.
 
 - **Backend:** `internal/modelranking/service.go` (`Entry.TopSpender`,
   `attachTopSpenders`, `pickModelRankingSpenders`,
-  `modelRankingSpenderDimensions`, `loadModelRankingSpenderLabels`) and
-  `internal/repository/model_ranking_rollup.go`
+  `modelRankingSpenderDimensions`, `modelRankingSpenderOutranks`,
+  `loadModelRankingSpenderLabels`) and `internal/repository/model_ranking_rollup.go`
   (`ListModelRankingSpenders`, `ModelRankingSpenderRow` including
   `CacheReadTokens`), with `repository.FindCPAAPIKeysByValues` for labels.
-- **Leader rule (must survive):** the selected metric leads the order —
-  `total_tokens`/`peak_tpm` → total tokens, `request_count`/`peak_rpm` → request
-  count, `cache_read_rate` → cache-read tokens; `overall`, `ttft_average`, and
-  `latency_average` keep the spend order (estimated cost → total tokens →
-  request count); the API group key breaks every tie.
-- **Attribution source:** only the API-key-scoped rollup slices of the ranked
-  models (`model_ranking_period_stats.scope_key <> ''`, reader pool). Global
-  rows are never read, and no new table, migration, or backfill may be added for
-  this column.
+- **Leader rule (must survive):** `total_tokens`/`peak_tpm` → total tokens;
+  `request_count`/`peak_rpm` → request count; `cache_read_rate` → cache-read
+  tokens; `overall`, `ttft_average`, `latency_average` keep the spend order
+  (estimated cost → total tokens → request count); API group key breaks every tie.
+- **Attribution source:** only API-key-scoped rollup slices
+  (`model_ranking_period_stats.scope_key <> ''`, reader pool). Global rows are
+  never read; no new table, migration, or backfill may be added for this column.
 - **Failure behavior:** an attribution read error fails the request instead of
   serving a silently unlabeled board.
 - **Frontend:** `web/src/features/model-ranking/ModelRankingSection.tsx`
-  (`data-model-ranking-top-spender`, `model_ranking.top_spender_hint` header
-  tooltip, `—` fallback when a model has no attributable key), `types.ts`
-  (`top_spender`), `ModelRankingSection.module.scss`, and the `model_ranking`
-  i18n namespace (`top_spender`, `top_spender_hint`) in en/zh/zh-TW.
-- **Security invariants:** the payload exposes only `display_name` and
-  `masked_key`. Labels resolve through `helper.CPAAPIKeyDisplayName` (CPA key
-  name → operator alias → masked key) and unknown keys fall back to
-  `helper.RedactSensitiveValue`, so a raw API key never reaches the payload, the
-  DOM, or the logs. Viewer scope stays session-derived and the column is included
-  in the scoped 30 s board cache only.
-- **Regression tests:** `internal/modelranking/service_top_spender_test.go`
-  (per-metric leaders, tie-breaks, masked labels, viewer scope) and
-  `internal/repository/test/model_ranking_top_spender_test.go` (scoped and
-  provider-filtered aggregation, cache-read totals).
-- **Documentation:** `docs/SPECIFICATION.md` (model-ranking attribution rule),
-  `docs/ARCHITECTURE.md` (model ranking attribution), `README.md` /
-  `README.zh.md` (feature bullet), `CHANGELOG.md`.
+  (`data-model-ranking-top-spender`, `model_ranking.top_spender_hint` tooltip,
+  `—` fallback), `types.ts` (`top_spender`), `ModelRankingSection.module.scss`,
+  and `top_spender` / `top_spender_hint` in en/zh/zh-TW.
+- **Security invariants:** payload exposes only `display_name` and `masked_key`;
+  labels resolve through `helper.CPAAPIKeyDisplayName` (PF-07) and unknown keys
+  fall back to `helper.RedactSensitiveValue`; a raw key never reaches the payload,
+  DOM, or logs; viewer scope stays session-derived and the column is included in
+  the scoped 30 s board cache only.
+- **Regression tests:** `internal/modelranking/service_top_spender_test.go`,
+  `internal/repository/test/model_ranking_top_spender_test.go`.
+- **Documentation:** `SPECIFICATION.md` §6.6, `ARCHITECTURE.md` §7,
+  `README.md` / `README.zh.md`, `CHANGELOG.md`, `AGENTS.md` §3, `session.md`.
+- **Verification:** §5.11; `go test ./internal/modelranking/... ./internal/repository/...`,
+  `npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts`.
 
-Verification after merge:
+---
+
+## 5. Merge gate (single source of truth)
+
+Run this block from the repository root after every upstream merge. It replaces
+the old per-feature ad-hoc `grep` blocks: one failure means one protected feature
+is no longer wired, and the release must stop. The checks are grouped by `PF-xx`
+so a failure points directly at the §4 record to restore.
 
 ```bash
-go test ./internal/modelranking/... ./internal/repository/...
-npm --prefix ./web run test -- src/features/model-ranking src/i18n/test/modelRankingTranslations.test.ts
-grep -q "ListModelRankingSpenders" internal/repository/model_ranking_rollup.go && echo "✓ attribution aggregate"
-grep -q "attachTopSpenders" internal/modelranking/service.go && echo "✓ attribution wiring"
-grep -q "modelRankingSpenderDimensions" internal/modelranking/service.go && echo "✓ metric-driven leader rule"
-grep -q "modelRankingSpenderOutranks" internal/modelranking/service.go && echo "✓ deterministic tie-break"
-grep -q "data-model-ranking-top-spender" web/src/features/model-ranking/ModelRankingSection.tsx && echo "✓ column"
-grep -q "top_spender_hint" web/src/i18n/index.ts && echo "✓ i18n"
+set -u
+fail=0
+need_file(){ [ -e "$1" ] || { echo "MISSING file: $1"; fail=1; }; }
+need_dir(){ [ -d "$1" ] || { echo "MISSING dir: $1"; fail=1; }; }
+need_grep(){ grep -q -- "$2" "$1" || { echo "MISSING marker: '$2' in $1"; fail=1; }; }
+need_no_grep(){ grep -q -- "$2" "$1" && { echo "FORBIDDEN marker: '$2' in $1"; fail=1; }; return 0; }
+
+# PF-01 — Provider Model GNN Panel
+need_file internal/gnn/gnn.go; need_file internal/gnn/httpapi/routes.go
+need_file web/src/features/model-gnn/ProviderModelGNNPanel.tsx
+need_file web/src/features/model-gnn/ProviderModelReagraphPanel.tsx
+need_grep internal/app/app.go 'gnn.NewService'
+need_grep internal/api/router.go 'gnnhttpapi.RegisterRoutes'
+need_grep web/src/pages/UsagePage.tsx '@/features/model-gnn'
+
+# PF-02 — API Key Viewer Full Request Logs
+need_file internal/api/key_viewer_request_events.go
+need_grep internal/api/key_viewer_request_events.go 'FORK-ONLY: The owning API-key viewer receives every request-log section'
+need_no_grep internal/api/key_viewer_request_events.go 'redactRequestLogForKeyViewer'
+need_grep internal/api/test/key_viewer_request_events_test.go 'TestAPIKeyViewerRequestLogFullContentPersistence'
+
+# PF-03 — Local Ranking as Default
+need_grep web/src/pages/UsagePage.tsx "const rankingScope: RankingScope = 'local'"
+need_grep web/src/pages/KeyRankingPage.tsx "const effectiveScope: RankingScope = 'local'"
+need_no_grep web/src/pages/UsagePage.tsx 'handleRankingScopeChange'
+need_no_grep web/src/pages/KeyRankingPage.tsx 'handleRankingScopeChange'
+need_grep internal/api/router.go 'rankinghttpapi.RegisterLocalRoutes'
+need_grep internal/api/router.go 'rankinghttpapi.RegisterKeyViewerLocalRoutes'
+
+# PF-04 — Live Flow Visualization + History
+need_file internal/api/live_flow.go; need_file internal/liveflow/period.go
+need_file internal/liveflow/httpapi/routes.go; need_file internal/repository/liveflow_models.go
+need_file web/src/features/usage/LiveFlowPanel.tsx; need_file web/src/features/usage/FlowTopology.tsx
+need_file web/src/features/live-flow/merge.ts; need_file web/src/pages/KeyLiveFlowPage.tsx
+need_grep internal/repository/liveflow_models.go 'model_alias'
+need_grep web/src/features/live-flow/merge.ts 'buildLiveFlowAliasMap'
+need_grep web/src/features/usage/FlowTopology.tsx 'liveFlowRingRadius'
+need_grep web/src/features/usage/FlowTopology.tsx 'liveFlowNodeZIndex'
+need_grep web/src/lib/usageNavigation.ts "'live-flow'"
+
+# PF-05 — API Key Viewer Enhancements
+need_grep internal/api/router.go 'registerKeyRequestEventsRoute'
+need_file web/src/features/key-viewer/KeyViewerShell.tsx
+need_file web/src/pages/KeyEventsPage.tsx
+need_grep web/src/features/key-viewer/navigation.ts 'events'
+
+# PF-06 — AI Provider Table Redesign & Detail Navigation
+need_file web/src/components/usage/credentials/ProviderSummarySection.tsx
+need_file web/src/pages/ProviderDetailPage.tsx
+need_grep internal/api/usage_identities.go 'registerProviderRoutes'
+need_grep internal/api/usage_identities.go '/usage/providers/:providerId/keys'
+need_grep web/src/pages/UsagePage.tsx 'ProviderSummarySection'
+need_grep web/src/App.tsx 'ProviderDetailPage'
+need_grep web/src/components/usage/credentials/CredentialSections.module.scss 'credentialMetricHeaderGroup'
+need_grep web/src/components/usage/credentials/CredentialSections.module.scss 'credentialMetricGroup'
+
+# PF-07 — API Key Name Display Priority
+need_grep internal/entities/cpa_api_key.go 'KeyName.*string'
+need_file internal/repository/migration/20261013_add_cpa_api_key_name.go
+need_grep internal/repository/cpa_api_key.go 'key_name'
+need_grep internal/helper/redact.go 'CPAAPIKeyDisplayName'
+need_grep internal/cpa/client.go 'FetchAuthAPIKeys'
+need_grep internal/cpa/endpoints.go '/v0/management/auth-api-keys'
+need_grep internal/helper/test/redact_test.go 'TestCPAAPIKeyDisplayNamePrefersKeyName'
+
+# PF-08 — Model Test & API-key Viewer Models Access
+need_dir internal/modeltest; need_dir internal/modeltest/httpapi; need_dir internal/adminsettings
+need_dir web/src/features/model-test; need_file web/src/pages/KeyModelsPage.tsx
+need_file web/src/components/usage/AdminSettingsCard.tsx
+need_grep internal/api/router.go 'modeltesthttpapi.RegisterAuthenticatedRoutes'
+need_grep internal/api/router.go 'adminsettingshttpapi.RegisterRoutes'
+need_grep web/src/App.tsx 'KeyModelsPage'
+
+# PF-09 — Model Test Failure Telegram Notifications
+need_dir internal/telegram; need_dir internal/telegram/httpapi
+need_file internal/api/telegram_wiring.go
+need_grep internal/app/app.go 'telegram.NewService'
+need_grep internal/api/router.go 'telegramhttpapi.RegisterRoutes'
+need_grep internal/api/router.go 'telegramhttpapi.RegisterAdminRoutes'
+need_grep internal/api/telegram_wiring.go 'CPAAPIKeyDisplayName'
+
+# PF-10 — Model Ranking on `/ranking`
+need_dir internal/modelranking; need_dir internal/modelranking/httpapi
+need_file internal/repository/model_ranking.go; need_file internal/repository/model_ranking_rollup.go
+need_file web/src/features/model-ranking/ModelRankingSection.tsx
+need_grep internal/api/router.go 'modelrankinghttpapi.RegisterRoutes(adminProtected'
+need_grep web/src/pages/UsagePage.tsx 'ModelRankingSection'
+need_grep internal/modelranking/httpapi/routes.go 'key-model-ranking/leaderboards'
+need_grep internal/entities/model_ranking_period_stat.go 'model_ranking_period_stats'
+need_grep web/src/i18n/index.ts 'model_ranking: {'
+
+# PF-11 — Model Ranking Top Spender Column
+need_grep internal/repository/model_ranking_rollup.go 'ListModelRankingSpenders'
+need_grep internal/modelranking/service.go 'attachTopSpenders'
+need_grep internal/modelranking/service.go 'modelRankingSpenderDimensions'
+need_grep internal/modelranking/service.go 'modelRankingSpenderOutranks'
+need_grep web/src/features/model-ranking/ModelRankingSection.tsx 'data-model-ranking-top-spender'
+need_grep web/src/i18n/index.ts 'top_spender_hint'
+
+if [ "$fail" -ne 0 ]; then echo 'MERGE GATE FAILED'; exit 1; fi
+echo 'MERGE GATE PASSED'
+```
+
+### Targeted behavior tests
+
+The structural gate proves the features are still wired. These tests prove the
+contracts still behave. Run them after the gate, then run `make verify`.
+
+```bash
+go test ./internal/api/test/ -run 'TestAPIKeyViewerRequestLogFullContentPersistence|TestAPIKeyViewerRequestLogRejectsCrossKeyAccess|TestAPIKeyViewerRequestLogRejectsDisabledAccess' -count=1
+go test ./internal/ranking/... -race -count=1
+go test ./internal/liveflow/... ./internal/repository/test -run 'TestListLiveFlowModels|TestListModelRankingSpenders' -count=1
+go test ./internal/modelranking/... ./internal/repository/... -count=1
+go test ./internal/telegram/... ./internal/adminsettings/... ./internal/modeltest/... -count=1
+npm --prefix ./web run test -- src/features/model-ranking src/features/live-flow src/features/usage src/pages/test/UsagePageProviderNavigation.test.tsx src/i18n/test/modelRankingTranslations.test.ts
 make verify
 ```
 
 ---
 
-## Merge Workflow
+## 6. Merge workflow and recovery
 
-When merging from upstream:
+### 6.1 Before merge
 
-1. **Before merge:**
-   - Review upstream changes for conflicts with protected features
-   - Identify any removals or replacements that would affect listed features
-   - Document any necessary adaptations
+- Read this manifest in full; do not rely on memory or on upstream docs.
+- Review the upstream diff for every path and symbol named in §4.
+- Record any necessary adaptation in `session.md` before applying it.
+- Confirm the working tree is clean and this file is unchanged.
 
-2. **During merge:**
-   - Preserve all protected domains (`internal/gnn/`, `web/src/features/model-gnn/`, etc.)
-   - Maintain integration points in `internal/app/app.go` and `internal/api/router.go`
-   - Keep fork markers (`FORK-ONLY` comments) and protection tests
+### 6.2 During merge
 
-3. **After merge:**
-   - Run all verification commands listed above for each feature
-   - Execute full `make verify` baseline
-   - Update `session.md` with merge notes and any adaptations made
-   - Update `CHANGELOG.md` with merge reference and preserved features
+- Preserve every protected domain (`internal/gnn/`, `web/src/features/model-gnn/`,
+  `internal/liveflow/`, `web/src/features/live-flow/`, `internal/modelranking/`,
+  `web/src/features/model-ranking/`, `internal/telegram/`, etc.).
+- Maintain integration points in `internal/app/app.go` and `internal/api/router.go`.
+- Keep fork markers (`FORK-ONLY`, `data-model-ranking-top-spender`) and protection
+  tests.
+- Never resolve a conflict by deleting a protected record, check, or feature to
+  make the merge succeed.
 
-4. **If conflicts arise:**
-   - Document the conflict in `session.md`
-   - Preserve the fork feature by adapting to upstream changes
-   - If a feature must be modified significantly, follow the Policy Statement process
+### 6.3 After merge
+
+1. Run the §5 structural gate. Any `MISSING` / `FORBIDDEN` line blocks the release.
+2. Run the §5 targeted behavior tests, then `make verify`.
+3. Update `session.md` with merge notes and adaptations.
+4. Update `CHANGELOG.md` with the merge reference and preserved `PF-xx` IDs.
+5. If a check had to change because a file legitimately moved, update the §4
+   record, the §5 gate, and `CODE_GRAPH.md` in the same commit.
+
+### 6.4 If upstream deletes or rewrites this manifest
+
+This is a merge blocker, not a documentation nit. Recover in this order:
+
+1. Stop the merge/release. Do not commit the deletion.
+2. Restore the file from the merge base or `main`:
+   `git checkout MERGE_HEAD -- docs/MERGE-PRESERVATION.md` is **wrong** (that is
+   upstream); use `git checkout HEAD -- docs/MERGE-PRESERVATION.md` or
+   `git show <last-good-commit>:docs/MERGE-PRESERVATION.md > docs/MERGE-PRESERVATION.md`.
+3. Re-run §5. If a protected file was also deleted by upstream, restore it from
+   the last good commit and re-apply only non-conflicting upstream changes around
+   it.
+4. Record the incident in `session.md` and `CHANGELOG.md` with the upstream ref.
+
+### 6.5 If a conflict cannot be resolved confidently
+
+Stop and request maintainer confirmation. Do not guess, do not choose “ours” or
+“theirs” wholesale, and do not simplify a feature to make the merge pass.
 
 ---
 
-## Related Documents
+## 7. Related documents
 
-- [docs/ARCHITECTURE.md](ARCHITECTURE.md) — module map, wiring, protected domains
-- [docs/SPECIFICATION.md](SPECIFICATION.md) — functional contract for protected features
-- [docs/ROADMAP.md](ROADMAP.md) — future work policy reminders
-- [session.md](../session.md) — current session context and decisions
-- [CHANGELOG.md](../CHANGELOG.md) — feature history and merge records
+- [ARCHITECTURE.md](ARCHITECTURE.md) — module map, wiring, protected domains.
+- [SPECIFICATION.md](SPECIFICATION.md) — functional contract for every `PF-xx`.
+- [CODE_GRAPH.md](CODE_GRAPH.md) — codebase map and feature locations.
+- [ROADMAP.md](ROADMAP.md) — planned work and policy reminders.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development workflow and verification baseline.
+- [merge-upstream.md](merge-upstream.md) — upstream merge procedure.
+- [session.md](../session.md) — current session context and decisions.
+- [CHANGELOG.md](../CHANGELOG.md) — feature history and merge records.
+- [AGENTS.md](../AGENTS.md) — agent guidance; `PF-xx` IDs are authoritative here.
+
+---
+
+## 8. Revision history
+
+- **2026-11-23 — Feature-loss-proof format.** Converted the prose policy into a
+  stable-ID manifest: fork-owned banner, completeness index, mandatory record
+  template, one consolidated merge gate, targeted behavior tests, and an explicit
+  restore procedure. Resolved the duplicate `§7` by assigning `PF-07` / `PF-08`;
+  old section numbers remain aliases in §2. Corrected the stale
+  `web/src/pages/KeyViewerPage.tsx` path to the current key-viewer shell/pages and
+  the stale masked-key test name to `TestCPAAPIKeyDisplayNameFallsBackToMaskedRawKey`.
+  No application behavior changed.
+- **2026-11-20 — Upstream `e5e8f1a4`.** Corrected the local-ranking verification
+  path (`KeyRankingPage.tsx` / `effectiveScope`) and kept the protected provider
+  navigation behavior.
+- **2026-11-19 — `PF-11`.** Added the Model Ranking Top Spender column contract.
+- **2026-11-09 — `PF-06`.** Restored the grouped provider table and detail page
+  after an upstream regression; added structural verification.
+- **Initial — fork baseline.** Policy introduced after
+  `bcc2d4c4b28e4ec6e8e6367b0831a313a4347f8c`.

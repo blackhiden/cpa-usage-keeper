@@ -9,7 +9,7 @@
 
 **Policy (Phase 2.24, planned):** Model Test Failure Telegram Notification (`internal/telegram/` + `web/src/features/model-test/`) becomes a protected feature once implemented. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md.
 
-**Policy (Phase 2.25):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go` and `model_ranking_rollup.go`, `web/src/features/model-ranking/`, and mounts in `UsagePage.tsx` and `KeyRankingPage.tsx`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md §9. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
+**Policy (Phase 2.25):** Model Ranking (`internal/modelranking/` + `internal/modelranking/httpapi/`, `internal/repository/model_ranking.go` and `model_ranking_rollup.go`, `web/src/features/model-ranking/`, and mounts in `UsagePage.tsx` and `KeyRankingPage.tsx`) is a protected feature. Removal or replacement requires an explicit documented decision recorded in ARCHITECTURE.md, SPECIFICATION.md, and session.md; see MERGE-PRESERVATION.md PF-10. The existing API-key ranking (`web/src/features/ranking/`, `internal/ranking/`) must keep working unchanged.
 
 ---
 
@@ -83,7 +83,7 @@
       - Update i18n: add `provider_keys_action`, `provider_models_action`, `provider_keys_dialog_title`, `provider_models_dialog_title`, `view_mode_card`, `view_mode_list` (en, zh, zh-TW)
       - Tests: Dialog open/close, view toggle, data rendering, role-based display
     - **Documentation:**
-      - Add feature to `docs/MERGE-PRESERVATION.md` §7 (permanent feature)
+      - Add feature to `docs/MERGE-PRESERVATION.md` PF-08 (permanent feature)
       - Update `docs/ARCHITECTURE.md` (new endpoint and dialog pattern)
       - Update `docs/SPECIFICATION.md` (UC-7b: Provider keys/models quick inspection)
       - Update `session.md` with implementation notes
@@ -101,7 +101,7 @@
     - [x] Tests cover dialog interaction, view toggle, and role-based filtering
     - [ ] Feature documented in `MERGE-PRESERVATION.md` — **open:** the Keys and
       Models dialogs are not yet listed as a protected feature
-      (`MERGE-PRESERVATION.md` §6 covers `ProviderSummarySection` and
+      (`MERGE-PRESERVATION.md` PF-06 covers `ProviderSummarySection` and
       `ProviderDetailPage` only). Recording new protection policy needs an
       explicit maintainer decision; tracked in `session.md` (2026-11-19).
   - **Tasks:** See [PHASE_2_21_PLAN.md](PHASE_2_21_PLAN.md) for detailed task breakdown (12 tasks total, 2-3 developer-days).
@@ -289,8 +289,8 @@ add the six-period dropdown, without changing the realtime relay contract.
   new.
 - Domain-isolation precedent: `internal/gnn` + `internal/gnn/httpapi` and
   `web/src/features/model-gnn/`, registered from `internal/api/router.go` and
-  protected in `docs/MERGE-PRESERVATION.md` §1.
-- Docs drift to fix while implementing: `docs/MERGE-PRESERVATION.md` §4 still
+  protected in `docs/MERGE-PRESERVATION.md` PF-01.
+- Docs drift to fix while implementing: `docs/MERGE-PRESERVATION.md` PF-04 still
   lists `web/src/pages/LiveFlowPage.tsx` and
   `web/src/components/usage/LiveFlowCanvas.tsx`, which do not exist. The real
   files are `web/src/features/usage/LiveFlowPanel.tsx`, `liveFlow.ts`,
@@ -1091,7 +1091,7 @@ one combined value.
 
 **Status:** ✅ Expanded implementation merged into `main` at `93746bac`
 (2026-11-19; original Phase 2.25 was `676c2bda`). The feature is protected in
-`docs/MERGE-PRESERVATION.md` §9.
+`docs/MERGE-PRESERVATION.md` PF-10.
 
 **Evidence used for this plan**
 
@@ -2036,7 +2036,7 @@ tests.
     - Key viewer dashboard shows key name when available
     - Fallback chain works: name missing → use alias → use masked key
     - `make verify` passes (backend + frontend tests)
-  - **Protected by:** `docs/MERGE-PRESERVATION.md` §6 (API Key Name Display)
+  - **Protected by:** `docs/MERGE-PRESERVATION.md` PF-07 (API Key Name Display)
 
 - **2.1 Theme system polish.** ⬜
   - Extend the light/dark/auto `data-theme` system with additional theme
@@ -2242,7 +2242,7 @@ Runs alongside every phase; items are pulled as needed rather than ordered.
 > permanence requirement — removal or replacement requires an explicit
 > documented architectural decision recorded in `docs/ARCHITECTURE.md`,
 > `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See
-> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) §6 for the complete policy.
+> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) PF-06 for the complete policy.
 
 ---
 
@@ -2261,7 +2261,7 @@ Runs alongside every phase; items are pulled as needed rather than ordered.
 
 **Phase Goal:** Simplify the `/ai-provider` table to show only provider names (without API keys), add a detail page/view for each provider showing all keys with success rate sorting, and ensure proper access control for Admin and API-key viewer roles.
 
-**Status:** ✅ **Complete** — Protected as a permanent core feature (see `docs/MERGE-PRESERVATION.md` §6).
+**Status:** ✅ **Complete** — Protected as a permanent core feature (see `docs/MERGE-PRESERVATION.md` PF-06).
 
 **Context:**  
 The current `/ai-provider` table shows all providers and their keys in a single flat table, which becomes bloated when many providers have many keys. This phase restructures the view to:
@@ -2723,7 +2723,7 @@ The current `/ai-provider` table shows all providers and their keys in a single 
 
 > **⚠️ Protected feature:** This phase is a **permanent core feature** and is
 > protected from removal or replacement by upstream merges. See
-> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) §6 for the complete policy.
+> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) PF-06 for the complete policy.
 
 ---
 
@@ -2788,7 +2788,7 @@ The current `/ai-provider` table shows all providers and their keys in a single 
 > permanence requirement — removal or replacement requires an explicit
 > documented architectural decision recorded in `docs/ARCHITECTURE.md`,
 > `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See
-> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) §6 for the complete policy.
+> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) PF-06 for the complete policy.
 
 ---
 
@@ -2805,7 +2805,7 @@ The current `/ai-provider` table shows all providers and their keys in a single 
 
 **Phase Goal:** Simplify the `/ai-provider` table to show only provider names (without API keys), add a detail page/view for each provider showing all keys with success rate sorting, and ensure proper access control for Admin and API-key viewer roles.
 
-**Status:** ✅ **Complete** — Protected as a permanent core feature (see `docs/MERGE-PRESERVATION.md` §6).
+**Status:** ✅ **Complete** — Protected as a permanent core feature (see `docs/MERGE-PRESERVATION.md` PF-06).
 
 **Context:**  
 The current `/ai-provider` table shows all providers and their keys in a single flat table, which becomes bloated when many providers have many keys. This phase restructures the view to:
@@ -3267,7 +3267,7 @@ The current `/ai-provider` table shows all providers and their keys in a single 
 
 > **⚠️ Protected feature:** This phase is a **permanent core feature** and is
 > protected from removal or replacement by upstream merges. See
-> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) §6 for the complete policy.
+> [MERGE-PRESERVATION.md](docs/MERGE-PRESERVATION.md) PF-06 for the complete policy.
 
 ---
 

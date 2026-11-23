@@ -253,7 +253,7 @@ Key invariants:
   > without an explicit, documented architectural decision approved by the
   > maintainers and recorded in `docs/ARCHITECTURE.md`,
   > `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See
-  > [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) §6 for the complete policy.
+  > [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) PF-06 for the complete policy.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.

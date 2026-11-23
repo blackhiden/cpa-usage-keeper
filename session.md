@@ -1,5 +1,34 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-23 — Feature-loss-proof merge preservation format
+
+**Status:** Complete — documentation-only change on the current branch.
+
+- **Objective:** make `docs/MERGE-PRESERVATION.md` resistant to upstream merge
+  loss by turning it from prose policy into an authoritative merge gate.
+- **Format decisions:** stable `PF-01`…`PF-11` IDs are now canonical; old `§1`–`§10`
+  numbers are aliases in the §2 index so historical references still resolve.
+  The duplicate `§7` became `PF-07` (API key name priority) and `PF-08` (model
+  test / viewer models). Every record follows the §3 template and names mount
+  points, markers, invariants, docs, and verification.
+- **Enforcement:** §5 replaces scattered ad-hoc greps with one structural gate
+  grouped by `PF-xx`, followed by targeted behavior tests and `make verify`.
+  §6.4 makes an upstream deletion/rewrite of the manifest a merge blocker with an
+  explicit restore procedure. `docs/merge-upstream.md` and `docs/CONTRIBUTING.md`
+  now require the gate.
+- **Drift fixed:** removed the stale `web/src/pages/KeyViewerPage.tsx` reference
+  (current shell is `web/src/features/key-viewer/KeyViewerShell.tsx` plus the
+  `Key*Page.tsx` pages) and corrected the masked-key test name to
+  `TestCPAAPIKeyDisplayNameFallsBackToMaskedRawKey`.
+- **Cross-references:** active docs (`AGENTS.md`, `ARCHITECTURE.md`,
+  `SPECIFICATION.md`, `CODE_GRAPH.md`, `ROADMAP.md`, `README.md`, `README.zh.md`,
+  `BUGFIX.md`, `PHASE_2_25_EXPANSION_PLAN.md`) now use `PF-xx` IDs. Historical
+  `CHANGELOG.md` / `session.md` entries were left as written.
+- **Verification:** the gate block extracted from the rewritten document passed
+  (`MERGE GATE PASSED`). `git diff --check` clean and full `make verify` passed
+  (Go tests, 232 web test files / 1,964 passed / 2 skipped, lint, typecheck,
+  production build). No application code changed.
+
 ## 2026-11-20 — Upstream merge `e5e8f1a4` into `dev`
 
 **Status:** Complete on `dev`; git-flow release `2.1.7` prepared from this state.

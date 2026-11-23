@@ -128,7 +128,7 @@ keys that are synchronized from CPA itself.
   (`ProviderDetailPage`), and the provider API endpoints
   (`GET /api/v1/usage/providers`, `GET /api/v1/usage/providers/:providerId/keys`)
   must not be removed, hidden, or replaced without an explicit, documented
-  architectural decision. See [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) §6.
+  architectural decision. See [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) PF-06.
 - **UC-8 — Per-key sharing.** As an admin, I share an API key with a user so
   they can view their own usage on a read-only page.
 - **UC-9 — Local & community ranking.** As an admin, I view local API key usage

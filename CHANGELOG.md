@@ -14,6 +14,15 @@ All notable changes to this project are documented here.
 
 ### Changed
 
+- **Feature-loss-proof merge preservation format.** `docs/MERGE-PRESERVATION.md`
+  is now a fork-owned protected-feature manifest with stable `PF-01`…`PF-11`
+  IDs, a completeness index, a mandatory feature-record template, one
+  consolidated structural gate, targeted behavior tests, and an explicit restore
+  procedure if upstream deletes or rewrites the file. The old duplicate `§7` was
+  resolved into `PF-07` / `PF-08` while legacy section numbers remain aliases.
+  Stale verification paths and test names were corrected, and active docs now
+  reference `PF-xx` IDs. No application behavior changed.
+
 - **Upstream merge adaptation.** Merged 14 upstream commits from
   `upstream/main` into `dev` with no textual conflicts. The upstream provider
   navigation test was adapted to keep the protected `/ai-provider` grouped-summary
