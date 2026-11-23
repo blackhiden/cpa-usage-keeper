@@ -36,7 +36,9 @@ ARG BUILD_DATE=1992-03-22
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
         set -eux; \
-        CGO_ENABLED=1 GOOS=linux go build \
+        CGO_ENABLED=1 \
+        GOOS=linux \
+        go build \
             -ldflags="-s -w -X cpa-usage-keeper/internal/version.Version=${APP_VERSION} -X 'main.Commit=${APP_COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" \
             -o /out/cpa-usage-keeper ./cmd/server/main.go
 
