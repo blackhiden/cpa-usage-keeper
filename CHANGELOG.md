@@ -12,7 +12,27 @@ All notable changes to this project are documented here.
   the official Muse endpoint. The DCA token and raw upstream response are not
   persisted.
 
+- **Credential detail overview (upstream `82ad42b2`).** The admin credential
+  drawer now combines cumulative counters, recent activity from cached health,
+  the current quota panel, and a per-model usage breakdown for Today, 7 days, or
+  30 days. Model totals come from daily rollups through a new admin-only,
+  cost-read-gated `GET /api/v1/usage/identities/:id/models` endpoint and expose
+  token composition, cache rate, cost, and an explicit cost-availability flag.
+  The merge preserved all `PF-01`…`PF-11` features; the only textual conflicts
+  were combined in `web/src/lib/api.ts` and
+  `web/src/pages/test/UsagePageCredentialStats.test.tsx`, keeping the fork's
+  type-2 credential-list behavior intact.
+
 ### Changed
+
+- **Feature-loss-proof merge preservation format.** `docs/MERGE-PRESERVATION.md`
+  is now a fork-owned protected-feature manifest with stable `PF-01`…`PF-11`
+  IDs, a completeness index, a mandatory feature-record template, one
+  consolidated structural gate, targeted behavior tests, and an explicit restore
+  procedure if upstream deletes or rewrites the file. The old duplicate `§7` was
+  resolved into `PF-07` / `PF-08` while legacy section numbers remain aliases.
+  Stale verification paths and test names were corrected, and active docs now
+  reference `PF-xx` IDs. No application behavior changed.
 
 - **Upstream merge adaptation.** Merged 14 upstream commits from
   `upstream/main` into `dev` with no textual conflicts. The upstream provider

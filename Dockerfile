@@ -11,9 +11,14 @@ RUN npm run build
 
 FROM ${GO_IMAGE} AS go-builder
 WORKDIR /app
-RUN set -eux; \
-    apt update; \
-    apt install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
+ENV TZ="Asia/Jakarta"
+RUN [ ! -f /etc/localtime ] && ln -s /usr/share/zoneinfo/$TZ /etc/localtime; 	\
+    echo $TZ > /etc/timezone
+RUN --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends build-essential
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \

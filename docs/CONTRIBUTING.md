@@ -116,7 +116,9 @@ formal measurements.
 - Update or add tests covering the change; keep `make verify` green on your
   platform (CI covers the rest of the matrix).
 - During an upstream merge, follow [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md)
-  before resolving conflicts or updating the submodule pointer.
+  before resolving conflicts or updating the submodule pointer. Its `PF-xx`
+  records are the authoritative protected-feature list; run the §5 structural
+  gate and targeted tests after the merge, before the release.
 
 ## 7. Documentation Policy
 

@@ -1,5 +1,67 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-23 — Upstream merge `82ad42b2` into `dev`
+
+**Status:** Complete on `dev`; release prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** clean tree on `dev`; `main`/`dev` present; git-flow 1.12.3
+  configured with production `main`, development `dev`, release prefix
+  `release/`, and version tag prefix `v`; latest tag `v2.1.7` unambiguous. The
+  stale `gitflow.path.hooks` value was pointed at the current checkout's
+  `.git/hooks` so git-flow can run.
+- **Upstream:** fetched `upstream/main` from `e5e8f1a4` to `82ad42b2`
+  (`feat(credentials): redesign detail overview with per-model usage breakdown
+  (#723)`). 31 incoming commits / 35 files.
+- **Merge:** `git merge --no-ff upstream/main` produced `e87169d5`. Two textual
+  conflicts were combined, not chosen wholesale:
+  - `web/src/lib/api.ts`: kept fork Admin Settings / Model Test / provider API
+    type imports and added upstream's identity-model-usage types.
+  - `UsagePageCredentialStats.test.tsx`: kept upstream's activity/model-request
+    assertions and scoped the "Fixture 1 removed" assertion to type 1, because
+    the fork intentionally leaves the type-2 `/ai-provider` credentials list
+    untouched (PF-06).
+- **Adaptation:** upstream's credential detail redesign is incorporated as-is
+  otherwise. Documentation updated in `SPECIFICATION.md`, `ARCHITECTURE.md`,
+  `CODE_GRAPH.md`, both READMEs, and `CHANGELOG.md`.
+- **Protected features:** the §5 structural gate passed before and after the
+  merge. Targeted behavior tests passed: request-log protection, ranking
+  (`-race`), Live Flow/model-ranking repository tests, model ranking,
+  Telegram/settings/model-test, and 89 frontend tests across the protected
+  feature suites.
+- **Release handoff:** git-flow release `2.1.8` starts from this state (pass
+  `2.1.8`, not `v2.1.8`, because git-flow adds the `v` prefix).
+
+## 2026-11-23 — Feature-loss-proof merge preservation format
+
+**Status:** Complete — documentation-only change on the current branch.
+
+- **Objective:** make `docs/MERGE-PRESERVATION.md` resistant to upstream merge
+  loss by turning it from prose policy into an authoritative merge gate.
+- **Format decisions:** stable `PF-01`…`PF-11` IDs are now canonical; old `§1`–`§10`
+  numbers are aliases in the §2 index so historical references still resolve.
+  The duplicate `§7` became `PF-07` (API key name priority) and `PF-08` (model
+  test / viewer models). Every record follows the §3 template and names mount
+  points, markers, invariants, docs, and verification.
+- **Enforcement:** §5 replaces scattered ad-hoc greps with one structural gate
+  grouped by `PF-xx`, followed by targeted behavior tests and `make verify`.
+  §6.4 makes an upstream deletion/rewrite of the manifest a merge blocker with an
+  explicit restore procedure. `docs/merge-upstream.md` and `docs/CONTRIBUTING.md`
+  now require the gate.
+- **Drift fixed:** removed the stale `web/src/pages/KeyViewerPage.tsx` reference
+  (current shell is `web/src/features/key-viewer/KeyViewerShell.tsx` plus the
+  `Key*Page.tsx` pages) and corrected the masked-key test name to
+  `TestCPAAPIKeyDisplayNameFallsBackToMaskedRawKey`.
+- **Cross-references:** active docs (`AGENTS.md`, `ARCHITECTURE.md`,
+  `SPECIFICATION.md`, `CODE_GRAPH.md`, `ROADMAP.md`, `README.md`, `README.zh.md`,
+  `BUGFIX.md`, `PHASE_2_25_EXPANSION_PLAN.md`) now use `PF-xx` IDs. Historical
+  `CHANGELOG.md` / `session.md` entries were left as written.
+- **Verification:** the gate block extracted from the rewritten document passed
+  (`MERGE GATE PASSED`). `git diff --check` clean and full `make verify` passed
+  (Go tests, 232 web test files / 1,964 passed / 2 skipped, lint, typecheck,
+  production build). No application code changed.
+
 ## 2026-11-20 — Upstream merge `e5e8f1a4` into `dev`
 
 **Status:** Complete on `dev`; git-flow release `2.1.7` prepared from this state.

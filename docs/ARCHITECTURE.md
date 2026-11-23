@@ -230,6 +230,14 @@ Key invariants:
 - Styling: SCSS (dart-sass) global layers + **CSS Modules** per component;
   theming via `data-theme` (light "white" / dark / auto).
 - Charts: **Chart.js 4** via `react-chartjs-2` (`src/lib/chartjs.ts`).
+- **Credential detail overview:** the admin drawer's Overview tab composes
+  cumulative counters, `CredentialRecentActivity` (cached health), the current
+  quota panel, and `CredentialModelUsage`. Model usage is fetched from
+  `GET /api/v1/usage/identities/:id/models?range=today/7d/30d`; the service
+  resolves project-timezone calendar bounds, the repository reads
+  `usage_overview_daily_stats` through the reader pool, and the response reports
+  token composition, cache rate, cost, and an explicit cost-availability flag.
+  The route is admin-only and cost-read gated.
 - **AI Provider usage:** `/ai-provider` renders `ProviderSummarySection`, which
   calls `listProviders` for one server-aggregated row per provider and
   server-side sort selection. Its Detail link uses a URL-encoded single
@@ -253,7 +261,7 @@ Key invariants:
   > without an explicit, documented architectural decision approved by the
   > maintainers and recorded in `docs/ARCHITECTURE.md`,
   > `docs/SPECIFICATION.md` (UC-7a), and `session.md`. See
-  > [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) §6 for the complete policy.
+  > [MERGE-PRESERVATION.md](MERGE-PRESERVATION.md) PF-06 for the complete policy.
 - Graphs: the Usage overview tab hosts an interactive **Graph Neural Network
   (GNN)** diagram of the provider ↔ model relationship
   (`ProviderModelGNNPanel`), fed by `GET /api/provider-model-gnn`.
