@@ -2,9 +2,9 @@
 
 > **Purpose:** This document provides a comprehensive structural map of the entire codebase—modules, dependencies, data flow, and integration points. Use it as your **primary reference** when exploring the project to minimize file reads and accelerate orientation for AI agents and developers.
 >
-> **Last Updated:** 2026-11-15  
-> **Last Scanned Commit:** `de134fda6689301b55a9c7ed567d8d6e0efb164e` (2026-11-14 14:55:22 +0700)  
-> **Commit Message:** Merge tag 'v2.1.1' into dev
+> **Last Updated:** 2026-11-23
+> **Last Scanned Commit:** `e87169d59651ad876ac41919285bb626dd390be0` (2026-11-23)
+> **Commit Message:** Merge upstream/main into dev (82ad42b2)
 
 ---
 
@@ -457,6 +457,7 @@ web/
 - `GET /api/v1/usage/activity` - Activity time series
 - `GET /api/v1/usage/events` - Event list with pagination
 - `GET /api/v1/usage/identities` - Identity stats
+- `GET /api/v1/usage/identities/:id/models` - Per-model usage totals for one identity (today/7d/30d)
 - `GET /api/v1/usage/providers` - Aggregated AI-provider rows with server-side sorting
 - `GET /api/v1/usage/providers/:providerId/keys` - Paginated provider keys with server-side sorting
 - `GET /api/v1/quota/*` - Quota management & history
@@ -527,6 +528,7 @@ web/
 | Live Flow History | `internal/liveflow/` + `internal/liveflow/httpapi/` + `internal/repository/liveflow_models.go` (alias-grouped) | `web/src/features/live-flow/` (types, API client, merge/trend, period select) |
 | Quota Management | `internal/quota/` (clients + refresh engine) | `web/src/features/usage/quota/` |
 | Request Logs | `internal/service/request_log.go` (CPA proxy) | API-driven download |
+| Credential Detail Overview | `internal/api/usage_identity_models.go`, `internal/service/usage_identity_models.go`, `internal/repository/usage_identity_models.go` | `web/src/components/usage/credentials/CredentialDetailDrawer.tsx`, `CredentialRecentActivity.tsx`, `CredentialModelUsage.tsx`, `useCredentialModelUsage.ts` |
 
 ---
 

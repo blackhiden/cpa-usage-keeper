@@ -230,6 +230,14 @@ Key invariants:
 - Styling: SCSS (dart-sass) global layers + **CSS Modules** per component;
   theming via `data-theme` (light "white" / dark / auto).
 - Charts: **Chart.js 4** via `react-chartjs-2` (`src/lib/chartjs.ts`).
+- **Credential detail overview:** the admin drawer's Overview tab composes
+  cumulative counters, `CredentialRecentActivity` (cached health), the current
+  quota panel, and `CredentialModelUsage`. Model usage is fetched from
+  `GET /api/v1/usage/identities/:id/models?range=today/7d/30d`; the service
+  resolves project-timezone calendar bounds, the repository reads
+  `usage_overview_daily_stats` through the reader pool, and the response reports
+  token composition, cache rate, cost, and an explicit cost-availability flag.
+  The route is admin-only and cost-read gated.
 - **AI Provider usage:** `/ai-provider` renders `ProviderSummarySection`, which
   calls `listProviders` for one server-aggregated row per provider and
   server-side sort selection. Its Detail link uses a URL-encoded single

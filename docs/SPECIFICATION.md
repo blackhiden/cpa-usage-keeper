@@ -108,7 +108,10 @@ keys that are synchronized from CPA itself.
   for each Auth File, configure auto-refresh, inspect raw provider payloads,
   and reset credit counters after a billing-cycle reset. Known provider
   subscription plans (Claude Max/Pro/Team/Free, Codex tiers, Antigravity
-  tiers) appear as badges on the credentials.
+  tiers) appear as badges on the credentials. The credential detail drawer
+  also presents cumulative counters, recent activity from cached health, the
+  current quota, and per-model usage for Today, the last 7 days, or the last
+  30 days with token composition, cache rate, and cost-availability state.
 - **UC-6 — Manage pricing.** As an admin, I view the model price catalog
   synced from CPA, override rules (multipliers, custom rates), preview the
   effect of a sync, and apply pricing changes at batch or single-model level.
@@ -264,6 +267,7 @@ the SPA/embedding assets are public; everything else requires a session
 | `GET /api/usage/analysis` | Analysis: trends, cost composition, heatmaps. |
 | `GET /api/usage/analysis/latency` | Latency diagnostics. |
 | `GET /api/usage/identities`, `GET /api/usage/identities/page` | Usage grouped by identity. Codex auth-file identities may carry a `subscription` (`{provider, plan}`) derived from their stored plan metadata. |
+| `GET /api/v1/usage/identities/:id/models?range=today/7d/30d` | Per-model usage totals for one identity over a project-timezone calendar range. Reads daily rollups through the reader pool, reports cost availability, and is cost-read gated. |
 | `GET /api/v1/usage/providers?sort=success_rate&order=desc` | One aggregate row per AI provider. Supports server-side sorting; the dashboard defaults to descending success rate. |
 | `GET /api/v1/usage/providers/:providerId/keys?sort=success_rate&order=desc&page=1&page_size=20` | Paginated keys for one provider. The browser encodes `providerId` as one path segment; authorization is enforced server-side. |
 | `GET /api/api-keys`, `/settings`, `/options`; alias `PUT` | Mirrored CPA API keys, their settings and alias updates. |

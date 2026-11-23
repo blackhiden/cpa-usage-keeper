@@ -1,5 +1,38 @@
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-23 — Upstream merge `82ad42b2` into `dev`
+
+**Status:** Complete on `dev`; release prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** clean tree on `dev`; `main`/`dev` present; git-flow 1.12.3
+  configured with production `main`, development `dev`, release prefix
+  `release/`, and version tag prefix `v`; latest tag `v2.1.7` unambiguous. The
+  stale `gitflow.path.hooks` value was pointed at the current checkout's
+  `.git/hooks` so git-flow can run.
+- **Upstream:** fetched `upstream/main` from `e5e8f1a4` to `82ad42b2`
+  (`feat(credentials): redesign detail overview with per-model usage breakdown
+  (#723)`). 31 incoming commits / 35 files.
+- **Merge:** `git merge --no-ff upstream/main` produced `e87169d5`. Two textual
+  conflicts were combined, not chosen wholesale:
+  - `web/src/lib/api.ts`: kept fork Admin Settings / Model Test / provider API
+    type imports and added upstream's identity-model-usage types.
+  - `UsagePageCredentialStats.test.tsx`: kept upstream's activity/model-request
+    assertions and scoped the "Fixture 1 removed" assertion to type 1, because
+    the fork intentionally leaves the type-2 `/ai-provider` credentials list
+    untouched (PF-06).
+- **Adaptation:** upstream's credential detail redesign is incorporated as-is
+  otherwise. Documentation updated in `SPECIFICATION.md`, `ARCHITECTURE.md`,
+  `CODE_GRAPH.md`, both READMEs, and `CHANGELOG.md`.
+- **Protected features:** the §5 structural gate passed before and after the
+  merge. Targeted behavior tests passed: request-log protection, ranking
+  (`-race`), Live Flow/model-ranking repository tests, model ranking,
+  Telegram/settings/model-test, and 89 frontend tests across the protected
+  feature suites.
+- **Release handoff:** git-flow release `2.1.8` starts from this state (pass
+  `2.1.8`, not `v2.1.8`, because git-flow adds the `v` prefix).
+
 ## 2026-11-23 — Feature-loss-proof merge preservation format
 
 **Status:** Complete — documentation-only change on the current branch.
