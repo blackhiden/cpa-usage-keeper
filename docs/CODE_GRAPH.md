@@ -3,8 +3,8 @@
 > **Purpose:** This document provides a comprehensive structural map of the entire codebase—modules, dependencies, data flow, and integration points. Use it as your **primary reference** when exploring the project to minimize file reads and accelerate orientation for AI agents and developers.
 >
 > **Last Updated:** 2026-11-24
-> **Last Scanned Commit:** `7df99b11` (2026-11-24)
-> **Commit Message:** Merge upstream/main into dev (749298a5)
+> **Last Scanned Commit:** `408a9fcb` (2026-11-24)
+> **Commit Message:** Merge upstream/main into dev (5cd9ae19)
 
 ---
 
@@ -378,6 +378,8 @@ web/
 │   │   │   ├── Button, Card, Modal, Select, Table, etc.
 │   │   │   ├── LanguageSwitcher    # i18n language picker
 │   │   │   ├── ProviderDataDialog  # Provider raw data inspector
+│   │   │   ├── ChartSurface, MetricChip, SectionToolbar
+│   │   │   ├── SwitchControl, PillSwitcher  # shared controls
 │   │   │   └── QuestionMarkHelp    # Inline help tooltips
 │   │   ├── dashboard/              # Dashboard shell components
 │   │   └── usage/                  # Usage-specific components

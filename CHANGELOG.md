@@ -7,6 +7,15 @@ All notable changes to this project are documented here.
 
 ### Merged from Upstream
 
+- **Unified dashboard charts and credential controls (upstream `5cd9ae19`).**
+  Synchronized 24 upstream commits adding shared `ChartSurface`, `MetricChip`,
+  `SectionToolbar`, `SwitchControl`, and `PillSwitcher` primitives, refreshing
+  analysis/realtime chart palettes and toolbars, and moving credential
+  active-only/status/auto-refresh switches onto the shared control. The merge
+  had no textual conflicts; the fork's protected provider table-layout CSS and
+  all `PF-01`…`PF-11` features passed the §5 structural gate and targeted
+  tests. `make verify` passed (248 frontend files, 2,122 passed / 2 skipped).
+
 - **Switchable credential card/list views (upstream `749298a5`).** Synchronized
   26 upstream commits adding independent card and list layouts for the
   Credentials and AI-provider credential sections, with persisted view

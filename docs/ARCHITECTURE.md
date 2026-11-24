@@ -238,6 +238,10 @@ Key invariants:
   `CredentialRowShell` / `CredentialTableHeader` helpers remain available for
   `ProviderSummarySection` and the provider dialogs. Upstream's card/list
   components live under `credentials/cards/` and `credentials/list/`.
+  The active-only, status, and quota auto-refresh switches now use the shared
+  `SwitchControl` / `PillSwitcher` primitives under `src/components/ui`; the
+  protected table-layout CSS in `CredentialSections.module.scss` remains
+  intact.
 - **Credential detail overview:** the admin drawer's Overview tab composes
   cumulative counters, `CredentialRecentActivity` (cached health), the current
   quota panel, and `CredentialModelUsage`. Model usage is fetched from
