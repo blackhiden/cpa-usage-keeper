@@ -49,6 +49,7 @@ RUN [ ! -f /etc/localtime ] && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime; 	
     echo $TZ > /etc/timezone
 WORKDIR /
 RUN set -eux; \
+    apt-get update; \
     apt install -y --no-install-recommends \
         ca-certificates \
         tzdata \

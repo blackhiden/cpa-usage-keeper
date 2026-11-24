@@ -1,6 +1,40 @@
 # Session: Upstream Synchronization and Git Flow Release
 # Session: Upstream Synchronization and Git Flow Release
 
+## 2026-11-24 — Upstream merge `5cd9ae19` into `dev`
+
+**Status:** Complete on `dev`; release prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** clean tree on `dev`; `main`/`dev` present; git-flow 1.12.3
+  configured with production `main`, development `dev`, release prefix
+  `release/`, and version tag prefix `v`; latest tag `v2.1.10` unambiguous.
+  Upstream remote is `https://github.com/Willxup/cpa-usage-keeper.git`.
+- **Upstream:** `git fetch upstream main` confirmed `upstream/main` at
+  `5cd9ae19` (`feat(ui): unify usage dashboard charts and credential controls
+  (#727)`). 24 incoming commits / 36 files, all frontend: new shared
+  `ChartSurface`, `MetricChip`, `SectionToolbar`, `SwitchControl`, and
+  `PillSwitcher` primitives, chart palette/toolbar unification, and a refactor
+  of credential active-only/status/auto-refresh switches onto `SwitchControl`.
+- **Protected-feature review:** upstream did not touch
+  `docs/MERGE-PRESERVATION.md`, but it deleted the old active-only switch CSS
+  from `CredentialSections.module.scss` — the known PF-06 regression area. The
+  §5 gate passed before the merge; the protected table-layout classes were
+  explicitly checked in the incoming diff.
+- **Merge:** `git merge --no-ff upstream/main` produced `408a9fcb` with no
+  textual conflicts. The ort auto-merge adopted upstream's shared-switch
+  refactor and retained the fork's `.credentialTableHeader`, `.credentialRow`,
+  `.credentialMetricHeaderGroup`, `.credentialMetricGroup`, identity, and
+  side-panel CSS. No dangling references to the removed switch classes remain.
+- **Verification:** §5 structural gate passed after the merge. Targeted
+  request-log, ranking (`-race`), Live Flow / model-ranking repository, model
+  ranking, Telegram/settings/model-test, and 89 protected frontend tests all
+  passed. Full `make verify` passed (Go tests, 248 frontend files / 2,122
+  passed / 2 skipped, lint, typecheck, production build).
+- **Release handoff:** git-flow release `2.1.11` starts from this state (pass
+  `2.1.11`, not `v2.1.11`, because git-flow adds the `v` prefix).
+
 ## 2026-11-24 — Upstream merge `749298a5` into `dev`
 
 **Status:** Complete on `dev`; release prepared from this state.
