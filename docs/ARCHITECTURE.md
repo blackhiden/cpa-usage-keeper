@@ -230,6 +230,14 @@ Key invariants:
 - Styling: SCSS (dart-sass) global layers + **CSS Modules** per component;
   theming via `data-theme` (light "white" / dark / auto).
 - Charts: **Chart.js 4** via `react-chartjs-2` (`src/lib/chartjs.ts`).
+- **Credential list views (upstream `749298a5`):** the Credentials and
+  AI-provider credential sections offer switchable card and list layouts with
+  independent persisted preferences (`credentialListPreferences.ts`). The
+  shared shell (`CredentialSectionShell.tsx`) accepts an optional view mode and
+  content class; the fork's protected provider table layout and its
+  `CredentialRowShell` / `CredentialTableHeader` helpers remain available for
+  `ProviderSummarySection` and the provider dialogs. Upstream's card/list
+  components live under `credentials/cards/` and `credentials/list/`.
 - **Credential detail overview:** the admin drawer's Overview tab composes
   cumulative counters, `CredentialRecentActivity` (cached health), the current
   quota panel, and `CredentialModelUsage`. Model usage is fetched from

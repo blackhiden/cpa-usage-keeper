@@ -2,9 +2,9 @@
 
 > **Purpose:** This document provides a comprehensive structural map of the entire codebase—modules, dependencies, data flow, and integration points. Use it as your **primary reference** when exploring the project to minimize file reads and accelerate orientation for AI agents and developers.
 >
-> **Last Updated:** 2026-11-23
-> **Last Scanned Commit:** `e87169d59651ad876ac41919285bb626dd390be0` (2026-11-23)
-> **Commit Message:** Merge upstream/main into dev (82ad42b2)
+> **Last Updated:** 2026-11-24
+> **Last Scanned Commit:** `7df99b11` (2026-11-24)
+> **Commit Message:** Merge upstream/main into dev (749298a5)
 
 ---
 

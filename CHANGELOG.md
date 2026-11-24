@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+
+### Merged from Upstream
+
+- **Switchable credential card/list views (upstream `749298a5`).** Synchronized
+  26 upstream commits adding independent card and list layouts for the
+  Credentials and AI-provider credential sections, with persisted view
+  preferences, quota-inspection modals, Codex SIWC status, and refreshed
+  en/zh/zh-TW strings. Four conflicts were combined rather than chosen
+  wholesale: upstream's new card/list components and CSS were adopted while the
+  fork's protected provider table layout, shell helpers, `title`/`subtitle`/
+  `allowManagement` detail-page contract, and `ProviderSummarySection` mount on
+  `/ai-provider` were preserved. All `PF-01`…`PF-11` features passed the §5
+  structural gate and targeted tests; `make verify` passed (246 frontend files,
+  2,114 passed / 2 skipped). The staged local `Dockerfile` change was committed
+  separately and is included in this release; see `session.md` for the recorded
+  documentation discrepancy.
+
+
+
 ### Added
 
 - **Meta/Muse credential subscriptions and quotas (upstream `e5e8f1a4`).**
