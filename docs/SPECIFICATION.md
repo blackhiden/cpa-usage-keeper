@@ -117,7 +117,9 @@ keys that are synchronized from CPA itself.
   effect of a sync, and apply pricing changes at batch or single-model level.
 - **UC-7 — Mirror CPA metadata.** As an admin, Auth Files, API Keys, and AI
   Providers are automatically synchronized from CPA so the dashboard stays
-  current without manual edits.
+  current without manual edits. The Credentials and AI-provider credential
+  sections offer switchable card and list layouts with independent persisted
+  preferences; the protected `/ai-provider` grouped provider table is unaffected.
 - **UC-7a — Inspect provider usage.** As an admin, I open `/ai-provider` to
   see one aggregate row per AI provider, with key count, requests, success
   rate, token total, and last-use information. I can sort the provider list by

@@ -1,4 +1,59 @@
 # Session: Upstream Synchronization and Git Flow Release
+# Session: Upstream Synchronization and Git Flow Release
+
+## 2026-11-24 — Upstream merge `749298a5` into `dev`
+
+**Status:** Complete on `dev`; release prepared from this state.
+
+- **Objective:** follow `docs/merge-upstream.md` — fetch upstream, merge into
+  `dev`, preserve protected features, validate, and create the next release.
+- **Preflight:** on `dev`; git-flow 1.12.3 configured with production `main`,
+  development `dev`, release prefix `release/`, version tag prefix `v`; latest
+  tag `v2.1.9` unambiguous. Upstream remote is
+  `https://github.com/Willxup/cpa-usage-keeper.git`.
+- **Staged local work:** `Dockerfile` had a staged change that restores the old
+  `[ ! -f /etc/localtime ]` guard and removes the post-`tzdata` forced symlink,
+  i.e. it reverts the TZ fix documented in `session.md` (2026-11-19) and
+  `CHANGELOG.md`. Per maintainer decision it was committed as
+  `214e12d5 build(docker): preserve staged runtime image changes` and is part
+  of this release. **Known discrepancy:** the runtime image no longer forces
+  `/etc/localtime` to `$TZ`; docs still describe the forced symlink. Revisit in
+  a follow-up change if the fix should be restored.
+- **Upstream:** fetched `upstream/main` from `a0186173` to `749298a5`
+  (`feat(credentials): add switchable card and list credential views (#724)`).
+  26 incoming commits / 84 files, all in the credential UI, i18n, and
+  `UsagePage.tsx`; `Dockerfile` was untouched upstream.
+- **Protected-feature review:** upstream rewrote `CredentialSections.module.scss`
+  and `CredentialSectionShell.tsx`, deleting the fork's table-layout classes and
+  shell helpers (the known PF-06 regression pattern). The §5 gate passed before
+  the merge.
+- **Merge:** `git merge --no-ff upstream/main` produced `7df99b11`. Four textual
+  conflicts were combined, not chosen wholesale:
+  - `CredentialSections.module.scss`: kept upstream's new `[data-credential-card]`
+    selectors and restored the fork's table-layout block
+    (`.credentialTableHeader`, `.credentialRow`, `.credentialMetricHeaderGroup`,
+    `.credentialMetricGroup`, identity/side-panel classes).
+  - `CredentialSectionShell.tsx`: kept upstream's view-mode shell and pagination,
+    made `viewMode`/`contentClassName` optional and restored optional `subtitle`
+    plus the fork's `CredentialRowShell`/`CredentialTableHeader` and formatting
+    helpers; re-exported upstream card/metric helpers for fork dialogs.
+  - `AiProviderCredentialsSection.tsx`: adopted upstream's card/list views and
+    help/switch controls while preserving the fork's `title`/`subtitle`/
+    `allowManagement` contract used by `ProviderDetailPage`.
+  - `UsagePage.tsx`: kept the protected `ProviderSummarySection` mount on
+    `/ai-provider`; upstream's `AiProviderCredentialsSection` block for that tab
+    was not adopted.
+- **Verification:** §5 structural gate passed after the merge. Targeted
+  request-log, ranking (`-race`), Live Flow / model-ranking repository, model
+  ranking, Telegram/settings/model-test, and 89 protected frontend tests all
+  passed. First full `make verify` hit six unrelated 5 s Vitest timeouts under
+  load; all 128 tests in those six files passed in isolation, and a clean rerun
+  passed (246 files / 2,114 passed / 2 skipped, lint, typecheck, production
+  build).
+- **Release handoff:** git-flow release `2.1.10` starts from this state (pass
+  `2.1.10`, not `v2.1.10`, because git-flow adds the `v` prefix).
+
+
 
 ## 2026-11-23 — Upstream merge `a0186173` into `dev`
 
