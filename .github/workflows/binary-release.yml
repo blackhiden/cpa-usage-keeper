@@ -367,7 +367,7 @@ jobs:
               checksum = os.environ[f"{prefix}_SHA"]
               if filename != f"cpa-usage-keeper_{tag}_darwin_{arch}.tar.gz" or not re.fullmatch(r"[0-9a-f]{64}", checksum):
                   raise SystemExit(f"Invalid {arch} release metadata")
-              url = f"https://github.com/Willxup/cpa-usage-keeper/releases/download/{tag}/{filename}"
+              url = f"https://github.com/blackhiden/cpa-usage-keeper/releases/download/{tag}/{filename}"
               pattern = (
                   r'(?m)^([ \t]*url ")https://github\.com/Willxup/cpa-usage-keeper/releases/download/'
                   rf'[^/"\n]+/cpa-usage-keeper_[^/"\n]+_darwin_{arch}\.tar\.gz'

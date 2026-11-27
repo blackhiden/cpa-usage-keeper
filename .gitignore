@@ -56,3 +56,4 @@ lerna-debug.log*
 *.sh
 !scripts/parallel-feature-worktrees.sh
 node_modules
+session.md

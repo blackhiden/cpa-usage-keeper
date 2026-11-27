@@ -19,7 +19,7 @@ func DownloadVersion(ctx context.Context, client *http.Client, version string) e
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com/Willxup/cpa-usage-keeper/releases/download/"+version+"/version.txt", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com/blackhiden/cpa-usage-keeper/releases/download/"+version+"/version.txt", nil)
 	if err != nil {
 		return err
 	}
