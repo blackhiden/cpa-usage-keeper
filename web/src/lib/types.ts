@@ -729,6 +729,7 @@ export interface CodexQuotaHistoryTransition {
   is_direct: boolean
   interval_started_at: string
   interval_ended_at: string
+  usage_ready?: boolean
   usage: CodexQuotaHistoryUsage
   tokens_per_point: number
   cost_per_point: number
@@ -749,6 +750,8 @@ export interface CodexQuotaHistoryCycle {
   first_remaining_percent: number | null
   last_remaining_percent: number | null
   observation_count: number
+  usage_ready?: boolean
+  cost_stale?: boolean
   usage: CodexQuotaHistoryUsage
   transitions: CodexQuotaHistoryTransition[]
 }

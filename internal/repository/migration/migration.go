@@ -110,6 +110,8 @@ const (
 	migrationAddUsageIdentitySIWCFields        = "20261029_usage_identity_siwc_fields"
 	migrationModelRankingRollups               = "20261119_model_ranking_rollups"
 	migrationUsageOverviewSixDimensions        = "20261123_usage_overview_six_dimensions"
+	// migrationQuotaHistoryPersistedStats 为限额周期与百分比段增加持久化统计列，并扩展聚合水位表支持 quota_history。
+	migrationQuotaHistoryPersistedStats        = "20261125_quota_history_persisted_stats"
 )
 
 type schemaMigration struct {
@@ -331,6 +333,7 @@ func orderedMigrations() []databaseMigration {
 		{version: migrationAddUsageIdentitySIWCFields, run: addUsageIdentitySIWCFieldsMigration},
 		// 备份后按桶短事务复制；迁移自行原子切换两张表，不能用外层长事务包住复制。
 		{version: migrationUsageOverviewSixDimensions, run: usageOverviewSixDimensionsMigration, disableTransaction: true, destructive: true},
+		{version: migrationQuotaHistoryPersistedStats, run: addQuotaHistoryPersistedStatsMigration},
 	}
 }
 
